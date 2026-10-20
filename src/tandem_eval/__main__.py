@@ -1,19 +1,89 @@
-"""tandem-eval CLI 占位：为 infra/worker.sh 与 CI 提前接线，M2 实装 entry。"""
+"""tandem-eval CLI：entry（worker 侧）+ rjob（开发机侧生命周期）。"""
 
 from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
+
+
+def _rjob_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--dev-env", default="infra/envs/dev.json", help="开发机视角环境档案")
+    parser.add_argument("--rjob-env", default="infra/envs/rjob.json", help="worker 视角环境档案")
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="tandem-eval", description="Tandem 集群测评入口")
     sub = parser.add_subparsers(dest="command", required=True)
-    entry = sub.add_parser("entry", help="按 job spec 启动一次测评（M2 提供）")
+
+    entry = sub.add_parser("entry", help="按 job spec 启动一次测评（worker 内执行）")
     entry.add_argument("--spec", required=True, help="job spec JSON 路径")
+
+    rjob = sub.add_parser("rjob", help="rjob 生命周期（提交/轮询/取日志/收尾）")
+    rjob_sub = rjob.add_subparsers(dest="rjob_command", required=True)
+
+    run_cmd = rjob_sub.add_parser("run", help="一站式：sync→spec→submit→watch→fetch→cleanup")
+    _rjob_args(run_cmd)
+    run_cmd.add_argument("--repo", default=".", help="本地仓库根")
+    run_cmd.add_argument("--run-id", required=True)
+    run_cmd.add_argument("--benchmark", default="mock", choices=["mock", "osworld1", "osworld2"])
+    run_cmd.add_argument("--tasks", default="", help="逗号分隔 task id（覆盖 manifest）")
+    run_cmd.add_argument("--limit", type=int, default=None, help="清单截取数量")
+    run_cmd.add_argument("--out-dir", default="rjob_logs", help="日志/结果归档目录")
+    run_cmd.add_argument("--poll", type=float, default=60)
+    run_cmd.add_argument("--timeout", type=float, default=None, help="watch 超时秒数")
+    run_cmd.add_argument("--keep", action="store_true", help="结束后不 stop rjob")
+    run_cmd.add_argument("--delete", action="store_true", help="结束后 delete rjob（高危）")
+    run_cmd.add_argument("--no-sync", action="store_true", help="跳过 rsync（复用部署副本）")
+
+    watch_cmd = rjob_sub.add_parser("watch", help="盯一个已提交的 rjob 至终态并归档")
+    _rjob_args(watch_cmd)
+    watch_cmd.add_argument("job", help="rjob 名称")
+    watch_cmd.add_argument("--run-id", required=True, help="用于定位结果目录")
+    watch_cmd.add_argument("--out-dir", default="rjob_logs")
+    watch_cmd.add_argument("--poll", type=float, default=60)
+    watch_cmd.add_argument("--timeout", type=float, default=None)
+    watch_cmd.add_argument("--keep", action="store_true")
+
     args = parser.parse_args(argv)
-    print(f"tandem-eval {args.command} 将在 M2 实装（spec 已接收: {args.spec}）", file=sys.stderr)
-    return 2
+    if args.command == "entry":
+        from .entry import entry_main
+
+        return entry_main(["--spec", args.spec])
+
+    from .rjob import RjobClient, fetch_artifacts, load_profile, run_job, watch
+
+    profile_dev = load_profile(args.dev_env)
+    profile_rjob = load_profile(args.rjob_env)
+    if args.rjob_command == "run":
+        overrides: dict = {"benchmark": args.benchmark}
+        manifest: dict = {}
+        if args.tasks:
+            manifest["tasks"] = [item.strip() for item in args.tasks.split(",") if item.strip()]
+        if args.limit:
+            manifest["limit"] = args.limit
+        if manifest:
+            overrides["manifest"] = manifest
+        result = run_job(
+            profile_dev=profile_dev, profile_rjob=profile_rjob,
+            repo_root=Path(args.repo), run_id=args.run_id, spec_overrides=overrides,
+            out_dir=Path(args.out_dir), poll_seconds=args.poll,
+            timeout_seconds=args.timeout, keep=args.keep, delete=args.delete,
+            sync=not args.no_sync,
+        )
+        print(result["status"])
+        return 0 if result["status"] == "succeeded" else 1
+
+    client = RjobClient()
+    status = watch(client, args.job, poll_seconds=args.poll, timeout_seconds=args.timeout)
+    run_root_dev = Path(profile_dev["results_root"]) / args.run_id
+    fetch_artifacts(client, args.job, run_root_dev, Path(args.out_dir))
+    if not args.keep:
+        from .rjob import cleanup
+
+        cleanup(client, args.job)
+    print(status)
+    return 0 if status == "succeeded" else 1
 
 
 if __name__ == "__main__":

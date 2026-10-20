@@ -1,0 +1,22 @@
+{
+  "env_id": "tandem-rjob-worker",
+  "share_root": "/mnt/shared-storage-gpfs2/evobox-share-gpfs2",
+  "user_root": "{share_root}/chenxinquan",
+  "shared_resources": "{share_root}/xuyuanxun/shared_resources/sa_cua",
+  "results_root": "{user_root}/tandem-results",
+  "deploy_root": "{user_root}/tandem_dev/deploy",
+  "osw1_root": "{shared_resources}/benchmarks/osworld1",
+  "osw1_index": "{shared_resources}/benchmarks/osworld1/evaluation_examples/test_nogdrive.json",
+  "osw2_root": "{shared_resources}/benchmarks/osworld2",
+  "osw2_index": "{shared_resources}/benchmarks/osworld2/evaluation_examples/test_v2.json",
+  "osw1_vm": "{shared_resources}/vm/osworld1/Ubuntu.qcow2",
+  "osw2_vm": "{shared_resources}/vm/osworld2/osworld-v2-ubuntu-x86.qcow2",
+  "asset_root": "{shared_resources}/osworld2_0808/assets",
+  "jev_endpoint": "{shared_resources}/services/jev_endpoint.json",
+  "eval_python": "{shared_resources}/evaluation/venv/bin/python",
+  "eval_tools": "{shared_resources}/evaluator_tools",
+  "registry_secret": "{user_root}/secrets/docker-registry-config.json",
+  "inner_image": "registry.h.pjlab.org.cn/ailab-evobox-evobox_cpu/weavebench:osworld-v2-inner-osworld-docker-socat-20260712",
+  "http_proxy": "http://httpproxy-headless.kubebrain.svc.pjlab.local:3128",
+  "no_proxy": "10.0.0.0/8,100.96.0.0/12,localhost,127.0.0.1,.pjlab.org.cn"
+}

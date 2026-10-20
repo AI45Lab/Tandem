@@ -25,3 +25,17 @@
 - 停止条件语义一致（no_action 连续 3 次、完成双确认、failed_toggles 记忆）；
 - CLI 回执 schema（returncode/stdout/stderr 截尾 12000/kind/acknowledged）一致；
 - JEV 排序两阶段（operation→action）、单候选捷径、1200s 恢复循环一致。
+
+## M2（tandem_eval + rjob 自动化）
+
+14. 【重构】**tandem_eval 第 7 个模块 rjob.py**：计划 §五"6 文件封顶"指 worker 侧适配层
+    （entry/env/runner/recorder/scoring/manifest 仍为 6）；rjob.py 是开发机侧生命周期客户端
+    （sync→spec→submit→watch→fetch→cleanup），职责不同，特此记录。
+15. 【阶段】**demo 为最小渲染器**（tools/render_summary.py：summary.json → 单文件 HTML）；
+    完整 demo studio 自 feature/demo-studio 平移推迟到 M4 前的独立步骤，读取契约不变。
+16. 【阶段】**真实基准执行链（osworld1/2）在 M3 落地**：worker.sh 真实分支当前只加载共享
+    env.sh 并显式退出（exit 3）；mock 基准全链路已可用。
+17. 【重构】**rjob get 状态解析为容忍式**（成功/失败/已删除/运行中关键词 + 中英文），
+    首次真机提交时需按实际输出校准 `_STATUS_PATTERNS`（rjob.py）。
+18. 【重构】**llm_calls.jsonl 只记成功调用**（请求 payload+messages、原始响应、attempt）；
+    传输错误的完整请求落盘在 M3 补（现仅审计日志记录错误元数据）。

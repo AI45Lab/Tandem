@@ -1,0 +1,20 @@
+{
+  "env_id": "tandem-dev",
+  "share_root": "/mnt/shared-storage-user/evobox-share-gpfs2",
+  "user_root": "{share_root}/chenxinquan",
+  "shared_resources": "{share_root}/xuyuanxun/shared_resources/sa_cua",
+  "results_root": "{user_root}/tandem-results",
+  "deploy_root": "{user_root}/tandem_dev/deploy",
+  "repo_root_hint": "/mnt/shared-storage-user/adpc-share/chenxinquan/fastslow/tandem",
+  "mounts": [
+    {"source": "gpfs://gpfs2/evobox-share-gpfs2", "target": "/mnt/shared-storage-gpfs2/evobox-share-gpfs2"}
+  ],
+  "rjob": {
+    "charged_group": "evobox_proxy",
+    "private_machine": true,
+    "cpu": 4,
+    "memory": 16384,
+    "gpu": 0,
+    "image": "registry.h.pjlab.org.cn/ailab-evobox-evobox_cpu/weavebench:osworld-v2-rjob-openclaw-kimi-tasks-uploadfix-20260701"
+  }
+}

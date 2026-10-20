@@ -55,10 +55,12 @@
 ```
 src/tandem/          harness 主体（组件、协议、CLI）
 src/tandem/protocol/ 消息层协议：schema/ 真源、validate/ 校验、samples/ golden
-src/tandem_eval/     集群测评薄适配层（entry/env/runner/recorder/scoring/manifest，M2 起）
+src/tandem_eval/     worker 侧 6 文件（entry/env/runner/recorder/scoring/manifest）
+                     + 开发机侧 rjob.py 生命周期客户端（DEVIATIONS #14）
 tests/               protocol/ harness/ eval/ 三组
-infra/               worker 薄包装（M2 起）
+infra/worker.sh      rjob worker 入口（mock 即跑；真实基准 M3 接共享 env.sh+docker）
+infra/envs/          双视角环境档案：dev.json（开发机）+ rjob.json（worker 容器）
 benchmarks/          任务清单（OSW1 指向共享目录 test_nogdrive.json = 361 题；OSW2 smoke 5 题）
-tools/demo/          离线回放，只读结果目录（自 demo-studio 平移）
-docs/                RESULT_DIR_CONTRACT.md 等（M2 起）
+tools/               render_summary.py（demo 占位；完整 studio 后续平移）
+docs/                RESULT_DIR_CONTRACT.md（eval↔demo 唯一接口）
 ```

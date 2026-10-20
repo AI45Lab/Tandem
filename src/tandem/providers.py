@@ -11,10 +11,13 @@ from pathlib import Path
 
 
 class KimiClient:
-    def __init__(self, credential_file: Path, config, audit_path: Path):
+    def __init__(self, credential_file: Path, config, audit_path: Path, llm_sink=None):
         self.credentials = json.loads(credential_file.read_text(encoding="utf-8"))
         self.config = config
         self.audit_path = audit_path
+        # llm_sink(role=..., request=..., response=..., **meta)：全量请求/响应落盘钩子，
+        # 由 tandem_eval.recorder 提供（llm_calls.jsonl）；None 时仅审计。
+        self.llm_sink = llm_sink
 
     def json_request(self, messages, validate, *, role):
         credentials = self.credentials
@@ -83,6 +86,13 @@ class KimiClient:
             try:
                 with opener(request, timeout=self.config.kimi_timeout_seconds) as response:
                     raw = json.load(response)
+                    if self.llm_sink is not None:
+                        self.llm_sink(
+                            role=role,
+                            request={"payload": payload, "messages": messages},
+                            response=raw,
+                            attempt=attempt + 1,
+                        )
                     audit(
                         "http_response",
                         started,
