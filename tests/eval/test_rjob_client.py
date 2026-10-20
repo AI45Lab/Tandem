@@ -22,19 +22,38 @@ from tandem_eval.rjob import (
 
 
 class FakeRunner:
-    """假命令执行器：rjob 按子命令路由到脚本化输出（列表逐个弹出，最后一个常驻）。"""
+    """假命令执行器：rjob 按子命令路由到脚本化输出（列表逐个弹出，最后一个常驻）。
+    fail_on 中的子命令返回退出码 1（模拟 rjob CLI 自身崩溃）。"""
 
-    def __init__(self, script: dict | None = None):
+    def __init__(self, script: dict | None = None, fail_on: set[str] | None = None):
         self.script = script or {}
+        self.fail_on = fail_on or set()
         self.calls: list[list[str]] = []
 
     def __call__(self, argv):
         self.calls.append(list(argv))
         if argv[:1] == ["rjob"]:
+            if argv[1] in self.fail_on:
+                return 1, "TypeError: 'NoneType' object is not iterable"
             outputs = self.script.get(argv[1], [""])
             value = outputs.pop(0) if len(outputs) > 1 else outputs[0]
             return 0, value
         return 0, ""
+
+
+# 2026-10-20 真机捕获的 rjob get 输出（tandem-mocktest-1，Succeeded）
+REAL_SUCCEEDED = (
+    "10-20 20:14:08 [INFO] rjob tandem-mocktest-1: Succeeded\n"
+    "10-20 20:14:08 [INFO]   |- task generated-task-0: 1 replicas "
+    "{'active': 0, 'succeeded': 0, 'failed': 0, 'created_failed': 0, 'pending': 0}\n"
+    "10-20 20:14:08 [INFO]        |- replica tandem-mocktest-1-fdq75: SUCCEED, "
+    "lg-cmc-h-cpu-0097.host.h.pjlab.org.cn"
+)
+REAL_RUNNING = (
+    "10-20 20:13:29 [INFO] rjob tandem-mocktest-1: Running\n"
+    "10-20 20:13:29 [INFO]   |- task generated-task-0: 1 replicas "
+    "{'active': 1, 'succeeded': 0, 'failed': 0, 'created_failed': 0, 'pending': 0}"
+)
 
 
 PROFILE_DEV = {
@@ -56,6 +75,15 @@ def test_parse_status_variants():
     assert parse_status("Status: Failed") == "failed"
     assert parse_status("Deleted") == "deleted"
     assert parse_status("totally opaque") == "unknown"
+
+
+def test_parse_status_real_captured_outputs():
+    # 真机 Succeeded 输出：状态行优先命中，不被计数字典里的 'failed': 0 干扰
+    assert parse_status(REAL_SUCCEEDED) == "succeeded"
+    # 运行中任务同样带 'failed': 0 计数，必须解析为 running 而非 failed
+    assert parse_status(REAL_RUNNING) == "running"
+    # 只有计数字典、无状态行：剔除后无关键词 → unknown（继续轮询）
+    assert parse_status("task t: {'active': 1, 'failed': 0, 'pending': 0}") == "unknown"
 
 
 def test_expand_profile_placeholders():
@@ -158,3 +186,32 @@ def test_fetch_artifacts_copies_run_dir(tmp_path):
     assert (out / "worker" / "dockerd.log").is_file()
     assert (out / "platform.status.txt").read_text() == "status"
     assert job_name("r1") == "tandem-r1"
+
+
+def test_fetch_artifacts_tolerates_cli_crash(tmp_path):
+    """rjob logs CLI 在日志未聚合时会崩（真机 2026-10-20）：错误写文件，镜像照常。"""
+    run_root = tmp_path / "run"
+    (run_root / "worker").mkdir(parents=True)
+    (run_root / "worker" / "entry.log").write_text("ok", encoding="utf-8")
+    runner = FakeRunner({"get": [REAL_SUCCEEDED]}, fail_on={"logs"})
+    out = fetch_artifacts(RjobClient(runner), "j", run_root, tmp_path / "arch")
+    tail = (out / "platform.tail.log").read_text(encoding="utf-8")
+    assert "[rjob logs 失败" in tail and "NoneType" in tail
+    assert (out / "worker" / "entry.log").is_file()  # 结果镜像不受影响
+
+
+def test_run_job_cleanup_survives_archive_failure(tmp_path):
+    """归档失败不得跳过 cleanup（资源泄漏）；错误记入 result。"""
+    blocker = tmp_path / "not-a-dir"
+    blocker.write_text("x", encoding="utf-8")  # out_dir 是文件 → mkdir 必败
+    profile_dev = dict(PROFILE_DEV, results_root=str(tmp_path / "dev-results"),
+                       deploy_root=str(tmp_path / "deploy"))
+    runner = FakeRunner({"get": ["running", REAL_SUCCEEDED], "submit": ["ok"],
+                         "logs": ["log"], "stop": ["stopped"]})
+    result = run_job(profile_dev=profile_dev, profile_rjob=PROFILE_RJOB,
+                     repo_root=tmp_path, run_id="r3", spec_overrides={},
+                     client=RjobClient(runner), out_dir=blocker,
+                     poll_seconds=0, sleep=lambda _: None, sync=False)
+    assert result["status"] == "succeeded"
+    assert "archive_error" in result
+    assert any(c[:2] == ["rjob", "stop"] for c in runner.calls)  # cleanup 仍然执行

@@ -65,14 +65,29 @@ _STATUS_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("deleted", re.compile(r"(?i)\bdeleted\b|已删除")),
     ("succeeded", re.compile(r"(?i)\b(succeeded|succeed)\b|成功")),
     ("failed", re.compile(r"(?i)\b(failed|error)\b|失败")),
-    ("running", re.compile(r"(?i)\b(running|terminating|pending|creating|waiting)\b|运行中|等待")),
+    (
+        "running",
+        re.compile(r"(?i)\b(running|terminating|pending|creating|waiting|starting|inqueue)\b|运行中|等待"),
+    ),
 ]
+# rjob get 的任务计数字典（{'active': 0, 'failed': 0, ...}）含状态词字样，须先剔除再关键词匹配
+_COUNT_DICT_RE = re.compile(r"['\"]\w+['\"]\s*:\s*\d+")
+# 首选：状态行本体，如 "rjob tandem-x: Succeeded" / "replica tandem-x-abc: SUCCEED"
+_STATUS_LINE_RE = re.compile(r"(?i)\b(?:rjob|replica)\s+\S+:\s*([a-z_]+)")
 
 
 def parse_status(get_output: str) -> str:
-    """容忍多种 rjob get 输出形态；无法识别返回 unknown（按未终态继续轮询）。"""
+    """解析 rjob get 输出；优先取状态行，剔除计数字典后做关键词兜底；不识别返回 unknown。"""
+    line = _STATUS_LINE_RE.search(get_output)
+    if line:
+        word = line.group(1).lower()
+        for status, pattern in _STATUS_PATTERNS:
+            if pattern.search(word):
+                return status
+        return "unknown"
+    cleaned = _COUNT_DICT_RE.sub(" ", get_output)
     for status, pattern in _STATUS_PATTERNS:
-        if pattern.search(get_output):
+        if pattern.search(cleaned):
             return status
     return "unknown"
 
@@ -202,15 +217,26 @@ def watch(client: RjobClient, name: str, *, poll_seconds: float = 60,
 
 def fetch_artifacts(client: RjobClient, name: str, run_root_dev: Path,
                     out_dir: Path, *, tail_lines: int = 500) -> Path:
-    """平台状态/日志 + 结果目录（开发机视角）归档到 out_dir/<job>/。"""
+    """平台状态/日志 + 结果目录（开发机视角）归档到 out_dir/<job>/。
+
+    平台命令失败不致命（rjob logs 在日志未聚合时 CLI 自身会崩，见 DEVIATIONS #19）：
+    错误文本写入对应归档文件后继续，结果目录镜像不受影响。
+    """
     out = out_dir / name
     if out.exists():
         shutil.rmtree(out)
     out.mkdir(parents=True)
-    (out / "platform.status.txt").write_text(client.get(name), encoding="utf-8")
-    (out / "platform.tail.log").write_text(
-        client.logs(name, tail_lines=tail_lines), encoding="utf-8"
-    )
+    try:
+        (out / "platform.status.txt").write_text(client.get(name), encoding="utf-8")
+    except RjobError as error:
+        (out / "platform.status.txt").write_text(f"[rjob get 失败]\n{error}", encoding="utf-8")
+    try:
+        (out / "platform.tail.log").write_text(
+            client.logs(name, tail_lines=tail_lines), encoding="utf-8"
+        )
+    except RjobError as error:
+        (out / "platform.tail.log").write_text(f"[rjob logs 失败，日志可能未聚合]\n{error}",
+                                               encoding="utf-8")
     if run_root_dev.is_dir():
         # 完整镜像 run 目录（结果/截图/worker 日志全部本地化，rjob_logs 即自包含副本）
         shutil.copytree(run_root_dev, out, dirs_exist_ok=True)
@@ -251,8 +277,12 @@ def run_job(*, profile_dev: dict, profile_rjob: dict, repo_root: Path, run_id: s
     except TimeoutError as error:
         result["status"], result["error"] = "timeout", str(error)
     finally:
+        # fetch 失败不得阻断 cleanup（否则资源泄漏）；错误记入 result 继续
         run_root_dev = Path(profile_dev["results_root"]) / run_id
-        result["archive"] = str(fetch_artifacts(client, name, run_root_dev, out_dir))
+        try:
+            result["archive"] = str(fetch_artifacts(client, name, run_root_dev, out_dir))
+        except Exception as error:  # 归档尽力而为：结果正本仍在 results_root
+            result["archive_error"] = f"{type(error).__name__}: {error}"
         if not keep:
             cleanup(client, name, delete=delete)
     return result
