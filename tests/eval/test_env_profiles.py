@@ -53,3 +53,10 @@ def test_profiles_are_valid_json_with_expanded_paths():
         for key, value in _load(name).items():
             if isinstance(value, str):
                 assert "{" not in value, f"{name}:{key} 未展开: {value}"
+
+
+def test_legacy_canonical_mount_point_present():
+    """共享包内绝对符号链接（如 JEV endpoint）指向规范挂载点，worker 必须同时挂载它。"""
+    profile = _load("dev.json")
+    targets = {m["target"] for m in profile["mounts"]}
+    assert "/mnt/shared-storage-gpfs2/evobox-share-gpfs2" in targets

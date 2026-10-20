@@ -10,6 +10,7 @@
   "shared_resources": "{evobox_root}/xuyuanxun/shared_resources/sa_cua",
   "mounts": [
     {"source": "gpfs://gpfs2/evobox-share-gpfs2", "target": "/mnt/shared-storage-user/evobox-share-gpfs2"},
+    {"source": "gpfs://gpfs2/evobox-share-gpfs2", "target": "/mnt/shared-storage-gpfs2/evobox-share-gpfs2"},
     {"source": "gpfs://gpfs2/adpc-share", "target": "/mnt/shared-storage-user/adpc-share"}
   ],
   "rjob": {

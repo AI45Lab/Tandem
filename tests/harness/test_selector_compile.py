@@ -189,3 +189,16 @@ def test_compile_unsupported_returns_none():
         id="click:missing", operation="click", description="无目标", metadata={}
     )
     assert gui_action(click_without_target, None) is None
+
+
+def test_rank_fails_fast_on_missing_endpoint_file(tmp_path):
+    """endpoint 文件缺失（挂载点断裂）必须立刻失败，而非 20 分钟静默恢复循环。"""
+    from tandem.selector import JevOmniPolicy
+
+    targets = build_targets()
+    space = build_space(targets)
+    missing = tmp_path / "nonexistent" / "endpoint.json"
+    policy = JevOmniPolicy(missing, timeout_seconds=5)
+    with pytest.raises(FileNotFoundError, match="JEV endpoint"):
+        policy.rank(stage_goal="t", intent="i", active_window="", targets=targets,
+                    action_space=space, recent_actions=[])

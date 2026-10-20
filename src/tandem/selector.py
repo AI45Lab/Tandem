@@ -142,8 +142,27 @@ class JevOmniPolicy:
                         payload = json.load(response)
                     break
                 except (OSError, json.JSONDecodeError) as error:
+                    if isinstance(error, FileNotFoundError):
+                        # endpoint 文件缺失（如挂载点不匹配导致符号链接断裂）是永久性错误，
+                        # 重试不可能恢复：立刻失败并给出可读信息。
+                        raise FileNotFoundError(
+                            f"JEV endpoint 文件不可读: {self.endpoint_file}"
+                            "（注意共享包内符号链接使用规范挂载点"
+                            " /mnt/shared-storage-gpfs2/evobox-share-gpfs2）"
+                        ) from error
                     if isinstance(error, urllib.error.HTTPError) or time.monotonic() >= deadline:
                         raise
+                    print(
+                        json.dumps(
+                            {
+                                "event": "jev_service_recovery_wait",
+                                "error": str(error),
+                                "remaining_seconds": round(deadline - time.monotonic()),
+                            },
+                            ensure_ascii=False,
+                        ),
+                        flush=True,
+                    )
                     time.sleep(15)
             scores = [float(score) for score in payload["scores"]]
             if len(scores) != len(choice_request["options"]):
