@@ -69,10 +69,10 @@ def test_full_mock_chain_produces_renderable_result_dir(tmp_path):
 
 def test_failed_task_marks_unscored_and_run_continues(tmp_path):
     class FlakyEnv(MockEnv):
-        def fetch_task(self, task_id: str) -> dict:
+        def fetch_task(self, task_id: str, domain: str = "") -> dict:
             if task_id == "bad":
                 raise RuntimeError("VM 起不来")
-            return super().fetch_task(task_id)
+            return super().fetch_task(task_id, domain)
 
     spec = _spec(tmp_path)
     env = FlakyEnv(base_dir=tmp_path / "run" / "mock_env")

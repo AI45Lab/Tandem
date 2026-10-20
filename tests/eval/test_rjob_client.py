@@ -64,6 +64,10 @@ PROFILE_DEV = {
     "mounts": [{"source": "gpfs://gpfs2/share", "target": "/mnt/share"}],
 }
 PROFILE_RJOB = {"deploy_root": "/worker-deploy", "results_root": "/worker-results",
+                "osw1_root": "/worker/osw1", "osw1_vm": "/worker/vm1.qcow2",
+                "osw2_root": "/worker/osw2", "osw2_vm": "/worker/vm2.qcow2",
+                "asset_root": "/worker/assets", "jev_endpoint": "/worker/jev.json",
+                "kimi_config": "/worker/secrets/k.env",
                 "inner_image": "reg.example/inner:1"}
 
 

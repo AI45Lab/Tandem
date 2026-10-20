@@ -11,8 +11,11 @@ from pathlib import Path
 
 
 class KimiClient:
-    def __init__(self, credential_file: Path, config, audit_path: Path, llm_sink=None):
-        self.credentials = json.loads(credential_file.read_text(encoding="utf-8"))
+    def __init__(self, credential_file, config, audit_path: Path, llm_sink=None):
+        if isinstance(credential_file, dict):
+            self.credentials = dict(credential_file)
+        else:
+            self.credentials = json.loads(Path(credential_file).read_text(encoding="utf-8"))
         self.config = config
         self.audit_path = audit_path
         # llm_sink(role=..., request=..., response=..., **meta)：全量请求/响应落盘钩子，

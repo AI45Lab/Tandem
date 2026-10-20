@@ -29,6 +29,13 @@ def main(argv: list[str] | None = None) -> int:
     run_cmd.add_argument("--benchmark", default="mock", choices=["mock", "osworld1", "osworld2"])
     run_cmd.add_argument("--tasks", default="", help="逗号分隔 task id（覆盖 manifest）")
     run_cmd.add_argument("--limit", type=int, default=None, help="清单截取数量")
+    run_cmd.add_argument("--max-steps", type=int, default=None, help="步数预算")
+    run_cmd.add_argument("--max-wall", type=float, default=None, help="墙钟预算（秒）")
+    run_cmd.add_argument("--allow-cli", choices=["true", "false"], default=None,
+                         help="harness 是否允许 CLI 路由")
+    run_cmd.add_argument("--route-policy", choices=["auto", "gui", "cli"], default=None)
+    run_cmd.add_argument("--kimi-max-tokens", type=int, default=None)
+    run_cmd.add_argument("--export-paths", default="", help="逗号分隔的 VM 内交付物路径")
     run_cmd.add_argument("--out-dir", default="rjob_logs", help="日志/结果归档目录")
     run_cmd.add_argument("--poll", type=float, default=60)
     run_cmd.add_argument("--timeout", type=float, default=None, help="watch 超时秒数")
@@ -64,6 +71,26 @@ def main(argv: list[str] | None = None) -> int:
             manifest["limit"] = args.limit
         if manifest:
             overrides["manifest"] = manifest
+        harness_config: dict = {}
+        if args.allow_cli is not None:
+            harness_config["allow_cli"] = args.allow_cli == "true"
+        if args.route_policy:
+            harness_config["route_policy"] = args.route_policy
+        if args.kimi_max_tokens:
+            harness_config["kimi_max_tokens"] = args.kimi_max_tokens
+        if harness_config:
+            overrides["harness_config"] = harness_config
+        budget: dict = {}
+        if args.max_steps:
+            budget["max_steps"] = args.max_steps
+        if args.max_wall:
+            budget["max_wall_seconds"] = args.max_wall
+        if budget:
+            overrides["budget"] = budget
+        if args.export_paths:
+            overrides["export_paths"] = [
+                item.strip() for item in args.export_paths.split(",") if item.strip()
+            ]
         result = run_job(
             profile_dev=profile_dev, profile_rjob=profile_rjob,
             repo_root=Path(args.repo), run_id=args.run_id, spec_overrides=overrides,

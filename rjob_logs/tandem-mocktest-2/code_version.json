@@ -1,0 +1,34 @@
+{
+  "harness_version": "0.1.0",
+  "protocol_version": "0.1",
+  "git_describe": "4ef446f-dirty",
+  "resources": {},
+  "images": {
+    "outer": "registry.h.pjlab.org.cn/ailab-evobox-evobox_cpu/weavebench:osworld-v2-rjob-openclaw-kimi-tasks-uploadfix-20260701",
+    "inner": "registry.h.pjlab.org.cn/ailab-evobox-evobox_cpu/weavebench:osworld-v2-inner-osworld-docker-socat-20260712"
+  },
+  "run_spec": {
+    "run_id": "mocktest-2",
+    "repo_root": "/mnt/shared-storage-user/adpc-share/chenxinquan/fastslow/tandem-deploy",
+    "output_root": "/mnt/shared-storage-user/adpc-share/chenxinquan/fastslow/tandem-results/mocktest-2",
+    "benchmark": "mock",
+    "harness": {
+      "name": "tandem",
+      "mode": "planner_led"
+    },
+    "budget": {
+      "max_steps": 15,
+      "max_wall_seconds": 900
+    },
+    "record": {
+      "a11y_full": false
+    },
+    "code": {
+      "git_describe": "4ef446f-dirty",
+      "images": {
+        "outer": "registry.h.pjlab.org.cn/ailab-evobox-evobox_cpu/weavebench:osworld-v2-rjob-openclaw-kimi-tasks-uploadfix-20260701",
+        "inner": "registry.h.pjlab.org.cn/ailab-evobox-evobox_cpu/weavebench:osworld-v2-inner-osworld-docker-socat-20260712"
+      }
+    }
+  }
+}

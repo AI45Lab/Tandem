@@ -64,11 +64,11 @@ class MockEnv:
     def name(self) -> str:
         return "mock"
 
-    def fetch_task(self, task_id: str) -> dict:
+    def fetch_task(self, task_id: str, domain: str = "") -> dict:
         return {
             "id": task_id,
             "instruction": self.instruction,
-            "domain": "mock",
+            "domain": domain or "mock",
             "config": [],
         }
 

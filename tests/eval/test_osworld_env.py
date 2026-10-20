@@ -1,0 +1,195 @@
+"""osworld 适配器：代码生成 / 凭据装载 / 任务定位 / 假 DesktopEnv 全流程。"""
+
+from __future__ import annotations
+
+import json
+import struct
+from pathlib import Path
+
+import pytest
+
+from tandem.protocol.models import (
+    Budget,
+    CliAction,
+    FailAction,
+    FinishAction,
+    GuiAction,
+    WaitAction,
+)
+from tandem_eval.osworld import (
+    OsWorldEnv,
+    action_code,
+    gui_code,
+    load_credentials,
+    png_size,
+)
+
+
+def _png(width: int = 8, height: int = 4) -> bytes:
+    return b"\x89PNG\r\n\x1a\n" + b"\x00" * 8 + struct.pack(">II", width, height) + b"tail"
+
+
+# ------------------------------------------------------------------ codegen
+def test_gui_code_matches_legacy_pyautogui_semantics():
+    assert gui_code(GuiAction("click", {"x": 140, "y": 212})) == "pyautogui.click(x=140, y=212)"
+    assert gui_code(GuiAction("double_click", {"x": 1, "y": 2})) == "pyautogui.doubleClick(x=1, y=2)"
+    assert gui_code(GuiAction("hotkey", {"sequence": [["ctrl", "l"], ["enter"]]})) == (
+        "pyautogui.hotkey('ctrl', 'l'); __import__('time').sleep(0.2); pyautogui.press('enter')"
+    )
+    assert gui_code(GuiAction("scroll", {"x": 300, "y": 150, "dy": -5})) == (
+        "pyautogui.moveTo(300, 150); pyautogui.scroll(-5)"
+    )
+    assert gui_code(GuiAction("type", {
+        "text": "42", "input_mode": "replace", "click": [650, 102], "press_f2": True,
+    })) == ("pyautogui.click(x=650, y=102); pyautogui.press('f2'); "
+            "pyautogui.hotkey('ctrl', 'a'); pyautogui.write('42')")
+    assert gui_code(GuiAction("type", {
+        "text": "cmd", "input_mode": "insert", "click": None, "press_f2": False,
+    })) == "pyautogui.write('cmd')"
+
+
+def test_action_code_cli_wait_and_terminals():
+    assert action_code(WaitAction()) == "WAIT"
+    assert action_code(FinishAction()) == "DONE"
+    assert action_code(FailAction("x")) == "FAIL"
+    code = action_code(CliAction(command="ls -la", timeout_s=30, want_observation="screenshot"))
+    assert "bash" in code and "subprocess.run" in code and "'ls -la'" in code
+    with pytest.raises(ValueError):
+        gui_code(GuiAction("drag", {"x": 1}))
+
+
+def test_png_size_parses_ihdr():
+    assert png_size(_png(1920, 1080)) == (1920, 1080)
+
+
+# ------------------------------------------------------------------ credentials
+def test_load_credentials_env_and_json(tmp_path):
+    env_file = tmp_path / "k.env"
+    env_file.write_text(
+        "# comment\nOPENAI_API_KEY=sk-x\nOPENAI_BASE_URL=https://api.example/v1\n",
+        encoding="utf-8",
+    )
+    creds = load_credentials(env_file)
+    assert creds == {"base_url": "https://api.example/v1", "api_key": "sk-x", "model": "kimi-k3"}
+    json_file = tmp_path / "k.json"
+    json_file.write_text(json.dumps({"base_url": "u", "api_key": "k", "model": "m"}), encoding="utf-8")
+    assert load_credentials(json_file) == {"base_url": "u", "api_key": "k", "model": "m"}
+
+
+# ------------------------------------------------------------------ adapter
+class FakeController:
+    def __init__(self):
+        self.retry_times = 3
+        self.commands = []
+        self.files = {"/home/user/out.txt": b"DATA"}
+
+    def execute_python_command(self, command):
+        self.commands.append(command)
+        return {"returncode": 0, "output": json.dumps(
+            {"returncode": 0, "stdout": "ok-out", "stderr": ""})}
+
+    def get_file(self, path):
+        return self.files.get(path)
+
+
+class FakeDesktopEnv:
+    instances = []
+
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+        self.controller = FakeController()
+        self.steps = []
+        self.closed = False
+        FakeDesktopEnv.instances.append(self)
+
+    def reset(self, task_config):
+        self.task_config = task_config
+
+    def _get_obs(self):
+        return {"screenshot": _png(1920, 1080), "accessibility_tree":
+                '<application name="app" active="true">'
+                '<push_button name="OK" screencoord="(1,2)" size="(30,10)"/></application>'}
+
+    def step(self, code, pause=1):
+        self.steps.append(code)
+        # 真实 DesktopEnv 经 controller 执行代码；回执由此产生
+        self.controller.execute_python_command(code)
+        return self._get_obs(), None, None, None
+
+    def evaluate(self):
+        return {"score": 1.0}
+
+    def close(self):
+        self.closed = True
+
+
+@pytest.fixture
+def env(tmp_path):
+    return OsWorldEnv(
+        benchmark="osworld1",
+        task_root=tmp_path / "osw1",
+        vm_path=tmp_path / "vm.qcow2",
+        run_root=tmp_path / "run",
+        startup_wait_seconds=0.0,
+        env_factory=lambda **kwargs: FakeDesktopEnv(),
+    )
+
+
+def _task_file(tmp_path):
+    examples = tmp_path / "osw1" / "evaluation_examples" / "examples" / "chrome"
+    examples.mkdir(parents=True)
+    task = {"id": "t-1", "instruction": "打开文件", "config": [
+        {"type": "open", "parameters": {"path": "/home/user/in.txt"}}]}
+    (examples / "t-1.json").write_text(json.dumps(task), encoding="utf-8")
+    return task
+
+
+def test_fetch_task_appends_input_files(tmp_path, env):
+    _task_file(tmp_path)
+    task = env.fetch_task("t-1", "chrome")
+    assert '"/home/user/in.txt"' in task["instruction"]
+
+
+def test_fetch_task_domainless_search(tmp_path, env):
+    _task_file(tmp_path)
+    assert env.fetch_task("t-1").get("id") == "t-1"
+
+
+def test_reset_execute_score_lifecycle(tmp_path, env):
+    task = _task_file(tmp_path)
+    observation = env.reset(task)
+    assert observation.screenshot.width == 1920
+    assert observation.accessibility_tree.present and observation.accessibility_tree.source == "vm"
+    assert Path(observation.screenshot.path).is_file()
+    budget = Budget(steps_remaining=10, wall_seconds_remaining=60.0)
+    receipt, obs = env.execute(GuiAction("click", {"x": 1, "y": 2}), budget=budget, task=task)
+    assert receipt.kind == "gui" and receipt.acknowledged
+    assert obs.step_idx == 1 and obs.last_receipt is not None
+    cli_receipt, _ = env.execute(
+        CliAction(command="ls", timeout_s=30, want_observation="screenshot"),
+        budget=budget, task=task)
+    assert cli_receipt.stdout == "ok-out" and cli_receipt.kind == "cli"
+    fake = FakeDesktopEnv.instances[-1]
+    assert "subprocess.run" in fake.steps[-1]
+    # 终态送达 VM（评分钩子依赖）
+    env.execute(FinishAction(outputs=("/home/user/out.txt",)), budget=budget, task=task)
+    assert fake.steps[-1] == "DONE"
+    env.execute(FailAction("放弃"), budget=budget, task=task)
+    assert fake.steps[-1] == "FAIL"
+    assert env.score(task) == {"score": 1.0}
+    records = env.export_outputs(["/home/user/out.txt"], tmp_path / "run" / "ep" / "t-1")
+    assert records[0]["exported"] and Path(records[0]["local_path"]).read_bytes() == b"DATA"
+    env.close()
+    assert fake.closed
+
+
+def test_ack_discipline_requires_receipt(tmp_path, env):
+    task = _task_file(tmp_path)
+    env.reset(task)
+    fake = FakeDesktopEnv.instances[-1]
+    original = fake.controller.execute_python_command
+    fake.controller.execute_python_command = lambda command: None
+    budget = Budget(steps_remaining=5, wall_seconds_remaining=30.0)
+    with pytest.raises(RuntimeError, match="acknowledgement"):
+        env.execute(GuiAction("click", {"x": 1, "y": 2}), budget=budget, task=task)
+    fake.controller.execute_python_command = original

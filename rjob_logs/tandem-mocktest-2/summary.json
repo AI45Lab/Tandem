@@ -1,0 +1,23 @@
+{
+  "run_id": "mocktest-2",
+  "benchmark": "mock",
+  "harness": {
+    "name": "tandem",
+    "mode": "planner_led"
+  },
+  "total": 1,
+  "scored": 1,
+  "failed_unscored": 0,
+  "average_score": 1.0,
+  "tasks": [
+    {
+      "task_id": "mock-000",
+      "harness": "tandem 0.1.0",
+      "stop_reason": "done",
+      "steps": 1,
+      "status": "scored",
+      "score": 1.0,
+      "exception_type": null
+    }
+  ]
+}

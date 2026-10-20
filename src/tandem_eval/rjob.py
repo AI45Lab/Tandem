@@ -139,14 +139,38 @@ def job_name(run_id: str) -> str:
     return f"tandem-{run_id}"
 
 
+def _env_section(benchmark: str, profile_rjob: dict) -> dict:
+    if benchmark == "osworld1":
+        return {"root": profile_rjob["osw1_root"], "vm": profile_rjob["osw1_vm"],
+                "startup_wait_seconds": 30}
+    if benchmark == "osworld2":
+        return {"root": profile_rjob["osw2_root"], "vm": profile_rjob["osw2_vm"],
+                "asset_root": profile_rjob["asset_root"], "startup_wait_seconds": 30}
+    return {}
+
+
+def _secrets_section(benchmark: str, profile_rjob: dict) -> dict:
+    if benchmark not in {"osworld1", "osworld2"}:
+        return {}
+    return {
+        "kimi_config": profile_rjob["kimi_config"],
+        "kimi_model": profile_rjob.get("kimi_model", "kimi-k3"),
+        "jev_endpoint": profile_rjob["jev_endpoint"],
+        "registry_secret": profile_rjob.get("registry_secret"),
+    }
+
+
 def build_job_spec(*, profile_dev: dict, profile_rjob: dict, run_id: str,
                    repo_root: Path, spec_overrides: dict) -> dict:
     """组装 job spec（worker 视角路径）并写入部署副本（dev 视角）job_specs/<run_id>.json。"""
+    benchmark = spec_overrides.get("benchmark", "mock")
     spec = {
         "run_id": run_id,
         "repo_root": profile_rjob["deploy_root"],
         "output_root": str(Path(profile_rjob["results_root"]) / run_id),
-        "benchmark": "mock",
+        "benchmark": benchmark,
+        "env": _env_section(benchmark, profile_rjob),
+        "secrets": _secrets_section(benchmark, profile_rjob),
         "harness": {"name": "tandem", "mode": "planner_led"},
         "budget": {"max_steps": 15, "max_wall_seconds": 900},
         "record": {"a11y_full": False},

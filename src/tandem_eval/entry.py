@@ -1,7 +1,8 @@
 """entry：job spec → 环境/harness/runner 组装（worker 侧唯一入口，infra/worker.sh 调用）。
 
-M2 支持 benchmark=mock 的全链路（MockEnv + 确定性脚本组件）；osworld1/2 真实环境在 M3
-接入（共享目录路径由 rjob.py 在提交侧展开并写入 spec）。
+benchmark=mock：MockEnv + 确定性脚本组件（全链路自检）。
+benchmark=osworld1/2：OsWorldEnv（共享目录 runtime/VM）+ KimiClient + build_default 组件，
+凭据与端点路径由 rjob.py 在提交侧从环境档案注入 spec（secrets 段）。
 """
 
 from __future__ import annotations
@@ -19,6 +20,17 @@ from .env import MockEnv
 from .manifest import resolve_manifest
 from .recorder import write_code_version
 from .runner import run
+
+
+class LlmTap:
+    """逐题重定向的 llm_sink：runner 每题把 current 指向该 episode 的 recorder。"""
+
+    def __init__(self):
+        self.current = None
+
+    def __call__(self, **kwargs):
+        if self.current is not None:
+            self.current(**kwargs)
 
 
 def git_describe(repo_root: Path) -> str:
@@ -91,20 +103,49 @@ def mock_components() -> Components:
     )
 
 
-def build_session(spec: dict) -> TandemSession:
+def build_session(spec: dict, *, llm_tap: LlmTap | None = None) -> TandemSession:
     config = SessionConfig(**spec.get("harness_config", {}))
-    if spec.get("benchmark") == "mock":
+    benchmark = spec.get("benchmark")
+    if benchmark == "mock":
         return TandemSession(mock_components(), config=config)
-    raise NotImplementedError(
-        "osworld1/2 真实环境在 M3 接入：需要共享目录路径、Kimi 凭据与 JEV endpoint"
-    )
+    if benchmark in {"osworld1", "osworld2"}:
+        from tandem.components import build_default
+        from tandem.providers import KimiClient
+
+        from .osworld import load_credentials
+
+        secrets = spec["secrets"]
+        credentials = load_credentials(
+            secrets["kimi_config"], default_model=secrets.get("kimi_model", "kimi-k3")
+        )
+        run_root = Path(spec["output_root"])
+        run_root.mkdir(parents=True, exist_ok=True)
+        client = KimiClient(credentials, config, run_root / "kimi_http.jsonl", llm_sink=llm_tap)
+        components = build_default(
+            client=client, endpoint_file=Path(secrets["jev_endpoint"]), config=config
+        )
+        return TandemSession(components, config=config)
+    raise NotImplementedError(f"未知 benchmark: {benchmark}")
 
 
 def build_env(spec: dict):
-    if spec.get("benchmark") == "mock":
+    benchmark = spec.get("benchmark")
+    if benchmark == "mock":
         base = Path(spec["output_root"]) / "mock_env"
         return MockEnv(base_dir=base)
-    raise NotImplementedError("osworld1/2 DesktopEnv 适配在 M3 落地（见重构计划 M3 里程碑）")
+    if benchmark in {"osworld1", "osworld2"}:
+        from .osworld import OsWorldEnv
+
+        env_spec = spec["env"]
+        return OsWorldEnv(
+            benchmark=benchmark,
+            task_root=Path(env_spec["root"]),
+            vm_path=Path(env_spec["vm"]),
+            run_root=Path(spec["output_root"]),
+            asset_root=Path(env_spec["asset_root"]) if env_spec.get("asset_root") else None,
+            startup_wait_seconds=float(env_spec.get("startup_wait_seconds", 30.0)),
+        )
+    raise NotImplementedError(f"未知 benchmark: {benchmark}")
 
 
 def run_from_spec(spec: dict) -> list[dict]:
@@ -120,12 +161,13 @@ def run_from_spec(spec: dict) -> list[dict]:
             "run_spec": spec,
         },
     )
+    llm_tap = LlmTap()
     env = build_env(spec)
-    session = build_session(spec)
+    session = build_session(spec, llm_tap=llm_tap)
     tasks = resolve_manifest(spec)
     if not tasks:
         raise ValueError("manifest 解析结果为空")
-    return run(spec, env=env, session=session, tasks=tasks, run_root=run_root)
+    return run(spec, env=env, session=session, tasks=tasks, run_root=run_root, llm_tap=llm_tap)
 
 
 def entry_main(argv: list[str]) -> int:

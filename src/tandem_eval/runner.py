@@ -18,7 +18,8 @@ TERMINAL_KINDS = {"finish", "fail"}
 
 
 def run_episode(env, session: TandemSession, recorder: EpisodeRecorder, task: dict,
-                *, max_steps: int, max_wall_seconds: float) -> dict:
+                *, max_steps: int, max_wall_seconds: float,
+                extra_exports: list[str] | None = None) -> dict:
     """单题循环：obs → session.act → env.execute → 回执灌回，终态导出交付物并评分。"""
     started = time.perf_counter()
     steps_used = 0
@@ -44,8 +45,12 @@ def run_episode(env, session: TandemSession, recorder: EpisodeRecorder, task: di
         recorder.event({"step": steps_used, "kind": "action", "action": action.to_dict()})
         if getattr(action, "kind", "") in TERMINAL_KINDS:
             stop_reason = "done" if action.kind == "finish" else action.reason
+            # 终态仍须送达 VM（DONE/FAIL 触发评分钩子，旧 runtime 同款）
+            env.execute(action, budget=budget, task=task)
             if action.kind == "finish":
-                outputs = env.export_outputs(list(action.outputs), recorder.dir)
+                outputs = env.export_outputs(
+                    list(action.outputs) + list(extra_exports or []), recorder.dir
+                )
             break
         receipt, observation = env.execute(action, budget=budget, task=task)
         recorder.traj(observation, action, receipt)
@@ -70,7 +75,7 @@ def run_episode(env, session: TandemSession, recorder: EpisodeRecorder, task: di
 
 
 def run(spec: dict, *, env, session: TandemSession, tasks: list[TaskRef],
-        run_root: Path) -> list[dict]:
+        run_root: Path, llm_tap=None) -> list[dict]:
     """逐题驱动；单题异常记 failed_unscored 后继续（failed_unscored 纪律）。"""
     run_root.mkdir(parents=True, exist_ok=True)
     write_resolved(run_root, tasks, spec)
@@ -87,14 +92,17 @@ def run(spec: dict, *, env, session: TandemSession, tasks: list[TaskRef],
         error: BaseException | None = None
         task: dict = {}
         try:
-            task = env.fetch_task(ref.task_id)
+            task = env.fetch_task(ref.task_id, ref.domain)
             recorder = EpisodeRecorder(
                 episode_dir, task, a11y_full=bool(spec.get("record", {}).get("a11y_full", False))
             )
+            if llm_tap is not None:
+                llm_tap.current = recorder.record_llm_call
             session.begin(task["instruction"], spec.get("requirements", []))
             episodes.append(
                 run_episode(env, session, recorder, task,
-                            max_steps=max_steps, max_wall_seconds=max_wall)
+                            max_steps=max_steps, max_wall_seconds=max_wall,
+                            extra_exports=list(spec.get("export_paths", [])))
             )
         except BaseException as exc:  # 单题失败不终止整个 run
             error = exc
@@ -110,6 +118,9 @@ def run(spec: dict, *, env, session: TandemSession, tasks: list[TaskRef],
                     exception=error,
                 )
             )
+        finally:
+            if llm_tap is not None:
+                llm_tap.current = None
     write_summary(run_root, episodes, spec)
     write_heartbeat(run_root, done=len(episodes), total=len(tasks), current="")
     return episodes
