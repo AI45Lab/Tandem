@@ -293,6 +293,10 @@ def run_job(*, profile_dev: dict, profile_rjob: dict, repo_root: Path, run_id: s
     build_job_spec(profile_dev=profile_dev, profile_rjob=profile_rjob, run_id=run_id,
                    repo_root=repo_root, spec_overrides=spec_overrides)
     name = job_name(run_id)
+    try:
+        client.delete(name)  # 防御性清理同名残留（旧脚本同款；不存在时忽略）
+    except RjobError:
+        pass
     client.submit(build_submit_args(profile_dev=profile_dev, profile_rjob=profile_rjob,
                                     run_id=run_id))
     result = {"job": name, "run_id": run_id}

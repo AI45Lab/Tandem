@@ -147,7 +147,11 @@ def test_run_job_full_lifecycle_submits_watches_fetches_cleans(tmp_path):
                      client=RjobClient(runner), out_dir=tmp_path / "archive",
                      poll_seconds=0, sleep=lambda _: None, sync=False)
     assert result["status"] == "succeeded"
-    submit_call = next(c for c in runner.calls if c[:2] == ["rjob", "submit"])
+    submit_index = next(i for i, c in enumerate(runner.calls) if c[:2] == ["rjob", "submit"])
+    delete_index = next(
+        (i for i, c in enumerate(runner.calls[:submit_index]) if c[:2] == ["rjob", "delete"]), None)
+    assert delete_index is not None, "提交前应先防御性 delete 同名残留"
+    submit_call = runner.calls[submit_index]
     assert any(a.startswith("--mount=") for a in submit_call)
     archive = tmp_path / "archive" / "tandem-r1"
     assert (archive / "platform.tail.log").read_text() == "log-line"
