@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tandem"
+version = "0.1.0"
+description = "Tandem：快慢双模 CUA harness（主体）+ tandem_eval 集群测评薄适配层"
+requires-python = ">=3.10"
+# 运行时依赖白名单见 AGENTS.md。当前为空：M0 尚无消费者；Pillow 在 M1 截图处理落地时加入。
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "ruff>=0.4"]
+
+[project.scripts]
+tandem = "tandem.__main__:main"
+tandem-eval = "tandem_eval.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+tandem = ["protocol/schema/*.json", "protocol/samples/*.json"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
