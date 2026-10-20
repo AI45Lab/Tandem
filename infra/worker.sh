@@ -18,7 +18,7 @@ if [ "$BENCHMARK" = "mock" ]; then
 fi
 
 # ---- 真实基准（M3）：加载共享资源 env.sh + docker 准备 + entry ----
-SHARED_ENV="${SA_CUA_SHARED_ENV:-/mnt/shared-storage-gpfs2/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/env.sh}"
+SHARED_ENV="${SA_CUA_SHARED_ENV:-/mnt/shared-storage-user/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/env.sh}"
 if [ ! -f "$SHARED_ENV" ]; then
   echo "真实基准需要共享资源 env.sh（$SHARED_ENV 不存在）；M3 里程碑接入" >&2
   exit 3
