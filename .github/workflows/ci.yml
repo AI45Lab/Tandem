@@ -11,6 +11,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.10", "3.12"]
     steps:
@@ -26,4 +27,17 @@ jobs:
       - name: Protocol self-check
         run: tandem check
       - name: Test
-        run: pytest
+        run: |
+          set -o pipefail
+          pytest -q --tb=short 2>&1 | tee pytest-output.log
+          rc=${PIPESTATUS[0]}
+          if [ "$rc" -ne 0 ]; then
+            # 失败摘要以 workflow 注解公开（checks 页面可见），便于匿名诊断
+            grep -E "^(FAILED|ERROR)|Error" pytest-output.log | head -15 | while IFS= read -r line; do
+              echo "::error::${line:0:600}"
+            done
+            tail -30 pytest-output.log | while IFS= read -r line; do
+              echo "::error::${line:0:600}"
+            done
+          fi
+          exit "$rc"
