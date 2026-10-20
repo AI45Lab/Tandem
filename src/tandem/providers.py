@@ -1,0 +1,126 @@
+"""Kimi JSON 传输客户端（含脱敏审计）。从旧仓库 providers.py 按契约移植。
+全量请求/响应落盘（llm_calls.jsonl）属于 M2 的 recorder，此处保持审计日志。"""
+
+from __future__ import annotations
+
+import json
+import time
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+
+class KimiClient:
+    def __init__(self, credential_file: Path, config, audit_path: Path):
+        self.credentials = json.loads(credential_file.read_text(encoding="utf-8"))
+        self.config = config
+        self.audit_path = audit_path
+
+    def json_request(self, messages, validate, *, role):
+        credentials = self.credentials
+        payload = {
+            "model": credentials.get("model", "kimi-k3"),
+            "messages": messages,
+            "stream": False,
+            "max_tokens": self.config.kimi_max_tokens,
+        }
+        request = urllib.request.Request(
+            credentials["base_url"].rstrip("/") + "/chat/completions",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                **(
+                    {"Authorization": "Bearer " + credentials["api_key"]}
+                    if credentials.get("api_key")
+                    else {}
+                ),
+                "Content-Type": "application/json",
+            },
+        )
+        opener = (
+            urllib.request.build_opener(urllib.request.ProxyHandler({})).open
+            if self.config.kimi_direct_api
+            else urllib.request.urlopen
+        )
+
+        def audit(event, started, attempt, **details):
+            record = {
+                "event": event,
+                "provider": "kimi",
+                "role": role,
+                "attempt": attempt + 1,
+                "time": time.time(),
+                "elapsed_seconds": round(time.perf_counter() - started, 3),
+                "request_bytes": len(request.data),
+                **details,
+            }
+            text = json.dumps(record, ensure_ascii=False)
+            print(text, flush=True)
+            with self.audit_path.open("a", encoding="utf-8") as log:
+                log.write(text + "\n")
+
+        def public_headers(headers):
+            allowed = {
+                "server",
+                "content-type",
+                "via",
+                "date",
+                "retry-after",
+                "x-request-id",
+                "request-id",
+                "x-acs-request-id",
+                "x-trace-id",
+                "x-envoy-upstream-service-time",
+            }
+            return {key: value for key, value in headers.items() if key.lower() in allowed}
+
+        def redact(text):
+            key = credentials.get("api_key")
+            return text.replace(key, "[REDACTED]") if key else text
+
+        for attempt in range(5):
+            started = time.perf_counter()
+            audit("request_start", started, attempt)
+            try:
+                with opener(request, timeout=self.config.kimi_timeout_seconds) as response:
+                    raw = json.load(response)
+                    audit(
+                        "http_response",
+                        started,
+                        attempt,
+                        http_status=response.status,
+                        headers=public_headers(response.headers),
+                        finish_reason=raw["choices"][0].get("finish_reason"),
+                        usage=raw.get("usage"),
+                    )
+                    content = raw["choices"][0]["message"]["content"].strip()
+                value = json.loads(
+                    content.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+                )
+                if not isinstance(value, dict) or not validate(value):
+                    raise ValueError("Kimi response is missing required fields")
+                return value
+            except urllib.error.HTTPError as error:
+                body = redact(error.read().decode("utf-8", errors="replace"))
+                audit(
+                    "http_error",
+                    started,
+                    attempt,
+                    http_status=error.code,
+                    headers=public_headers(error.headers),
+                    response=body[:2000],
+                )
+                if attempt == (4 if error.code == 403 else 2):
+                    raise
+                time.sleep(60 if error.code == 403 else 30)
+            except (urllib.error.URLError, TimeoutError, ValueError) as error:
+                audit(
+                    "transport_or_validation_error",
+                    started,
+                    attempt,
+                    error_type=type(error).__name__,
+                    error=redact(str(error))[:1000],
+                )
+                if attempt == 2:
+                    raise
+                time.sleep(30)
+        raise RuntimeError("Model request retries exhausted; no valid JSON response")

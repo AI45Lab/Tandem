@@ -14,7 +14,8 @@ Tandem harness ──Observation/Action/Receipt（消息层协议 v0.1）──�
 
 ## 状态
 
-- **M0（当前）**：repo 骨架 + 协议 schema v0.1 + golden 测试 + CI。
+- **M0（完成）**：repo 骨架 + 协议 schema v0.1 + golden 测试 + CI。
+- **M1（完成）**：planner_led 主路径移植——组件契约（planner/verifier/selector/target/candidate/compile）+ 停止条件 + CLI 路由 + deliverables 声明；全 mock 单测。与旧仓库行为差异见 [DEVIATIONS.md](DEVIATIONS.md)。
 - 里程碑排期见 [重构计划](../TANDEM_REFACTOR_PLAN_CN.md)；开发纪律见 [AGENTS.md](AGENTS.md)。
 
 ## 快速开始
