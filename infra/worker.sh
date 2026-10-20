@@ -21,7 +21,7 @@ if [ "$BENCHMARK" = "mock" ]; then
 fi
 
 # ---- 真实基准：共享资源 + docker 准备 ----
-SHARED_ENV="${SA_CUA_SHARED_ENV:-/mnt/shared-storage-user/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/env.sh}"
+SHARED_ENV="${SA_CUA_SHARED_ENV:-/mnt/shared-storage-gpfs2/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/env.sh}"
 if [ ! -f "$SHARED_ENV" ]; then
   echo "缺少共享资源 env.sh: $SHARED_ENV" | tee "$OUTPUT_ROOT/worker/entry.log" >&2
   exit 3

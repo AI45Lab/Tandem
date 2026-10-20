@@ -1,7 +1,7 @@
 {
   "env_id": "tandem-rjob-worker",
   "adpc_root": "/mnt/shared-storage-user/adpc-share",
-  "evobox_root": "/mnt/shared-storage-user/evobox-share-gpfs2",
+  "evobox_root": "/mnt/shared-storage-gpfs2/evobox-share-gpfs2",
   "user_root": "{adpc_root}/chenxinquan",
   "fastslow_root": "{user_root}/fastslow",
   "deploy_root": "{fastslow_root}/tandem-deploy",
