@@ -212,14 +212,8 @@ def fetch_artifacts(client: RjobClient, name: str, run_root_dev: Path,
         client.logs(name, tail_lines=tail_lines), encoding="utf-8"
     )
     if run_root_dev.is_dir():
-        for part in ("worker", "episodes"):
-            source = run_root_dev / part
-            if source.is_dir():
-                shutil.copytree(source, out / part, dirs_exist_ok=True)
-        for flat in ("summary.json", "heartbeat.json", "code_version.json"):
-            source = run_root_dev / flat
-            if source.is_file():
-                shutil.copy2(source, out / flat)
+        # 完整镜像 run 目录（结果/截图/worker 日志全部本地化，rjob_logs 即自包含副本）
+        shutil.copytree(run_root_dev, out, dirs_exist_ok=True)
     return out
 
 
