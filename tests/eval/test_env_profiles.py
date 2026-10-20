@@ -60,3 +60,10 @@ def test_legacy_canonical_mount_point_present():
     profile = _load("dev.json")
     targets = {m["target"] for m in profile["mounts"]}
     assert "/mnt/shared-storage-gpfs2/evobox-share-gpfs2" in targets
+
+
+def test_jev_endpoint_points_at_stage_exec_service():
+    """共享包软链指向的 JEV 实例（cua-branch-studio-20261013）已死；档案必须指向
+    旧 smoke 实跑验证过的 sa_cua_stage_exec_20261019 活实例（2026-10-20 直连探活）。"""
+    profile = _load("rjob.json")
+    assert profile["jev_endpoint"].endswith("sa_cua_stage_exec_20261019/endpoint.json")

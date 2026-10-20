@@ -14,7 +14,7 @@
   "osw1_vm": "{shared_resources}/vm/osworld1/Ubuntu.qcow2",
   "osw2_vm": "{shared_resources}/vm/osworld2/osworld-v2-ubuntu-x86.qcow2",
   "asset_root": "{shared_resources}/osworld2_0808/assets",
-  "jev_endpoint": "{shared_resources}/services/jev_endpoint.json",
+  "jev_endpoint": "{evobox_root}/xuyuanxun/services/sa_cua_stage_exec_20261019/endpoint.json",
   "eval_python": "{shared_resources}/evaluation/venv/bin/python",
   "eval_tools": "{shared_resources}/evaluator_tools",
   "registry_secret": "{evobox_root}/xuyuanxun/secrets/docker-registry-config.json",
