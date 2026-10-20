@@ -1,0 +1,23 @@
+{
+  "run_id": "osw2-single-1",
+  "benchmark": "osworld2",
+  "harness": {
+    "name": "tandem",
+    "mode": "planner_led"
+  },
+  "total": 1,
+  "scored": 0,
+  "failed_unscored": 1,
+  "average_score": null,
+  "tasks": [
+    {
+      "task_id": "066",
+      "harness": "tandem 0.1.0",
+      "stop_reason": "exception",
+      "steps": 0,
+      "status": "failed_unscored",
+      "score": null,
+      "exception_type": "URLError"
+    }
+  ]
+}

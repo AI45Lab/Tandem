@@ -18,7 +18,7 @@
   "eval_python": "{shared_resources}/evaluation/venv/bin/python",
   "eval_tools": "{shared_resources}/evaluator_tools",
   "registry_secret": "{evobox_root}/xuyuanxun/secrets/docker-registry-config.json",
-  "kimi_config": "{evobox_root}/xuyuanxun/secrets/kimi-agent-gpt55-judge.env",
+  "kimi_config": "{evobox_root}/xuyuanxun/secrets/kimi-workspace.json",
   "kimi_model": "kimi-k3",
   "inner_image": "registry.h.pjlab.org.cn/ailab-evobox-evobox_cpu/weavebench:osworld-v2-inner-osworld-docker-socat-20260712",
   "http_proxy": "http://httpproxy-headless.kubebrain.svc.pjlab.local:3128",

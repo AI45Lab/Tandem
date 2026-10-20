@@ -219,3 +219,12 @@ def test_run_job_cleanup_survives_archive_failure(tmp_path):
     assert result["status"] == "succeeded"
     assert "archive_error" in result
     assert any(c[:2] == ["rjob", "stop"] for c in runner.calls)  # cleanup 仍然执行
+
+
+def test_env_section_seeds_setup_cache_for_osw1():
+    from tandem_eval.rjob import _env_section
+
+    section = _env_section("osworld1", PROFILE_RJOB)
+    assert section["root"] == "/worker/osw1"
+    assert section["setup_cache_root"] == "/worker/osw1/cache"
+    assert "setup_cache_root" not in _env_section("osworld2", PROFILE_RJOB)

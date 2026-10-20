@@ -1,0 +1,6 @@
+{"event": "request_start", "provider": "kimi", "role": "plan_step", "attempt": 1, "time": 1792504533.0840044, "elapsed_seconds": 0.0, "request_bytes": 1378819}
+{"event": "transport_or_validation_error", "provider": "kimi", "role": "plan_step", "attempt": 1, "time": 1792504533.1106446, "elapsed_seconds": 0.027, "request_bytes": 1378819, "error_type": "URLError", "error": "<urlopen error [Errno -2] Name or service not known>"}
+{"event": "request_start", "provider": "kimi", "role": "plan_step", "attempt": 2, "time": 1792504563.1109228, "elapsed_seconds": 0.0, "request_bytes": 1378819}
+{"event": "transport_or_validation_error", "provider": "kimi", "role": "plan_step", "attempt": 2, "time": 1792504563.114592, "elapsed_seconds": 0.004, "request_bytes": 1378819, "error_type": "URLError", "error": "<urlopen error [Errno -2] Name or service not known>"}
+{"event": "request_start", "provider": "kimi", "role": "plan_step", "attempt": 3, "time": 1792504593.1148624, "elapsed_seconds": 0.0, "request_bytes": 1378819}
+{"event": "transport_or_validation_error", "provider": "kimi", "role": "plan_step", "attempt": 3, "time": 1792504593.1202583, "elapsed_seconds": 0.005, "request_bytes": 1378819, "error_type": "URLError", "error": "<urlopen error [Errno -2] Name or service not known>"}

@@ -193,3 +193,26 @@ def test_ack_discipline_requires_receipt(tmp_path, env):
     with pytest.raises(RuntimeError, match="acknowledgement"):
         env.execute(GuiAction("click", {"x": 1, "y": 2}), budget=budget, task=task)
     fake.controller.execute_python_command = original
+
+
+def test_setup_cache_seeding(tmp_path):
+    import shutil as _shutil
+
+    cache = tmp_path / "share-cache" / "t-1"
+    cache.mkdir(parents=True)
+    (cache / "951cf1e8_profile.tar.gz").write_bytes(b"tar")
+    (cache / "thunder-prefs.js").write_text("prefs", encoding="utf-8")
+    env = OsWorldEnv(
+        benchmark="osworld1", task_root=tmp_path / "osw1", vm_path=tmp_path / "vm.qcow2",
+        run_root=tmp_path / "run", setup_cache_root=tmp_path / "share-cache",
+        startup_wait_seconds=0.0, env_factory=lambda **kwargs: FakeDesktopEnv(),
+    )
+    task = {"id": "t-1", "instruction": "x", "config": []}
+    env.reset(task)
+    seeded = tmp_path / "run" / "evaluation_cache" / "t-1"
+    assert sorted(p.name for p in seeded.iterdir()) == [
+        "951cf1e8_profile.tar.gz", "thunder-prefs.js"]
+    # 无缓存任务静默跳过
+    env.reset({"id": "t-2", "instruction": "x", "config": []})
+    assert not (tmp_path / "run" / "evaluation_cache" / "t-2").exists()
+    del _shutil

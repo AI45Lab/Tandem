@@ -39,3 +39,15 @@
     首次真机提交时需按实际输出校准 `_STATUS_PATTERNS`（rjob.py）。
 18. 【重构】**llm_calls.jsonl 只记成功调用**（请求 payload+messages、原始响应、attempt）；
     传输错误的完整请求落盘在 M3 补（现仅审计日志记录错误元数据）。
+
+## M3 补充（真机首跑发现，2026-10-20）
+
+19. 【重构·已修】**rjob logs 在日志未聚合时 CLI 自身崩溃**（brainpp 对 None 迭代）；
+    fetch 视为非致命，cleanup 无条件执行（commit 4ef446f）。
+20. 【重构】**want_observation="none" 当前仍返回完整观察**：实现在一次 controller 读取中
+    同时取截图与 a11y，逐项跳过收益低且易引入观察不同步；协议字段保留，严格跳过
+    待真机 profiling 证明收益后再实装。
+21. 【环境·已修】**平台预注入的 HTTP_PROXY 不可用**（httpproxy-headless-dev-test 无法
+    解析，毒化 HF 下载与外网 LLM 调用）：worker.sh 一律覆盖为已知可用代理，不继承。
+22. 【环境·已修】**OSW1 setup 走共享缓存播种**（旧 runtime.py:532-539 语义，整目录拷贝），
+    避免任务 setup 依赖外网下载；Kimi 凭据改用旧 smoke 实跑验证过的 kimi-workspace.json。

@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 import struct
 import sys
 import time
@@ -116,12 +117,14 @@ def action_code(action: Action) -> str:
 class OsWorldEnv:
     def __init__(self, *, benchmark: str, task_root: Path, vm_path: Path,
                  run_root: Path, asset_root: Path | None = None,
+                 setup_cache_root: Path | None = None,
                  startup_wait_seconds: float = 30.0, env_factory: Callable[..., Any] | None = None):
         self.benchmark = benchmark
         self.task_root = Path(task_root)
         self.vm_path = Path(vm_path)
         self.run_root = Path(run_root)
         self.asset_root = Path(asset_root) if asset_root else None
+        self.setup_cache_root = Path(setup_cache_root) if setup_cache_root else None
         self.startup_wait_seconds = startup_wait_seconds
         self._env_factory = env_factory or self._import_desktop_env
         self.env: Any = None
@@ -210,9 +213,24 @@ class OsWorldEnv:
         self.last_a11y = obs.get("accessibility_tree") or ""
 
     # ------------------------------------------------------------------ 协议
+    def _seed_setup_cache(self, task_id: str) -> None:
+        """把共享盘已缓存的 setup 文件播种进本次 evaluation_cache（旧 runtime.py:532-539），
+        避免任务 setup 走外网下载（HF 下载在 worker 内经代理，慢且可能失败）。"""
+        if self.setup_cache_root is None:
+            return
+        source = self.setup_cache_root / task_id
+        if not source.is_dir():
+            return
+        target = self.run_root / "evaluation_cache" / task_id
+        target.mkdir(parents=True, exist_ok=True)
+        for item in source.iterdir():
+            if item.is_file():
+                shutil.copy2(item, target / item.name)
+
     def reset(self, task: dict) -> Observation:
         if self.env is not None:
             self.env.close()
+        self._seed_setup_cache(str(task["id"]))
         self.env = self._env_factory(
             provider_name="docker", path_to_vm=str(self.vm_path), action_space="pyautogui",
             screen_size=(1920, 1080), headless=True, os_type="Ubuntu",

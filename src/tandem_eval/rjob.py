@@ -142,6 +142,7 @@ def job_name(run_id: str) -> str:
 def _env_section(benchmark: str, profile_rjob: dict) -> dict:
     if benchmark == "osworld1":
         return {"root": profile_rjob["osw1_root"], "vm": profile_rjob["osw1_vm"],
+                "setup_cache_root": str(Path(profile_rjob["osw1_root"]) / "cache"),
                 "startup_wait_seconds": 30}
     if benchmark == "osworld2":
         return {"root": profile_rjob["osw2_root"], "vm": profile_rjob["osw2_vm"],

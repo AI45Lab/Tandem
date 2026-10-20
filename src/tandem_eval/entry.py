@@ -143,6 +143,7 @@ def build_env(spec: dict):
             vm_path=Path(env_spec["vm"]),
             run_root=Path(spec["output_root"]),
             asset_root=Path(env_spec["asset_root"]) if env_spec.get("asset_root") else None,
+            setup_cache_root=Path(env_spec["setup_cache_root"]) if env_spec.get("setup_cache_root") else None,
             startup_wait_seconds=float(env_spec.get("startup_wait_seconds", 30.0)),
         )
     raise NotImplementedError(f"未知 benchmark: {benchmark}")

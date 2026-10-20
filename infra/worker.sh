@@ -36,7 +36,9 @@ if [ -z "$REGISTRY_SECRET" ] || [ ! -f "$REGISTRY_SECRET" ]; then
 fi
 
 INNER_IMAGE="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["code"]["images"]["inner"])' "$SPEC")"
-PROXY="${HTTP_PROXY:-http://httpproxy-headless.kubebrain.svc.pjlab.local:3128}"
+# 平台可能预注入不可用的代理（真机 2026-10-20：httpproxy-headless-dev-test 无法解析），
+# 一律覆盖为已知可用代理，不继承环境变量。
+PROXY="http://httpproxy-headless.kubebrain.svc.pjlab.local:3128"
 export HTTP_PROXY="$PROXY" HTTPS_PROXY="$PROXY" http_proxy="$PROXY" https_proxy="$PROXY"
 export NO_PROXY='10.0.0.0/8,100.96.0.0/12,localhost,127.0.0.1,.pjlab.org.cn'
 export no_proxy="$NO_PROXY"

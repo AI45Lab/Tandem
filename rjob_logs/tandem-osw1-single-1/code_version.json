@@ -1,0 +1,55 @@
+{
+  "harness_version": "0.1.0",
+  "protocol_version": "0.1",
+  "git_describe": "1a6c76c",
+  "resources": {},
+  "images": {
+    "outer": "registry.h.pjlab.org.cn/ailab-evobox-evobox_cpu/weavebench:osworld-v2-rjob-openclaw-kimi-tasks-uploadfix-20260701",
+    "inner": "registry.h.pjlab.org.cn/ailab-evobox-evobox_cpu/weavebench:osworld-v2-inner-osworld-docker-socat-20260712"
+  },
+  "run_spec": {
+    "run_id": "osw1-single-1",
+    "repo_root": "/mnt/shared-storage-user/adpc-share/chenxinquan/fastslow/tandem-deploy",
+    "output_root": "/mnt/shared-storage-user/adpc-share/chenxinquan/fastslow/tandem-results/osw1-single-1",
+    "benchmark": "osworld1",
+    "env": {
+      "root": "/mnt/shared-storage-user/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/benchmarks/osworld1",
+      "vm": "/mnt/shared-storage-user/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/vm/osworld1/Ubuntu.qcow2",
+      "startup_wait_seconds": 30
+    },
+    "secrets": {
+      "kimi_config": "/mnt/shared-storage-user/evobox-share-gpfs2/xuyuanxun/secrets/kimi-agent-gpt55-judge.env",
+      "kimi_model": "kimi-k3",
+      "jev_endpoint": "/mnt/shared-storage-user/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/services/jev_endpoint.json",
+      "registry_secret": "/mnt/shared-storage-user/evobox-share-gpfs2/xuyuanxun/secrets/docker-registry-config.json"
+    },
+    "harness": {
+      "name": "tandem",
+      "mode": "planner_led"
+    },
+    "budget": {
+      "max_steps": 15,
+      "max_wall_seconds": 900.0
+    },
+    "record": {
+      "a11y_full": false
+    },
+    "code": {
+      "git_describe": "1a6c76c",
+      "images": {
+        "outer": "registry.h.pjlab.org.cn/ailab-evobox-evobox_cpu/weavebench:osworld-v2-rjob-openclaw-kimi-tasks-uploadfix-20260701",
+        "inner": "registry.h.pjlab.org.cn/ailab-evobox-evobox_cpu/weavebench:osworld-v2-inner-osworld-docker-socat-20260712"
+      }
+    },
+    "manifest": {
+      "tasks": [
+        "10a730d5-d414-4b40-b479-684bed1ae522"
+      ]
+    },
+    "harness_config": {
+      "allow_cli": false,
+      "route_policy": "gui",
+      "kimi_max_tokens": 4096
+    }
+  }
+}
