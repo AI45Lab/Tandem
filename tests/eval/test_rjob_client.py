@@ -101,7 +101,8 @@ def test_run_job_full_lifecycle_submits_watches_fetches_cleans(tmp_path):
     run_root = tmp_path / "dev-results" / "r1"
     (run_root / "episodes").mkdir(parents=True)
     (run_root / "summary.json").write_text("{}", encoding="utf-8")
-    profile_dev = dict(PROFILE_DEV, results_root=str(tmp_path / "dev-results"))
+    profile_dev = dict(PROFILE_DEV, results_root=str(tmp_path / "dev-results"),
+                       deploy_root=str(tmp_path / "deploy"))
     script = {
         "submit": ["submitted"],
         "get": ["running", "succeeded"],
@@ -123,7 +124,8 @@ def test_run_job_full_lifecycle_submits_watches_fetches_cleans(tmp_path):
 
 
 def test_run_job_timeout_still_fetches_and_cleans(tmp_path):
-    profile_dev = dict(PROFILE_DEV, results_root=str(tmp_path / "dev-results"))
+    profile_dev = dict(PROFILE_DEV, results_root=str(tmp_path / "dev-results"),
+                       deploy_root=str(tmp_path / "deploy"))
     runner = FakeRunner({"get": ["running"], "stop": ["stopped"],
                          "submit": ["ok"], "logs": ["log"]})
     result = run_job(profile_dev=profile_dev, profile_rjob=PROFILE_RJOB,
