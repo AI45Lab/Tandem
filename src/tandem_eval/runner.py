@@ -27,6 +27,12 @@ def run_episode(env, session: TandemSession, recorder: EpisodeRecorder, task: di
     stop_reason = "max_steps"
     observation: Observation = env.reset(task)
     outputs: list[dict] = []
+    events_start = len(session.events)  # 本题事件起点：act 后增量落盘（planner/JEV/验证）
+
+    def drain_events() -> None:
+        for event in session.events[events_start:]:
+            recorder.event(event)
+
     while True:
         budget = budget_of(
             max_steps=max_steps,
@@ -43,6 +49,7 @@ def run_episode(env, session: TandemSession, recorder: EpisodeRecorder, task: di
             break
         observation = replace(observation, budget=budget)
         action = session.act(observation)
+        drain_events()
         recorder.event({"step": steps_used, "kind": "action", "action": action.to_dict()})
         if getattr(action, "kind", "") in TERMINAL_KINDS:
             stop_reason = "done" if action.kind == "finish" else action.reason

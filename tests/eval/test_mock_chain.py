@@ -120,3 +120,19 @@ def test_obs_stage_cleaned_after_episode(tmp_path):
     assert not staging.exists() or not any(staging.iterdir())
     # 契约正本仍在
     assert (tmp_path / "run" / "episodes" / "mock-mock-000" / "screenshots").is_dir()
+
+
+def test_session_events_drained_to_events_jsonl(tmp_path):
+    """planner/JEV 排序/验证事件必须落盘（session.events 曾只在内存，run 后丢失）。"""
+    run_from_spec(_spec(tmp_path))
+    import glob
+    events_file = glob.glob(str(tmp_path / "run" / "episodes" / "*" / "events.jsonl"))[0]
+    events = [json.loads(line) for line in open(events_file)]
+    routes = [e.get("route") or e.get("kind") for e in events]
+    assert "planner" in routes
+    gui_events = [e for e in events if e.get("route") == "gui"]
+    assert gui_events and "ranking" in gui_events[0]
+    ranking = gui_events[0]["ranking"]
+    assert "operation_request" in ranking and "action_ranked" in ranking
+    assert "winner" in ranking and ranking["winner"] is not None
+    assert "terminal" in routes
