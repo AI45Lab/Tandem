@@ -9,6 +9,9 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+# 空正文（全留在思考通道）或截断时，下一次重试升档思考强度，避免原样重发重复失败
+_REASON_EFFORT_LADDER = {"low": "medium", "medium": "high"}
+
 
 class KimiClient:
     def __init__(self, credential_file, config, audit_path: Path, llm_sink=None):
@@ -35,18 +38,20 @@ class KimiClient:
             payload["enable_thinking"] = False
         else:
             payload["reasoning_effort"] = effort
-        request = urllib.request.Request(
-            credentials["base_url"].rstrip("/") + "/chat/completions",
-            data=json.dumps(payload).encode("utf-8"),
-            headers={
-                **(
-                    {"Authorization": "Bearer " + credentials["api_key"]}
-                    if credentials.get("api_key")
-                    else {}
-                ),
-                "Content-Type": "application/json",
-            },
-        )
+        def build_request():
+            return urllib.request.Request(
+                credentials["base_url"].rstrip("/") + "/chat/completions",
+                data=json.dumps(payload).encode("utf-8"),
+                headers={
+                    **(
+                        {"Authorization": "Bearer " + credentials["api_key"]}
+                        if credentials.get("api_key")
+                        else {}
+                    ),
+                    "Content-Type": "application/json",
+                },
+            )
+
         opener = (
             urllib.request.build_opener(urllib.request.ProxyHandler({})).open
             if self.config.kimi_direct_api
@@ -90,6 +95,7 @@ class KimiClient:
 
         for attempt in range(5):
             started = time.perf_counter()
+            request = build_request()  # 每次重试重建：升档思考强度需重新序列化
             audit("request_start", started, attempt)
             try:
                 with opener(request, timeout=self.config.kimi_timeout_seconds) as response:
@@ -117,6 +123,11 @@ class KimiClient:
                     raise ValueError(
                         f"Kimi response truncated by max_tokens (finish_reason=length, "
                         f"completion_tokens={completion_tokens}); raise kimi_max_tokens"
+                    )
+                if not content and raw["choices"][0]["message"].get("reasoning_content"):
+                    raise ValueError(
+                        "Kimi returned empty content (all completion tokens stayed in the "
+                        "reasoning channel); escalating reasoning_effort for the next attempt"
                     )
                 value = json.loads(
                     content.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
@@ -147,5 +158,9 @@ class KimiClient:
                 )
                 if attempt == 2:
                     raise
+                # 内容级失败（空正文/截断/非法 JSON）时升档思考强度后重试，不原样重发
+                current_effort = payload.get("reasoning_effort")
+                if current_effort in _REASON_EFFORT_LADDER:
+                    payload["reasoning_effort"] = _REASON_EFFORT_LADDER[current_effort]
                 time.sleep(30)
         raise RuntimeError("Model request retries exhausted; no valid JSON response")

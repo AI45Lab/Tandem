@@ -360,3 +360,52 @@ def test_begin_without_requirements_extracts_via_component():
     assert calls == ["整理并保存"]
     session.begin("整理并保存", [])
     assert session.requirements == [] and len(calls) == 1  # 显式 [] 不再抽取
+
+
+def test_kimi_retries_escalate_reasoning_effort_on_empty_content(tmp_path):
+    """空正文（思考通道吞掉全部输出）→ 重试自动升档 low→medium，不再原样重发。"""
+    import urllib.request
+
+    from tandem.config import SessionConfig
+    from tandem.providers import KimiClient
+
+    payloads = []
+    responses = iter([
+        # 第 1 次：stop 但 content 空、reasoning 有值
+        {"choices": [{"message": {"content": "", "reasoning_content": "thinking..."},
+                      "finish_reason": "stop"}]},
+        # 第 2 次（medium）：正常 JSON
+        {"choices": [{"message": {"content": '{"done": true}'},
+                      "finish_reason": "stop"}]},
+    ])
+
+    class _Resp:
+        status, headers = 200, {}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def read(self):
+            return json.dumps(next(responses)).encode()
+
+    import tandem.providers as providers_mod
+    providers_mod.time.sleep = lambda seconds: None
+
+    def fake_urlopen(request, timeout=None):
+        payloads.append(json.loads(request.data.decode()))
+        return _Resp()
+
+    original = urllib.request.urlopen
+    urllib.request.urlopen = fake_urlopen
+    try:
+        client = KimiClient({"base_url": "http://x"}, SessionConfig(), tmp_path / "a.jsonl")
+        value = client.json_request([{"role": "user", "content": "hi"}],
+                                    lambda v: v == {"done": True}, role="plan_step")
+        assert value == {"done": True}
+        assert payloads[0]["reasoning_effort"] == "low"
+        assert payloads[1]["reasoning_effort"] == "medium"
+    finally:
+        urllib.request.urlopen = original
