@@ -106,6 +106,13 @@ class KimiClient:
                         usage=raw.get("usage"),
                     )
                     content = raw["choices"][0]["message"]["content"].strip()
+                    finish_reason = raw["choices"][0].get("finish_reason")
+                if finish_reason == "length":
+                    completion_tokens = (raw.get("usage") or {}).get("completion_tokens")
+                    raise ValueError(
+                        f"Kimi response truncated by max_tokens (finish_reason=length, "
+                        f"completion_tokens={completion_tokens}); raise kimi_max_tokens"
+                    )
                 value = json.loads(
                     content.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
                 )

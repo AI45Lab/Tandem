@@ -249,3 +249,42 @@ def test_cli_timeout_clamped_to_protocol_limit():
     with pytest.raises(ValueError, match="cli_timeout_seconds"):
         SessionConfig(cli_timeout_seconds=200)
     assert SessionConfig(cli_timeout_seconds=120).cli_timeout_seconds == 120
+
+
+def test_truncated_reasoning_raises_actionable_error(tmp_path):
+    """finish_reason=length（推理吃满 max_tokens、正文为空）必须报可定位的错误。"""
+    from tandem.config import SessionConfig
+    from tandem.providers import KimiClient
+
+    class TruncatingOpener:
+        def __call__(self, request, timeout=None):
+            return _FakeRawResponse()
+
+    class _FakeRawResponse:
+        status = 200
+        headers = {}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def read(self):
+            return json.dumps({
+                "choices": [{"message": {"content": ""}, "finish_reason": "length"}],
+                "usage": {"completion_tokens": 4099},
+            }).encode()
+
+    client = KimiClient({"base_url": "http://x"}, SessionConfig(),
+                        tmp_path / "audit.jsonl")
+    import urllib.request
+    opener_holder = TruncatingOpener()
+    original_urlopen = urllib.request.urlopen
+    urllib.request.urlopen = opener_holder
+    try:
+        with pytest.raises(ValueError, match="raise kimi_max_tokens"):
+            client.json_request([{"role": "user", "content": "hi"}], lambda v: True,
+                                role="plan_step")
+    finally:
+        urllib.request.urlopen = original_urlopen
