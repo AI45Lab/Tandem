@@ -20,7 +20,6 @@ from tandem_eval.osworld import (
     OsWorldEnv,
     action_code,
     gui_code,
-    load_credentials,
     png_size,
 )
 
@@ -60,20 +59,6 @@ def test_action_code_cli_wait_and_terminals():
 
 def test_png_size_parses_ihdr():
     assert png_size(_png(1920, 1080)) == (1920, 1080)
-
-
-# ------------------------------------------------------------------ credentials
-def test_load_credentials_env_and_json(tmp_path):
-    env_file = tmp_path / "k.env"
-    env_file.write_text(
-        "# comment\nOPENAI_API_KEY=sk-x\nOPENAI_BASE_URL=https://api.example/v1\n",
-        encoding="utf-8",
-    )
-    creds = load_credentials(env_file)
-    assert creds == {"base_url": "https://api.example/v1", "api_key": "sk-x", "model": "kimi-k3"}
-    json_file = tmp_path / "k.json"
-    json_file.write_text(json.dumps({"base_url": "u", "api_key": "k", "model": "m"}), encoding="utf-8")
-    assert load_credentials(json_file) == {"base_url": "u", "api_key": "k", "model": "m"}
 
 
 # ------------------------------------------------------------------ adapter

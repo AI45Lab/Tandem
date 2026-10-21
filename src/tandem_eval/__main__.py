@@ -8,8 +8,8 @@ from pathlib import Path
 
 
 def _rjob_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--dev-env", default="infra/envs/dev.json", help="开发机视角环境档案")
-    parser.add_argument("--rjob-env", default="infra/envs/rjob.json", help="worker 视角环境档案")
+    parser.add_argument("--config", default="infra/config.json",
+                        help="唯一配置文件（全绝对路径，两侧一致）")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -34,9 +34,10 @@ def main(argv: list[str] | None = None) -> int:
     run_cmd.add_argument("--allow-cli", choices=["true", "false"], default=None,
                          help="harness 是否允许 CLI 路由")
     run_cmd.add_argument("--route-policy", choices=["auto", "gui", "cli"], default=None)
+    run_cmd.add_argument("--selector", choices=["jev", "kev"], default=None,
+                         help="排序后端（kev 需档案提供 kev_endpoint）")
     run_cmd.add_argument("--kimi-max-tokens", type=int, default=None)
     run_cmd.add_argument("--export-paths", default="", help="逗号分隔的 VM 内交付物路径")
-    run_cmd.add_argument("--out-dir", default="rjob_logs", help="日志/结果归档目录")
     run_cmd.add_argument("--poll", type=float, default=60)
     run_cmd.add_argument("--timeout", type=float, default=None, help="watch 超时秒数")
     run_cmd.add_argument("--keep", action="store_true", help="结束后不 stop rjob")
@@ -47,7 +48,6 @@ def main(argv: list[str] | None = None) -> int:
     _rjob_args(watch_cmd)
     watch_cmd.add_argument("job", help="rjob 名称")
     watch_cmd.add_argument("--run-id", required=True, help="用于定位结果目录")
-    watch_cmd.add_argument("--out-dir", default="rjob_logs")
     watch_cmd.add_argument("--poll", type=float, default=60)
     watch_cmd.add_argument("--timeout", type=float, default=None)
     watch_cmd.add_argument("--keep", action="store_true")
@@ -58,10 +58,9 @@ def main(argv: list[str] | None = None) -> int:
 
         return entry_main(["--spec", args.spec])
 
-    from .rjob import RjobClient, fetch_artifacts, load_profile, run_job, watch
+    from .rjob import RjobClient, fetch_artifacts, load_config, run_job, watch
 
-    profile_dev = load_profile(args.dev_env)
-    profile_rjob = load_profile(args.rjob_env)
+    config = load_config(args.config)
     if args.rjob_command == "run":
         overrides: dict = {"benchmark": args.benchmark}
         manifest: dict = {}
@@ -76,6 +75,8 @@ def main(argv: list[str] | None = None) -> int:
             harness_config["allow_cli"] = args.allow_cli == "true"
         if args.route_policy:
             harness_config["route_policy"] = args.route_policy
+        if args.selector:
+            harness_config["selector_backend"] = args.selector
         if args.kimi_max_tokens:
             harness_config["kimi_max_tokens"] = args.kimi_max_tokens
         if harness_config:
@@ -92,9 +93,9 @@ def main(argv: list[str] | None = None) -> int:
                 item.strip() for item in args.export_paths.split(",") if item.strip()
             ]
         result = run_job(
-            profile_dev=profile_dev, profile_rjob=profile_rjob,
+            config=config,
             repo_root=Path(args.repo), run_id=args.run_id, spec_overrides=overrides,
-            out_dir=Path(args.out_dir), poll_seconds=args.poll,
+            poll_seconds=args.poll,
             timeout_seconds=args.timeout, keep=args.keep, delete=args.delete,
             sync=not args.no_sync,
         )
@@ -103,8 +104,8 @@ def main(argv: list[str] | None = None) -> int:
 
     client = RjobClient()
     status = watch(client, args.job, poll_seconds=args.poll, timeout_seconds=args.timeout)
-    run_root_dev = Path(profile_dev["results_root"]) / args.run_id
-    fetch_artifacts(client, args.job, run_root_dev, Path(args.out_dir))
+    run_root = Path(config["results_root"]) / args.run_id
+    fetch_artifacts(client, args.job, run_root)
     if not args.keep:
         from .rjob import cleanup
 

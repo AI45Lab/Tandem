@@ -31,7 +31,15 @@ class Components:
     compile_gui: Callable
 
 
-def build_default(*, client, endpoint_file, config: SessionConfig) -> Components:
+def build_default(*, client, endpoint: str, config: SessionConfig,
+                  image_stage: tuple[str, str] | None = None) -> Components:
+    if getattr(config, "selector_backend", "jev") == "kev":
+        from .selector_kev import KevPolicy
+
+        selector = KevPolicy(endpoint, timeout_seconds=config.jev_timeout_seconds)
+    else:
+        selector = JevOmniPolicy(endpoint, timeout_seconds=config.jev_timeout_seconds,
+                                 image_stage=image_stage)
     return Components(
         planner=partial(
             plan_step,
@@ -41,7 +49,7 @@ def build_default(*, client, endpoint_file, config: SessionConfig) -> Components
         ),
         verifier=partial(verify_observation, client),
         requirements=partial(task_requirements, client),
-        selector=JevOmniPolicy(endpoint_file, timeout_seconds=config.jev_timeout_seconds),
+        selector=selector,
         target_builder=A11yTargetBuilder(),
         candidate_builder=ActionCandidateBuilder(),
         focus_candidates=focused_candidates,

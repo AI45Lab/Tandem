@@ -112,17 +112,23 @@ def build_session(spec: dict, *, llm_tap: LlmTap | None = None) -> TandemSession
         from tandem.components import build_default
         from tandem.providers import KimiClient
 
-        from .osworld import load_credentials
-
         secrets = spec["secrets"]
-        credentials = load_credentials(
-            secrets["kimi_config"], default_model=secrets.get("kimi_model", "kimi-k3")
-        )
+        credentials = dict(secrets["kimi"])
+        credentials.setdefault("model", "kimi-k3")
+        backend = getattr(config, "selector_backend", "jev")
+        endpoint_key = "kev_endpoint" if backend == "kev" else "jev_endpoint"
+        if not secrets.get(endpoint_key):
+            raise ValueError(f"selector_backend={backend} 需要 spec.secrets.{endpoint_key}")
         run_root = Path(spec["output_root"])
         run_root.mkdir(parents=True, exist_ok=True)
         client = KimiClient(credentials, config, run_root / "kimi_http.jsonl", llm_sink=llm_tap)
+        jev = spec.get("jev") or {}
+        image_stage = None
+        if jev.get("image_stage_write") and jev.get("image_stage_read"):
+            image_stage = (jev["image_stage_write"], jev["image_stage_read"])
         components = build_default(
-            client=client, endpoint_file=Path(secrets["jev_endpoint"]), config=config
+            client=client, endpoint=secrets[endpoint_key], config=config,
+            image_stage=image_stage,
         )
         return TandemSession(components, config=config)
     raise NotImplementedError(f"未知 benchmark: {benchmark}")
@@ -149,6 +155,18 @@ def build_env(spec: dict):
     raise NotImplementedError(f"未知 benchmark: {benchmark}")
 
 
+def _mask_secrets(spec: dict) -> dict:
+    """run_spec 落盘前脱敏：secrets 段的值全部打码（密钥/registry 凭据不进结果目录）。"""
+    masked = json.loads(json.dumps(spec, ensure_ascii=False))
+    secrets = masked.get("secrets")
+    if isinstance(secrets, dict):
+        masked["secrets"] = {
+            key: {subkey: "***" for subkey in value} if isinstance(value, dict) else "***"
+            for key, value in secrets.items()
+        }
+    return masked
+
+
 def run_from_spec(spec: dict) -> list[dict]:
     run_root = Path(spec["output_root"])
     run_root.mkdir(parents=True, exist_ok=True)
@@ -159,7 +177,7 @@ def run_from_spec(spec: dict) -> list[dict]:
             "git_describe": spec.get("code", {}).get("git_describe", git_describe(repo_root)),
             "resources": spec.get("code", {}).get("resources", {}),
             "images": spec.get("code", {}).get("images", {}),
-            "run_spec": spec,
+            "run_spec": _mask_secrets(spec),
         },
     )
     llm_tap = LlmTap()

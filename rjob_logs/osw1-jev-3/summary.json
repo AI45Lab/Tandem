@@ -1,0 +1,23 @@
+{
+  "run_id": "osw1-jev-3",
+  "benchmark": "osworld1",
+  "harness": {
+    "name": "tandem",
+    "mode": "planner_led"
+  },
+  "total": 1,
+  "scored": 1,
+  "failed_unscored": 0,
+  "average_score": 1.0,
+  "tasks": [
+    {
+      "task_id": "10a730d5-d414-4b40-b479-684bed1ae522",
+      "harness": "tandem 0.1.0",
+      "stop_reason": "done",
+      "steps": 4,
+      "status": "scored",
+      "score": 1.0,
+      "exception_type": null
+    }
+  ]
+}

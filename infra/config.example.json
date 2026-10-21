@@ -1,0 +1,46 @@
+{
+  "_comment": "模板：复制为 infra/config.json 并填入真实值（该文件已 gitignore）。",
+  "repo_root": "/mnt/shared-storage-user/adpc-share/chenxinquan/fastslow/tandem",
+  "deploy_root": "/mnt/shared-storage-user/adpc-share/chenxinquan/fastslow/tandem-deploy",
+  "results_root": "/mnt/shared-storage-user/adpc-share/chenxinquan/fastslow/tandem/rjob_logs",
+  "mounts": [
+    {
+      "source": "gpfs://gpfs2/evobox-share-gpfs2",
+      "target": "/mnt/shared-storage-user/evobox-share-gpfs2"
+    },
+    {
+      "source": "gpfs://gpfs2/adpc-share",
+      "target": "/mnt/shared-storage-user/adpc-share"
+    }
+  ],
+  "rjob": {
+    "charged_group": "evobox_proxy",
+    "private_machine": true,
+    "cpu": 4,
+    "memory": 16384,
+    "gpu": 0,
+    "image": "registry.h.pjlab.org.cn/ailab-evobox-evobox_cpu/weavebench:osworld-v2-rjob-openclaw-kimi-tasks-uploadfix-20260701"
+  },
+  "inner_image": "registry.h.pjlab.org.cn/ailab-evobox-evobox_cpu/weavebench:osworld-v2-inner-osworld-docker-socat-20260712",
+  "osw1_root": "/mnt/shared-storage-user/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/benchmarks/osworld1",
+  "osw1_vm": "/mnt/shared-storage-user/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/vm/osworld1/Ubuntu.qcow2",
+  "osw2_root": "/mnt/shared-storage-user/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/benchmarks/osworld2",
+  "osw2_vm": "/mnt/shared-storage-user/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/vm/osworld2/osworld-v2-ubuntu-x86.qcow2",
+  "asset_root": "/mnt/shared-storage-user/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/osworld2_0808/assets",
+  "kimi": {
+    "base_url": "https://your-kimi-endpoint/v1",
+    "api_key": "sk-xxx",
+    "model": "kimi-k3"
+  },
+  "jev_endpoint": "http://10.x.x.x:8891",
+  "kev_endpoint": "",
+  "registry": {
+    "auths": {
+      "registry.h.pjlab.org.cn": {
+        "auth": "<base64 user:pass>"
+      }
+    }
+  },
+  "jev_image_stage_write": "/mnt/shared-storage-user/evobox-share-gpfs2/chenxinquan/tandem_jev_images",
+  "jev_image_stage_read": "/mnt/shared-storage-gpfs2/evobox-share-gpfs2/chenxinquan/tandem_jev_images"
+}

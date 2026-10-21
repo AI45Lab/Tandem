@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import shutil
 import time
 import urllib.error
 import urllib.request
@@ -91,10 +93,29 @@ def build_choice_requests(
 
 
 class JevOmniPolicy:
-    def __init__(self, endpoint_file: Path, timeout_seconds: float = 300, opener=None):
-        self.endpoint_file = Path(endpoint_file)
+    def __init__(self, endpoint: str, timeout_seconds: float = 300, opener=None,
+                 image_stage: tuple[str, str] | None = None):
+        self.endpoint = str(endpoint).rstrip("/")
         self.timeout_seconds = timeout_seconds
         self.opener = opener or urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        # (写视角目录, JEV 宿主机读视角目录)：/rank 要求 image_path 在服务端可读，
+        # 截图本体在 adpc 时先暂存到 evobox 中转目录（按内容哈希命名去重）。
+        self.image_stage = image_stage
+
+    def _stage_screenshot(self, screenshot: Path | None):
+        """返回传给服务的 image_path：暂存开启时为 JEV 宿主机读视角路径，否则原样。"""
+        if not self.image_stage or screenshot is None:
+            return screenshot
+        source = Path(screenshot)
+        if not source.is_file():
+            return screenshot
+        digest = hashlib.sha256(source.read_bytes()).hexdigest()[:16]
+        write_dir, read_dir = self.image_stage
+        target = Path(write_dir) / f"{source.stem}_{digest}.png"
+        if not target.is_file():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, target)
+        return str(Path(read_dir) / target.name)
 
     def rank(
         self,
@@ -107,6 +128,7 @@ class JevOmniPolicy:
         recent_actions: list[dict[str, Any]],
         screenshot: Path | None = None,
     ) -> Ranking:
+        screenshot = self._stage_screenshot(screenshot)
         candidates = action_space.candidates()
         operation_request, action_requests = build_choice_requests(
             stage_goal=stage_goal,
@@ -122,12 +144,11 @@ class JevOmniPolicy:
             deadline = time.monotonic() + 1200
             while True:
                 try:
-                    endpoint = json.loads(self.endpoint_file.read_text(encoding="utf-8"))
-                    with self.opener.open(str(endpoint["base_url"]).rstrip("/") + "/", timeout=5) as response:
+                    with self.opener.open(self.endpoint + "/", timeout=5) as response:
                         if json.load(response).get("status") != "ok":
                             raise OSError("JEV health check failed")
                     request = urllib.request.Request(
-                        str(endpoint["base_url"]).rstrip("/") + "/rank",
+                        self.endpoint + "/rank",
                         data=json.dumps(
                             {
                                 "state": choice_request["state"],
@@ -142,14 +163,6 @@ class JevOmniPolicy:
                         payload = json.load(response)
                     break
                 except (OSError, json.JSONDecodeError) as error:
-                    if isinstance(error, FileNotFoundError):
-                        # endpoint 文件缺失（如挂载点不匹配导致符号链接断裂）是永久性错误，
-                        # 重试不可能恢复：立刻失败并给出可读信息。
-                        raise FileNotFoundError(
-                            f"JEV endpoint 文件不可读: {self.endpoint_file}"
-                            "（注意共享包内符号链接使用规范挂载点"
-                            " /mnt/shared-storage-gpfs2/evobox-share-gpfs2）"
-                        ) from error
                     if isinstance(error, urllib.error.HTTPError) or time.monotonic() >= deadline:
                         raise
                     print(

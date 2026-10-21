@@ -58,9 +58,9 @@ src/tandem/protocol/ 消息层协议：schema/ 真源、validate/ 校验、sampl
 src/tandem_eval/     worker 侧 6 文件（entry/env/runner/recorder/scoring/manifest）
                      + 开发机侧 rjob.py 生命周期客户端（DEVIATIONS #14）
 tests/               protocol/ harness/ eval/ 三组
-infra/worker.sh      rjob worker 入口（mock 即跑；真实基准 M3 接共享 env.sh+docker）
-infra/envs/          环境档案：双挂载（evobox 共享资源 + adpc 代码/结果），容器内挂载点与
-                     开发机路径一致，dev/rjob 两档案保留（rjob.json 携带共享资源寻址变量）
+infra/worker.sh      rjob worker 入口（mock 即跑；真实基准走共享 env.sh+docker）
+infra/config.json    唯一配置文件：全绝对路径（adpc/evobox 两卷在开发机与 worker 内挂载点
+                     一致），--config 指向它；无占位符、无多档案
 benchmarks/          任务清单（OSW1 指向共享目录 test_nogdrive.json = 361 题；OSW2 smoke 5 题）
 tools/               render_summary.py（demo 占位；完整 studio 后续平移）
 docs/                RESULT_DIR_CONTRACT.md（eval↔demo 唯一接口）

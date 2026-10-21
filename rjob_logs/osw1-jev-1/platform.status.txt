@@ -1,0 +1,3 @@
+10-21 12:12:12 [INFO] rjob tandem-osw1-jev-1: Succeeded
+10-21 12:12:12 [INFO]   |- task generated-task-0: 1 replicas {'active': 0, 'succeeded': 0, 'failed': 0, 'created_failed': 0, 'pending': 0}
+10-21 12:12:12 [INFO]        |- replica tandem-osw1-jev-1-g5qgz: SUCCEED, lg-cmc-h-cpu-0043.host.h.pjlab.org.cn

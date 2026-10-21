@@ -12,7 +12,6 @@ from tandem_eval.rjob import (
     build_job_spec,
     build_submit_args,
     cleanup,
-    expand_profile,
     fetch_artifacts,
     job_name,
     parse_status,
@@ -56,19 +55,19 @@ REAL_RUNNING = (
 )
 
 
-PROFILE_DEV = {
+CONFIG = {
     "deploy_root": "/dev-deploy",
     "results_root": "/dev-results",
     "rjob": {"charged_group": "evobox_proxy", "private_machine": True, "cpu": 4,
              "memory": 16384, "gpu": 0, "image": "reg.example/outer:1"},
     "mounts": [{"source": "gpfs://gpfs2/share", "target": "/mnt/share"}],
+    "osw1_root": "/shared/osw1", "osw1_vm": "/shared/vm1.qcow2",
+    "osw2_root": "/shared/osw2", "osw2_vm": "/shared/vm2.qcow2",
+    "asset_root": "/shared/assets", "jev_endpoint": "http://10.1.1.1:8891",
+    "kimi": {"base_url": "https://k.example/v1", "api_key": "sk-x", "model": "kimi-k3"},
+    "registry": {"auths": {"registry.h.pjlab.org.cn": {"auth": "xxx"}}},
+    "inner_image": "reg.example/inner:1",
 }
-PROFILE_RJOB = {"deploy_root": "/worker-deploy", "results_root": "/worker-results",
-                "osw1_root": "/worker/osw1", "osw1_vm": "/worker/vm1.qcow2",
-                "osw2_root": "/worker/osw2", "osw2_vm": "/worker/vm2.qcow2",
-                "asset_root": "/worker/assets", "jev_endpoint": "/worker/jev.json",
-                "kimi_config": "/worker/secrets/k.env",
-                "inner_image": "reg.example/inner:1"}
 
 
 def test_parse_status_variants():
@@ -90,31 +89,29 @@ def test_parse_status_real_captured_outputs():
     assert parse_status("task t: {'active': 1, 'failed': 0, 'pending': 0}") == "unknown"
 
 
-def test_expand_profile_placeholders():
-    raw = {"share_root": "/s", "user": "{share_root}/u", "nested": {"results": "{user}/r"}}
-    expanded = expand_profile(raw)
-    assert expanded["user"] == "/s/u"
-    assert expanded["nested"]["results"] == "/s/u/r"
-
-
 def test_submit_args_include_mount_and_worker_entrypoint():
-    args = build_submit_args(profile_dev=PROFILE_DEV, profile_rjob=PROFILE_RJOB, run_id="r1")
+    args = build_submit_args(config=CONFIG, run_id="r1")
     joined = " ".join(args)
     assert "--name=tandem-r1" in joined
     assert "--charged-group=evobox_proxy" in joined
     assert "--private-machine=group" in joined
     assert "--mount=gpfs://gpfs2/share:/mnt/share" in joined
     assert "--image=reg.example/outer:1" in joined
-    assert joined.endswith("/worker-deploy/infra/worker.sh /worker-deploy/job_specs/r1.json")
+    assert joined.endswith("/dev-deploy/infra/worker.sh /dev-deploy/job_specs/r1.json")
 
 
-def test_build_job_spec_uses_worker_view_paths(tmp_path):
-    profile_dev = dict(PROFILE_DEV, deploy_root=str(tmp_path / "deploy"))
-    spec = build_job_spec(profile_dev=profile_dev, profile_rjob=PROFILE_RJOB, run_id="r1",
+def test_build_job_spec_uses_config_paths(tmp_path):
+    config = dict(CONFIG, deploy_root=str(tmp_path / "deploy"),
+                  results_root=str(tmp_path / "results"))
+    spec = build_job_spec(config=config, run_id="r1",
                           repo_root=tmp_path, spec_overrides={"benchmark": "osworld1"})
-    assert spec["output_root"] == "/worker-results/r1"
-    assert spec["repo_root"] == "/worker-deploy"
+    assert spec["output_root"] == str(tmp_path / "results" / "r1")
+    assert spec["repo_root"] == str(tmp_path / "deploy")
     assert spec["benchmark"] == "osworld1"
+    assert spec["env"]["root"] == CONFIG["osw1_root"]
+    assert spec["secrets"]["jev_endpoint"] == CONFIG["jev_endpoint"]
+    assert spec["secrets"]["kimi"]["api_key"] == "sk-x"
+    assert spec["secrets"]["registry"]["auths"]
     written = json.loads((tmp_path / "deploy" / "job_specs" / "r1.json").read_text())
     assert written == spec
 
@@ -130,10 +127,8 @@ def test_watch_until_terminal_and_timeout():
 
 
 def test_run_job_full_lifecycle_submits_watches_fetches_cleans(tmp_path):
-    run_root = tmp_path / "dev-results" / "r1"
-    (run_root / "episodes").mkdir(parents=True)
-    (run_root / "summary.json").write_text("{}", encoding="utf-8")
-    profile_dev = dict(PROFILE_DEV, results_root=str(tmp_path / "dev-results"),
+    run_root = tmp_path / "rjob_logs" / "r1"  # 唯一落盘位置
+    config = dict(CONFIG, results_root=str(tmp_path / "rjob_logs"),
                        deploy_root=str(tmp_path / "deploy"))
     script = {
         "submit": ["submitted"],
@@ -142,33 +137,35 @@ def test_run_job_full_lifecycle_submits_watches_fetches_cleans(tmp_path):
         "stop": ["stopped"],
     }
     runner = FakeRunner(script)
-    result = run_job(profile_dev=profile_dev, profile_rjob=PROFILE_RJOB,
+    result = run_job(config=config,
                      repo_root=tmp_path, run_id="r1", spec_overrides={},
-                     client=RjobClient(runner), out_dir=tmp_path / "archive",
+                     client=RjobClient(runner),
                      poll_seconds=0, sleep=lambda _: None, sync=False)
     assert result["status"] == "succeeded"
+    assert result["run_root"] == str(run_root)
     submit_index = next(i for i, c in enumerate(runner.calls) if c[:2] == ["rjob", "submit"])
     delete_index = next(
         (i for i, c in enumerate(runner.calls[:submit_index]) if c[:2] == ["rjob", "delete"]), None)
     assert delete_index is not None, "提交前应先防御性 delete 同名残留"
     submit_call = runner.calls[submit_index]
     assert any(a.startswith("--mount=") for a in submit_call)
-    archive = tmp_path / "archive" / "tandem-r1"
-    assert (archive / "platform.tail.log").read_text() == "log-line"
-    assert (archive / "summary.json").is_file()
+    # 平台日志写进 run 目录本身（唯一落盘位置）
+    assert (run_root / "platform.tail.log").read_text() == "log-line"
+    assert (run_root / "platform.status.txt").is_file()
     assert any(c[:2] == ["rjob", "stop"] for c in runner.calls)
 
 
 def test_run_job_timeout_still_fetches_and_cleans(tmp_path):
-    profile_dev = dict(PROFILE_DEV, results_root=str(tmp_path / "dev-results"),
+    config = dict(CONFIG, results_root=str(tmp_path / "rjob_logs"),
                        deploy_root=str(tmp_path / "deploy"))
     runner = FakeRunner({"get": ["running"], "stop": ["stopped"],
                          "submit": ["ok"], "logs": ["log"]})
-    result = run_job(profile_dev=profile_dev, profile_rjob=PROFILE_RJOB,
+    result = run_job(config=config,
                      repo_root=tmp_path, run_id="r2", spec_overrides={},
-                     client=RjobClient(runner), out_dir=tmp_path / "archive",
+                     client=RjobClient(runner),
                      poll_seconds=0, timeout_seconds=0, sleep=lambda _: None, sync=False)
     assert result["status"] == "timeout"
+    assert (tmp_path / "rjob_logs" / "r2" / "platform.tail.log").is_file()
     assert any(c[:2] == ["rjob", "stop"] for c in runner.calls)
 
 
@@ -184,51 +181,56 @@ def test_cleanup_delete_flag(tmp_path):
     assert any(c[:2] == ["rjob", "delete"] for c in runner.calls)
 
 
-def test_fetch_artifacts_copies_run_dir(tmp_path):
+def test_fetch_artifacts_writes_platform_logs_into_run_root(tmp_path):
     run_root = tmp_path / "run"
     (run_root / "worker").mkdir(parents=True)
     (run_root / "worker" / "dockerd.log").write_text("d", encoding="utf-8")
     (run_root / "summary.json").write_text("{}", encoding="utf-8")
     runner = FakeRunner({"get": ["status"], "logs": ["logs"]})
-    out = fetch_artifacts(RjobClient(runner), "j", run_root, tmp_path / "arch")
-    assert (out / "worker" / "dockerd.log").is_file()
-    assert (out / "platform.status.txt").read_text() == "status"
+    out = fetch_artifacts(RjobClient(runner), "j", run_root)
+    assert out == run_root
+    assert (run_root / "platform.status.txt").read_text() == "status"
+    assert (run_root / "platform.tail.log").read_text() == "logs"
+    assert (run_root / "worker" / "dockerd.log").is_file()  # run 数据原样保留
     assert job_name("r1") == "tandem-r1"
 
 
 def test_fetch_artifacts_tolerates_cli_crash(tmp_path):
-    """rjob logs CLI 在日志未聚合时会崩（真机 2026-10-20）：错误写文件，镜像照常。"""
+    """rjob logs CLI 在日志未聚合时会崩（真机 2026-10-20）：错误写文件，run 数据照常。"""
     run_root = tmp_path / "run"
     (run_root / "worker").mkdir(parents=True)
     (run_root / "worker" / "entry.log").write_text("ok", encoding="utf-8")
     runner = FakeRunner({"get": [REAL_SUCCEEDED]}, fail_on={"logs"})
-    out = fetch_artifacts(RjobClient(runner), "j", run_root, tmp_path / "arch")
+    out = fetch_artifacts(RjobClient(runner), "j", run_root)
     tail = (out / "platform.tail.log").read_text(encoding="utf-8")
     assert "[rjob logs 失败" in tail and "NoneType" in tail
     assert (out / "worker" / "entry.log").is_file()  # 结果镜像不受影响
 
 
-def test_run_job_cleanup_survives_archive_failure(tmp_path):
-    """归档失败不得跳过 cleanup（资源泄漏）；错误记入 result。"""
-    blocker = tmp_path / "not-a-dir"
-    blocker.write_text("x", encoding="utf-8")  # out_dir 是文件 → mkdir 必败
-    profile_dev = dict(PROFILE_DEV, results_root=str(tmp_path / "dev-results"),
+def test_run_job_fetch_failure_never_skips_cleanup(tmp_path, monkeypatch):
+    """平台日志补写失败不得跳过 cleanup（资源泄漏）；错误记入 result。"""
+    config = dict(CONFIG, results_root=str(tmp_path / "rjob_logs"),
                        deploy_root=str(tmp_path / "deploy"))
-    runner = FakeRunner({"get": ["running", REAL_SUCCEEDED], "submit": ["ok"],
+    runner = FakeRunner({"get": [REAL_SUCCEEDED], "submit": ["ok"],
                          "logs": ["log"], "stop": ["stopped"]})
-    result = run_job(profile_dev=profile_dev, profile_rjob=PROFILE_RJOB,
+
+    def exploding_fetch(*args, **kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr("tandem_eval.rjob.fetch_artifacts", exploding_fetch)
+    result = run_job(config=config,
                      repo_root=tmp_path, run_id="r3", spec_overrides={},
-                     client=RjobClient(runner), out_dir=blocker,
+                     client=RjobClient(runner),
                      poll_seconds=0, sleep=lambda _: None, sync=False)
     assert result["status"] == "succeeded"
-    assert "archive_error" in result
+    assert "fetch_error" in result
     assert any(c[:2] == ["rjob", "stop"] for c in runner.calls)  # cleanup 仍然执行
 
 
 def test_env_section_seeds_setup_cache_for_osw1():
     from tandem_eval.rjob import _env_section
 
-    section = _env_section("osworld1", PROFILE_RJOB)
-    assert section["root"] == "/worker/osw1"
-    assert section["setup_cache_root"] == "/worker/osw1/cache"
-    assert "setup_cache_root" not in _env_section("osworld2", PROFILE_RJOB)
+    section = _env_section("osworld1", CONFIG)
+    assert section["root"] == "/shared/osw1"
+    assert section["setup_cache_root"] == "/shared/osw1/cache"
+    assert "setup_cache_root" not in _env_section("osworld2", CONFIG)

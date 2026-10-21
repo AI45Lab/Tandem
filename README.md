@@ -23,10 +23,10 @@ Tandem harness ──Observation/Action/Receipt（消息层协议 v0.1）──�
 
 ```bash
 tandem-eval rjob run --run-id demo-1 --benchmark mock \
-  --repo . --dev-env infra/envs/dev.json --rjob-env infra/envs/rjob.json \
-  --out-dir rjob_logs --poll 30
+  --repo . --config infra/config.json --poll 30
 # 自动：rsync 部署副本 → 写 job spec → rjob submit（挂载 gpfs2）→ 轮询至终态
-#      → 归档平台日志+结果目录到 rjob_logs/tandem-demo-1/ → rjob stop 收尾
+#      → 平台日志补写进 run 目录 → rjob stop 收尾
+# 唯一落盘位置：rjob_logs/<run_id>/（worker 直写 + 平台日志，无其它副本）
 ```
 
 ## 快速开始

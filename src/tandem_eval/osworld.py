@@ -37,23 +37,6 @@ from tandem.protocol.models import (
 RECEIPT_TAIL = 12000
 
 
-def load_credentials(path: str | Path, *, default_model: str = "kimi-k3") -> dict:
-    """凭据文件双格式：JSON {base_url, api_key, model?} 或 .env KEY=VALUE（取 OPENAI_*）。"""
-    text = Path(path).read_text(encoding="utf-8")
-    stripped = text.lstrip()
-    if stripped.startswith("{"):
-        value = json.loads(stripped)
-    else:
-        value = dict(
-            part.split("=", 1) for part in stripped.splitlines() if "=" in part and not part.startswith("#")
-        )
-        base = value.get("OPENAI_BASE_URL") or value.get("WEAVEBENCH_LITELLM_BASE_URL")
-        key = value.get("OPENAI_API_KEY") or value.get("WEAVEBENCH_LITELLM_KEY")
-        value = {"base_url": base, "api_key": key}
-    value.setdefault("model", default_model)
-    return value
-
-
 def png_size(data: bytes) -> tuple[int, int]:
     width, height = struct.unpack(">II", data[16:24])
     return width, height

@@ -21,7 +21,7 @@ if [ "$BENCHMARK" = "mock" ]; then
 fi
 
 # ---- 真实基准：共享资源 + docker 准备 ----
-SHARED_ENV="${SA_CUA_SHARED_ENV:-/mnt/shared-storage-gpfs2/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/env.sh}"
+SHARED_ENV="${SA_CUA_SHARED_ENV:-/mnt/shared-storage-user/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/env.sh}"
 if [ ! -f "$SHARED_ENV" ]; then
   echo "缺少共享资源 env.sh: $SHARED_ENV" | tee "$OUTPUT_ROOT/worker/entry.log" >&2
   exit 3
@@ -29,11 +29,16 @@ fi
 # shellcheck disable=SC1090
 source "$SHARED_ENV"
 
-REGISTRY_SECRET="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["secrets"].get("registry_secret") or "")' "$SPEC")"
-if [ -z "$REGISTRY_SECRET" ] || [ ! -f "$REGISTRY_SECRET" ]; then
-  echo "缺少 registry 凭据: ${REGISTRY_SECRET:-<未配置>}" | tee "$OUTPUT_ROOT/worker/entry.log" >&2
-  exit 3
-fi
+mkdir -p "$HOME/.docker"
+python3 -c '
+import json, sys, pathlib
+registry = json.load(open(sys.argv[1]))["secrets"].get("registry")
+if not registry:
+    print("缺少 registry 凭据（config.json 的 registry 段为空）", file=sys.stderr); raise SystemExit(3)
+pathlib.Path.home().joinpath(".docker/config.json").write_text(json.dumps(registry))' "$SPEC" || {
+  cat "$OUTPUT_ROOT/worker/entry.log" 2>/dev/null
+  echo "registry 凭据写入失败" | tee -a "$OUTPUT_ROOT/worker/entry.log" >&2; exit 3; }
+chmod 600 "$HOME/.docker/config.json"
 
 INNER_IMAGE="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["code"]["images"]["inner"])' "$SPEC")"
 # 平台可能预注入不可用的代理（真机 2026-10-20：httpproxy-headless-dev-test 无法解析），
@@ -42,10 +47,6 @@ PROXY="http://httpproxy-headless.kubebrain.svc.pjlab.local:3128"
 export HTTP_PROXY="$PROXY" HTTPS_PROXY="$PROXY" http_proxy="$PROXY" https_proxy="$PROXY"
 export NO_PROXY='10.0.0.0/8,100.96.0.0/12,localhost,127.0.0.1,.pjlab.org.cn'
 export no_proxy="$NO_PROXY"
-
-mkdir -p "$HOME/.docker"
-cp "$REGISTRY_SECRET" "$HOME/.docker/config.json"
-chmod 600 "$HOME/.docker/config.json"
 
 DOCKER_ROOT="$(mktemp -d /tmp/tandem-docker.XXXXXX)"
 dockerd --host=unix:///var/run/docker.sock \

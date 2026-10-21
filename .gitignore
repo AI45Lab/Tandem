@@ -12,3 +12,4 @@ htmlcov/
 episodes/
 results/
 *.log
+infra/config.json

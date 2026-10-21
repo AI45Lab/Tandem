@@ -44,9 +44,8 @@ class FakeOpener:
 
 
 def _policy(tmp_path: Path, opener) -> JevOmniPolicy:
-    endpoint = tmp_path / "endpoint.json"
-    endpoint.write_text(json.dumps({"base_url": "http://jev-fake"}), encoding="utf-8")
-    return JevOmniPolicy(endpoint, timeout_seconds=5, opener=opener)
+    del tmp_path
+    return JevOmniPolicy("http://jev-fake", timeout_seconds=5, opener=opener)
 
 
 def test_rank_picks_highest_scored_candidate(tmp_path):
@@ -191,14 +190,32 @@ def test_compile_unsupported_returns_none():
     assert gui_action(click_without_target, None) is None
 
 
-def test_rank_fails_fast_on_missing_endpoint_file(tmp_path):
-    """endpoint 文件缺失（挂载点断裂）必须立刻失败，而非 20 分钟静默恢复循环。"""
-    from tandem.selector import JevOmniPolicy
+def test_rank_stages_screenshot_to_read_view_path(tmp_path, monkeypatch):
+    """截图暂存：adpc 侧截图复制到 evobox 写目录，payload 传 JEV 读视角路径。"""
+    write_dir = tmp_path / "evobox-write" / "stage"
+    read_dir = "/mnt/shared-storage-gpfs2/fake-read/stage"
+    shot = tmp_path / "adpc" / "step_00.png"
+    shot.parent.mkdir(parents=True)
+    shot.write_bytes(b"png")
 
+    captured = {}
+
+    class CaptureOpener:
+        def open(self, request, timeout=None):
+            url = getattr(request, "full_url", request)
+            if str(url).endswith("/"):
+                return FakeResponse({"status": "ok"})
+            captured["payload"] = json.loads(request.data.decode("utf-8"))
+            return FakeResponse({"scores": [1.0], "used_image": True})
+
+    policy = JevOmniPolicy("http://jev-fake", timeout_seconds=5, opener=CaptureOpener(),
+                           image_stage=(str(write_dir), read_dir))
     targets = build_targets()
     space = build_space(targets)
-    missing = tmp_path / "nonexistent" / "endpoint.json"
-    policy = JevOmniPolicy(missing, timeout_seconds=5)
-    with pytest.raises(FileNotFoundError, match="JEV endpoint"):
-        policy.rank(stage_goal="t", intent="i", active_window="", targets=targets,
-                    action_space=space, recent_actions=[])
+    space.target_heads = {"click": space.target_heads["click"][:1]}
+    space.controls = {}
+    policy.rank(stage_goal="t", intent="i", active_window="", targets=targets,
+                action_space=space, recent_actions=[], screenshot=shot)
+    staged = list(write_dir.glob("step_00_*.png"))
+    assert len(staged) == 1 and staged[0].read_bytes() == b"png"
+    assert captured["payload"]["image_path"].startswith(read_dir + "/step_00_")

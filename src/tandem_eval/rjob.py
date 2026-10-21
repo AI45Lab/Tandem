@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import json
 import re
-import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -92,36 +91,22 @@ def parse_status(get_output: str) -> str:
     return "unknown"
 
 
-def _expand_nested(node, snapshot: dict):
-    if isinstance(node, str):
-        out = node
-        for name, ref in snapshot.items():
-            out = out.replace("{" + name + "}", str(ref))
-        return out
-    if isinstance(node, dict):
-        return {key: _expand_nested(value, snapshot) for key, value in node.items()}
-    if isinstance(node, list):
-        return [_expand_nested(value, snapshot) for value in node]
-    return node
+REQUIRED_CONFIG_KEYS = (
+    "repo_root", "deploy_root", "results_root", "mounts", "rjob", "inner_image",
+    "osw1_root", "osw1_vm", "osw2_root", "osw2_vm", "asset_root",
+    "kimi", "jev_endpoint", "registry",
+)
 
 
-def expand_profile(raw: dict) -> dict:
-    """迭代展开 {placeholder}：顶层标量构成命名空间，嵌套 dict/list 用同一命名空间展开。"""
-    expanded = dict(raw)
-    for _ in range(5):
-        snapshot = {k: v for k, v in expanded.items() if isinstance(v, (str, int, float))}
-        changed = False
-        for key, value in list(expanded.items()):
-            resolved = _expand_nested(value, snapshot)
-            if resolved != value:
-                expanded[key], changed = resolved, True
-        if not changed:
-            break
-    return expanded
-
-
-def load_profile(path: str | Path) -> dict:
-    return expand_profile(json.loads(Path(path).read_text(encoding="utf-8")))
+def load_config(path: str | Path) -> dict:
+    """加载唯一配置文件（infra/config.json）：全绝对路径，开发机与 worker 内一致。"""
+    config = json.loads(Path(path).read_text(encoding="utf-8"))
+    missing = [key for key in REQUIRED_CONFIG_KEYS if key not in config]
+    if missing:
+        raise RjobError(f"配置缺少必填键: {missing}（见 infra/config.json）")
+    if not config["rjob"].get("image"):
+        raise RjobError("配置 rjob.image 不能为空")
+    return config
 
 
 def sync_repo(repo_root: Path, deploy_root_dev: Path) -> None:
@@ -139,52 +124,65 @@ def job_name(run_id: str) -> str:
     return f"tandem-{run_id}"
 
 
-def _env_section(benchmark: str, profile_rjob: dict) -> dict:
+def _env_section(benchmark: str, config: dict) -> dict:
     if benchmark == "osworld1":
-        return {"root": profile_rjob["osw1_root"], "vm": profile_rjob["osw1_vm"],
-                "setup_cache_root": str(Path(profile_rjob["osw1_root"]) / "cache"),
+        return {"root": config["osw1_root"], "vm": config["osw1_vm"],
+                "setup_cache_root": str(Path(config["osw1_root"]) / "cache"),
                 "startup_wait_seconds": 30}
     if benchmark == "osworld2":
-        return {"root": profile_rjob["osw2_root"], "vm": profile_rjob["osw2_vm"],
-                "asset_root": profile_rjob["asset_root"], "startup_wait_seconds": 30}
+        return {"root": config["osw2_root"], "vm": config["osw2_vm"],
+                "asset_root": config["asset_root"], "startup_wait_seconds": 30}
     return {}
 
 
-def _secrets_section(benchmark: str, profile_rjob: dict) -> dict:
+def _secrets_section(benchmark: str, config: dict) -> dict:
     if benchmark not in {"osworld1", "osworld2"}:
         return {}
-    return {
-        "kimi_config": profile_rjob["kimi_config"],
-        "kimi_model": profile_rjob.get("kimi_model", "kimi-k3"),
-        "jev_endpoint": profile_rjob["jev_endpoint"],
-        "registry_secret": profile_rjob.get("registry_secret"),
+    section = {
+        "kimi": dict(config["kimi"]),
+        "jev_endpoint": config["jev_endpoint"],
+        "registry": config.get("registry"),
     }
+    if config.get("kev_endpoint"):
+        section["kev_endpoint"] = config["kev_endpoint"]
+    return section
 
 
-def build_job_spec(*, profile_dev: dict, profile_rjob: dict, run_id: str,
-                   repo_root: Path, spec_overrides: dict) -> dict:
-    """组装 job spec（worker 视角路径）并写入部署副本（dev 视角）job_specs/<run_id>.json。"""
+def _jev_section(config: dict) -> dict:
+    """JEV 截图中转目录（服务端要求 image_path 在其宿主机可读；截图本体在 adpc，
+    排序前由 harness 暂存到 evobox 并传规范路径）。"""
+    write_root = config.get("jev_image_stage_write")
+    read_root = config.get("jev_image_stage_read")
+    if write_root and read_root:
+        return {"image_stage_write": write_root, "image_stage_read": read_root}
+    return {}
+
+
+def build_job_spec(*, config: dict, run_id: str, repo_root: Path,
+                   spec_overrides: dict) -> dict:
+    """组装 job spec 并写入部署副本 job_specs/<run_id>.json（路径两侧一致，无视角换算）。"""
     benchmark = spec_overrides.get("benchmark", "mock")
     spec = {
         "run_id": run_id,
-        "repo_root": profile_rjob["deploy_root"],
-        "output_root": str(Path(profile_rjob["results_root"]) / run_id),
+        "repo_root": config["deploy_root"],
+        "output_root": str(Path(config["results_root"]) / run_id),
         "benchmark": benchmark,
-        "env": _env_section(benchmark, profile_rjob),
-        "secrets": _secrets_section(benchmark, profile_rjob),
+        "env": _env_section(benchmark, config),
+        "secrets": _secrets_section(benchmark, config),
+        "jev": _jev_section(config),
         "harness": {"name": "tandem", "mode": "planner_led"},
         "budget": {"max_steps": 15, "max_wall_seconds": 900},
         "record": {"a11y_full": False},
         "code": {
             "git_describe": _git_describe(repo_root),
             "images": {
-                "outer": profile_dev.get("rjob", {}).get("image"),
-                "inner": profile_rjob.get("inner_image"),
+                "outer": config["rjob"]["image"],
+                "inner": config["inner_image"],
             },
         },
         **spec_overrides,
     }
-    spec_dir = Path(profile_dev["deploy_root"]) / "job_specs"
+    spec_dir = Path(config["deploy_root"]) / "job_specs"
     spec_dir.mkdir(parents=True, exist_ok=True)
     (spec_dir / f"{run_id}.json").write_text(
         json.dumps(spec, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -202,8 +200,8 @@ def _git_describe(repo_root: Path) -> str:
         return "unknown"
 
 
-def build_submit_args(*, profile_dev: dict, profile_rjob: dict, run_id: str) -> list[str]:
-    rjob_conf = profile_dev.get("rjob", {})
+def build_submit_args(*, config: dict, run_id: str) -> list[str]:
+    rjob_conf = config["rjob"]
     args = [
         f"--name={job_name(run_id)}",
         f"--charged-group={rjob_conf.get('charged_group', 'evobox_proxy')}",
@@ -219,11 +217,11 @@ def build_submit_args(*, profile_dev: dict, profile_rjob: dict, run_id: str) -> 
         "--auto-restart", "false",
         "--privileged", "true",
     ]
-    for mount in profile_dev.get("mounts", []):
+    for mount in config.get("mounts", []):
         args.append(f"--mount={mount['source']}:{mount['target']}")
-    deploy_rjob = profile_rjob["deploy_root"]
-    args += ["--", "bash", f"{deploy_rjob}/infra/worker.sh",
-             f"{deploy_rjob}/job_specs/{run_id}.json"]
+    deploy = config["deploy_root"]
+    args += ["--", "bash", f"{deploy}/infra/worker.sh",
+             f"{deploy}/job_specs/{run_id}.json"]
     return args
 
 
@@ -240,32 +238,26 @@ def watch(client: RjobClient, name: str, *, poll_seconds: float = 60,
         sleep(poll_seconds)
 
 
-def fetch_artifacts(client: RjobClient, name: str, run_root_dev: Path,
-                    out_dir: Path, *, tail_lines: int = 500) -> Path:
-    """平台状态/日志 + 结果目录（开发机视角）归档到 out_dir/<job>/。
+def fetch_artifacts(client: RjobClient, name: str, run_root: Path,
+                    *, tail_lines: int = 500) -> Path:
+    """把平台状态/日志写进 run 目录本身（唯一落盘位置 = rjob_logs/<run_id>）。
 
     平台命令失败不致命（rjob logs 在日志未聚合时 CLI 自身会崩，见 DEVIATIONS #19）：
-    错误文本写入对应归档文件后继续，结果目录镜像不受影响。
+    错误文本写入对应文件后继续。
     """
-    out = out_dir / name
-    if out.exists():
-        shutil.rmtree(out)
-    out.mkdir(parents=True)
+    run_root.mkdir(parents=True, exist_ok=True)
     try:
-        (out / "platform.status.txt").write_text(client.get(name), encoding="utf-8")
+        (run_root / "platform.status.txt").write_text(client.get(name), encoding="utf-8")
     except RjobError as error:
-        (out / "platform.status.txt").write_text(f"[rjob get 失败]\n{error}", encoding="utf-8")
+        (run_root / "platform.status.txt").write_text(f"[rjob get 失败]\n{error}", encoding="utf-8")
     try:
-        (out / "platform.tail.log").write_text(
+        (run_root / "platform.tail.log").write_text(
             client.logs(name, tail_lines=tail_lines), encoding="utf-8"
         )
     except RjobError as error:
-        (out / "platform.tail.log").write_text(f"[rjob logs 失败，日志可能未聚合]\n{error}",
-                                               encoding="utf-8")
-    if run_root_dev.is_dir():
-        # 完整镜像 run 目录（结果/截图/worker 日志全部本地化，rjob_logs 即自包含副本）
-        shutil.copytree(run_root_dev, out, dirs_exist_ok=True)
-    return out
+        (run_root / "platform.tail.log").write_text(f"[rjob logs 失败，日志可能未聚合]\n{error}",
+                                                    encoding="utf-8")
+    return run_root
 
 
 def cleanup(client: RjobClient, name: str, *, delete: bool = False) -> None:
@@ -281,24 +273,27 @@ def cleanup(client: RjobClient, name: str, *, delete: bool = False) -> None:
             pass
 
 
-def run_job(*, profile_dev: dict, profile_rjob: dict, repo_root: Path, run_id: str,
+def run_job(*, config: dict, repo_root: Path, run_id: str,
             spec_overrides: dict | None = None, client: RjobClient | None = None,
-            out_dir: Path, poll_seconds: float = 60, timeout_seconds: float | None = None,
+            poll_seconds: float = 60, timeout_seconds: float | None = None,
             keep: bool = False, delete: bool = False, sleep=time.sleep, sync: bool = True) -> dict:
-    """一站式：sync → spec → submit → watch → fetch → cleanup。"""
+    """一站式：sync → spec → submit → watch → fetch → cleanup。
+
+    唯一落盘位置 = results_root/<run_id>（= tandem/rjob_logs/<run_id>）：
+    worker 直接写 run 目录（adpc 挂载），平台日志由 fetch 补写进同一目录。
+    """
     spec_overrides = spec_overrides or {}
     client = client or RjobClient()
     if sync:
-        sync_repo(repo_root, Path(profile_dev["deploy_root"]))
-    build_job_spec(profile_dev=profile_dev, profile_rjob=profile_rjob, run_id=run_id,
+        sync_repo(repo_root, Path(config["deploy_root"]))
+    build_job_spec(config=config, run_id=run_id,
                    repo_root=repo_root, spec_overrides=spec_overrides)
     name = job_name(run_id)
     try:
         client.delete(name)  # 防御性清理同名残留（旧脚本同款；不存在时忽略）
     except RjobError:
         pass
-    client.submit(build_submit_args(profile_dev=profile_dev, profile_rjob=profile_rjob,
-                                    run_id=run_id))
+    client.submit(build_submit_args(config=config, run_id=run_id))
     result = {"job": name, "run_id": run_id}
     try:
         result["status"] = watch(client, name, poll_seconds=poll_seconds,
@@ -307,11 +302,12 @@ def run_job(*, profile_dev: dict, profile_rjob: dict, repo_root: Path, run_id: s
         result["status"], result["error"] = "timeout", str(error)
     finally:
         # fetch 失败不得阻断 cleanup（否则资源泄漏）；错误记入 result 继续
-        run_root_dev = Path(profile_dev["results_root"]) / run_id
+        run_root = Path(config["results_root"]) / run_id
+        result["run_root"] = str(run_root)
         try:
-            result["archive"] = str(fetch_artifacts(client, name, run_root_dev, out_dir))
-        except Exception as error:  # 归档尽力而为：结果正本仍在 results_root
-            result["archive_error"] = f"{type(error).__name__}: {error}"
+            fetch_artifacts(client, name, run_root)
+        except Exception as error:  # 平台日志补写尽力而为：run 数据正本已在该目录
+            result["fetch_error"] = f"{type(error).__name__}: {error}"
         if not keep:
             cleanup(client, name, delete=delete)
     return result

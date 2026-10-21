@@ -1,0 +1,59 @@
+Client:
+ Version:    29.1.3
+ Context:    default
+ Debug Mode: false
+ Plugins:
+  trust: Manage trust on Docker images (Docker Inc.)
+    Version:  29.1.3
+    Path:     /usr/libexec/docker/cli-plugins/docker-trust
+
+Server:
+ Containers: 0
+  Running: 0
+  Paused: 0
+  Stopped: 0
+ Images: 0
+ Server Version: 29.1.3
+ Storage Driver: overlayfs
+  driver-type: io.containerd.snapshotter.v1
+ Logging Driver: json-file
+ Cgroup Driver: cgroupfs
+ Cgroup Version: 1
+ Plugins:
+  Volume: local
+  Network: bridge host ipvlan macvlan null overlay
+  Log: awslogs fluentd gcplogs gelf journald json-file local splunk syslog
+ CDI spec directories:
+  /etc/cdi
+  /var/run/cdi
+ Swarm: inactive
+ Runtimes: runc io.containerd.runc.v2
+ Default Runtime: runc
+ Init Binary: docker-init
+ containerd version: 
+ runc version: 
+ init version: 
+ Security Options:
+  seccomp
+   Profile: builtin
+ Kernel Version: 5.15.0-174-generic
+ Operating System: Ubuntu 24.04.4 LTS (containerized)
+ OSType: linux
+ Architecture: x86_64
+ CPUs: 4
+ Total Memory: 16GiB
+ Name: rjob-8d5e9b24e17e72a2-8d40ed70322922d2-0
+ ID: 31ed557b-9f79-4987-a072-ad5670e140b2
+ Docker Root Dir: /tmp/tandem-docker.K456s6/data
+ Debug Mode: false
+ HTTP Proxy: http://httpproxy-headless.kubebrain.svc.pjlab.local:3128
+ HTTPS Proxy: http://httpproxy-headless.kubebrain.svc.pjlab.local:3128
+ No Proxy: 10.0.0.0/8,100.96.0.0/12,localhost,127.0.0.1,.pjlab.org.cn
+ Experimental: false
+ Insecure Registries:
+  ::1/128
+  127.0.0.0/8
+ Live Restore Enabled: false
+ Firewall Backend: iptables
+
+WARNING: Support for cgroup v1 is deprecated and planned to be removed by no later than May 2029 (https://github.com/moby/moby/issues/51111)
