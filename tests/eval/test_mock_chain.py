@@ -136,3 +136,14 @@ def test_session_events_drained_to_events_jsonl(tmp_path):
     assert "operation_request" in ranking and "action_ranked" in ranking
     assert "winner" in ranking and ranking["winner"] is not None
     assert "terminal" in routes
+
+
+def test_events_not_duplicated_across_steps(tmp_path):
+    """排水游标必须推进：否则每次 act 重写全部历史事件（kev-5 的 45 条 planner 事件实为 ~9 次）。"""
+    run_from_spec(_spec(tmp_path))
+    import glob
+    events_file = glob.glob(str(tmp_path / "run" / "episodes" / "*" / "events.jsonl"))[0]
+    events = [json.loads(line) for line in open(events_file)]
+    planner_events = [e for e in events if e.get("route") == "planner"]
+    # mock 链路：第一题 1 次 planner（click）+ 1 次（done）= 2；重复排水会得到 3+
+    assert len(planner_events) == 2, [e for e in planner_events]

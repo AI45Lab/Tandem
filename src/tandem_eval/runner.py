@@ -30,8 +30,10 @@ def run_episode(env, session: TandemSession, recorder: EpisodeRecorder, task: di
     events_start = len(session.events)  # 本题事件起点：act 后增量落盘（planner/JEV/验证）
 
     def drain_events() -> None:
+        nonlocal events_start
         for event in session.events[events_start:]:
             recorder.event(event)
+        events_start = len(session.events)
 
     while True:
         budget = budget_of(
