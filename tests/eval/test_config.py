@@ -23,8 +23,8 @@ def test_repo_config_loads_and_is_absolute():
     assert set(config["kimi"]) >= {"base_url", "api_key", "model"}
     # endpoint 允许为空（= 从 *_endpoint_file 发现文件自动解析）
     assert isinstance(config["jev_endpoint"], str)
-    assert config["jev_endpoint_file"].endswith("services/jev_endpoint.json")
-    assert config["kev_endpoint_file"].endswith("services/kev_endpoint.json")
+    assert config["jev_endpoint_file"].endswith("services/qwen_jev.json")
+    assert config["kev_endpoint_file"].endswith("services/kev.json")
     assert "auths" in config["registry"]
     assert config["results_root"].endswith("tandem/rjob_logs")
     assert config["repo_root"].endswith("/tandem")
@@ -104,3 +104,19 @@ def test_kev_endpoint_discovery_via_shared_services_file(tmp_path):
     f.write_text(json.dumps({"base_url": "http://10.8.8.8:8008/"}), encoding="utf-8")
     assert resolve_selector_endpoint(
         {"kev_endpoint": "", "kev_endpoint_file": str(f)}, "kev") == "http://10.8.8.8:8008"
+
+
+def test_endpoint_file_respects_readiness_flag(tmp_path):
+    """发现文件标记未就绪时快速失败，不调用半启动的服务。"""
+    import pytest as _pytest
+
+    from tandem_eval.entry import read_endpoint_file
+
+    f = tmp_path / "svc.json"
+    f.write_text(json.dumps({"status": "starting", "ready": False,
+                             "base_url": "http://1.1.1.1:1"}), encoding="utf-8")
+    with _pytest.raises(ValueError, match="未就绪"):
+        read_endpoint_file(str(f))
+    f.write_text(json.dumps({"status": "ready", "ready": True,
+                             "base_url": "http://2.2.2.2:2"}), encoding="utf-8")
+    assert read_endpoint_file(str(f)) == "http://2.2.2.2:2"

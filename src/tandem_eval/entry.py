@@ -52,7 +52,14 @@ def read_endpoint_file(path: str) -> str:
             data = json.loads(candidate.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
-        base_url = data.get("base_url") if isinstance(data, dict) else None
+        if not isinstance(data, dict):
+            continue
+        if data.get("ready") is False or data.get("status") not in (None, "ready"):
+            raise ValueError(
+                f"发现文件 {candidate} 显示服务未就绪（status={data.get('status')!r}, "
+                f"ready={data.get('ready')!r}），稍后重跑或检查服务部署"
+            )
+        base_url = data.get("base_url")
         if base_url:
             return str(base_url).rstrip("/")
     raise ValueError(
