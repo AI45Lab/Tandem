@@ -29,6 +29,8 @@ def main(argv: list[str] | None = None) -> int:
     run_cmd.add_argument("--benchmark", default="mock", choices=["mock", "osworld1", "osworld2"])
     run_cmd.add_argument("--tasks", default="", help="逗号分隔 task id（覆盖 manifest）")
     run_cmd.add_argument("--limit", type=int, default=None, help="清单截取数量")
+    run_cmd.add_argument("--shard", default=None, metavar="I/N",
+                         help="把（limit 后的）清单交错切成 N 片，本 run 跑第 I 片（1 起）")
     run_cmd.add_argument("--max-steps", type=int, default=None, help="步数预算")
     run_cmd.add_argument("--max-wall", type=float, default=None, help="墙钟预算（秒）")
     run_cmd.add_argument("--allow-cli", choices=["true", "false"], default=None,
@@ -70,6 +72,9 @@ def main(argv: list[str] | None = None) -> int:
             manifest["tasks"] = [item.strip() for item in args.tasks.split(",") if item.strip()]
         if args.limit:
             manifest["limit"] = args.limit
+        if args.shard:
+            index_text, total_text = args.shard.split("/", 1)
+            manifest["shard"] = {"index": int(index_text), "total": int(total_text)}
         if manifest:
             overrides["manifest"] = manifest
         harness_config: dict = {}

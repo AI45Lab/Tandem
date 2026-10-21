@@ -64,3 +64,17 @@ def test_write_resolved(tmp_path):
     assert data["count"] == 2
     assert data["tasks"][0]["episode_dir"] == "chrome-a"
     assert data["tasks"][1]["episode_dir"] == "b"
+
+
+def test_shard_interleaves_after_limit():
+    spec = {"benchmark": "mock", "manifest": {
+        "tasks": [f"t{i}" for i in range(20)], "limit": 10,
+        "shard": {"index": 1, "total": 5}}}
+    refs = resolve_manifest(spec)
+    assert [r.task_id for r in refs] == ["t0", "t5"]  # 10 题 → 交错 5 片各 2 题
+    spec["manifest"]["shard"] = {"index": 5, "total": 5}
+    assert [r.task_id for r in resolve_manifest(spec)] == ["t4", "t9"]
+    spec["manifest"]["shard"] = {"index": 6, "total": 5}
+    import pytest as _pytest
+    with _pytest.raises(ValueError, match="1..5"):
+        resolve_manifest(spec)

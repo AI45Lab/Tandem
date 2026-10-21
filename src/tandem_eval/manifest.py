@@ -62,6 +62,12 @@ def resolve_manifest(spec: dict) -> list[TaskRef]:
     limit = manifest.get("limit")
     if isinstance(limit, int) and limit > 0:
         refs = refs[:limit]
+    shard = manifest.get("shard")
+    if isinstance(shard, dict) and shard.get("total", 0) > 0:
+        index, total = int(shard["index"]), int(shard["total"])
+        if not 1 <= index <= total:
+            raise ValueError(f"shard.index 必须在 1..{total}（收到 {index}）")
+        refs = refs[index - 1::total]  # 交错切片：先 limit 后 shard
     return refs
 
 
