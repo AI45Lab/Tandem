@@ -409,3 +409,45 @@ def test_kimi_retries_escalate_reasoning_effort_on_empty_content(tmp_path):
         assert payloads[1]["reasoning_effort"] == "medium"
     finally:
         urllib.request.urlopen = original
+
+
+def test_extract_json_object_salvages_prose_wrapped_answers():
+    from tandem.providers import extract_json_object
+
+    assert extract_json_object('```json\n{"done": true}\n```') == {"done": True}
+    assert extract_json_object('Sure! Here is my plan:\n{"done": false, "route": "cli"}') == {
+        "done": False, "route": "cli"}
+    assert extract_json_object("The fixes were applied and saved, but I want to verify.") is None
+    assert extract_json_object('{"a": {"b": 1}} trailing') == {"a": {"b": 1}}
+
+
+def test_kimi_accepts_prose_wrapped_json(tmp_path):
+    """正文 = 围栏外有叙述 + 合法 JSON：不再 JSONDecodeError，直接采纳。"""
+    import urllib.request
+
+    from tandem.config import SessionConfig
+    from tandem.providers import KimiClient
+
+    class _Resp:
+        status, headers = 200, {}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def read(self):
+            return json.dumps({
+                "choices": [{"message": {"content": 'Plan follows:\n```json\n{"done": true}\n```'},
+                              "finish_reason": "stop"}],
+            }).encode()
+
+    original = urllib.request.urlopen
+    urllib.request.urlopen = lambda request, timeout=None: _Resp()
+    try:
+        client = KimiClient({"base_url": "http://x"}, SessionConfig(), tmp_path / "a.jsonl")
+        assert client.json_request([{"role": "user", "content": "hi"}],
+                                   lambda v: v == {"done": True}, role="r") == {"done": True}
+    finally:
+        urllib.request.urlopen = original

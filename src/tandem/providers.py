@@ -13,6 +13,41 @@ from pathlib import Path
 _REASON_EFFORT_LADDER = {"low": "medium", "medium": "high"}
 
 
+def extract_json_object(text: str):
+    """从模型正文中抢救 JSON：剥围栏后，若剩余文本不是纯 JSON，抽取首个平衡的 {…}。
+    返回解析后的 dict；无 JSON 或解析失败返回 None。"""
+    stripped = text.strip()
+    for prefix in ("```json", "```"):
+        if stripped.startswith(prefix):
+            stripped = stripped[len(prefix):]
+    if stripped.rstrip().endswith("```"):
+        stripped = stripped.rstrip()[:-3]
+    stripped = stripped.strip()
+    try:
+        value = json.loads(stripped)
+        return value if isinstance(value, dict) else None
+    except ValueError:
+        pass
+    start = stripped.find("{")
+    while start != -1:
+        depth = 0
+        for index in range(start, len(stripped)):
+            if stripped[index] == "{":
+                depth += 1
+            elif stripped[index] == "}":
+                depth -= 1
+                if depth == 0:
+                    try:
+                        value = json.loads(stripped[start:index + 1])
+                        if isinstance(value, dict):
+                            return value
+                    except ValueError:
+                        break
+                    break
+        start = stripped.find("{", start + 1)
+    return None
+
+
 class KimiClient:
     def __init__(self, credential_file, config, audit_path: Path, llm_sink=None):
         if isinstance(credential_file, dict):
@@ -129,10 +164,10 @@ class KimiClient:
                         "Kimi returned empty content (all completion tokens stayed in the "
                         "reasoning channel); escalating reasoning_effort for the next attempt"
                     )
-                value = json.loads(
-                    content.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
-                )
-                if not isinstance(value, dict) or not validate(value):
+                value = extract_json_object(content)
+                if value is None:
+                    raise ValueError("Kimi response contains no JSON object")
+                if not validate(value):
                     raise ValueError("Kimi response is missing required fields")
                 return value
             except urllib.error.HTTPError as error:
@@ -147,7 +182,8 @@ class KimiClient:
                 )
                 if attempt == (4 if error.code == 403 else 2):
                     raise
-                time.sleep(60 if error.code == 403 else 30)
+                # 403 多为 TPM/风控限流：指数退避（60/120/240/480s）等配额恢复
+                time.sleep(60 * (2 ** attempt) if error.code == 403 else 30)
             except (urllib.error.URLError, TimeoutError, ValueError) as error:
                 audit(
                     "transport_or_validation_error",
