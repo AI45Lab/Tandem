@@ -25,7 +25,7 @@ class TandemSession:
         self.components = components
         self.config = config or SessionConfig()
         self.events: list[dict] = []
-        self.begin()
+        self.begin(requirements=[])  # 构造即重置，但不触发 requirements 抽取
 
     def begin(self, instruction: str = "", requirements: list | None = None) -> None:
         self.instruction = instruction
