@@ -110,6 +110,18 @@ class OsWorldEnv:
         self.setup_cache_root = Path(setup_cache_root) if setup_cache_root else None
         self.startup_wait_seconds = startup_wait_seconds
         self._env_factory = env_factory or self._import_desktop_env
+        # bootstrap 必须先于 fetch_task：OSW2 任务模块在 import 时（fetch_task 阶段）
+        # 就于顶层调用 asset() 固化资产 URL——晚设 OSWORLD_FILE_BASE_URL 会让
+        # 模块级 URL 烘焙成默认 HF 地址（task_001 真机 404 的根因；函数体内调用
+        # 的 task_066 恰好躲过）
+        self._bootstrap_runtime()
+
+    def _bootstrap_runtime(self) -> None:
+        root = str(self.task_root.resolve())
+        if root not in sys.path:
+            sys.path.insert(0, root)
+        if self.asset_root is not None:
+            os.environ["OSWORLD_FILE_BASE_URL"] = str(self.asset_root)
         self.env: Any = None
         self._step_seq = 0
         self.last_screenshot: bytes = b""
@@ -121,9 +133,7 @@ class OsWorldEnv:
 
     # ------------------------------------------------------------------ 装载
     def _import_desktop_env(self, **kwargs):
-        sys.path.insert(0, str(self.task_root.resolve()))
-        if self.asset_root is not None:
-            os.environ["OSWORLD_FILE_BASE_URL"] = str(self.asset_root)
+        self._bootstrap_runtime()
         os.chdir(self.task_root)
         from desktop_env.desktop_env import DesktopEnv
 

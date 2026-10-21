@@ -201,3 +201,44 @@ def test_setup_cache_seeding(tmp_path):
     env.reset({"id": "t-2", "instruction": "x", "config": []})
     assert not (tmp_path / "run" / "evaluation_cache" / "t-2").exists()
     del _shutil
+
+
+def test_osw2_module_level_asset_urls_resolve_locally(tmp_path):
+    """OSW2 任务模块在 import 时（fetch_task 阶段）顶层调用 asset()；
+    OSWORLD_FILE_BASE_URL 必须在那之前就绪（task_001 真机 404 根因）。"""
+    import os
+    import sys
+
+    root = tmp_path / "osw2"
+    (root / "desktop_env").mkdir(parents=True)
+    (root / "desktop_env" / "__init__.py").write_text("", encoding="utf-8")
+    (root / "desktop_env" / "file_source.py").write_text(
+        "import os\n"
+        "DEFAULT = 'https://huggingface.co/datasets/xlangai/osworld_v2_assets/resolve/main'\n"
+        "def asset(path):\n"
+        "    return os.path.join(os.environ.get('OSWORLD_FILE_BASE_URL', DEFAULT), path)\n",
+        encoding="utf-8")
+    task_class = root / "task_class"
+    task_class.mkdir()
+    (task_class / "task_001.py").write_text(
+        "from desktop_env.file_source import asset\n"
+        "THUNDERBIRD_PROFILE_URL = asset('task_001/profile.tar.gz')\n"
+        "def get_instruction():\n"
+        "    return {'id': '001', 'instruction': '做', 'config': [], 'THUMB': THUNDERBIRD_PROFILE_URL}\n",
+        encoding="utf-8")
+    (root / "task_loader.py").write_text(
+        "import importlib\n"
+        "def load_task_from_file(path):\n"
+        "    name = path.rsplit('/', 1)[-1][:-3]\n"
+        "    module = importlib.import_module(f'task_class.{name}')\n"
+        "    return module.get_instruction()\n",
+        encoding="utf-8")
+
+    assets = tmp_path / "assets"
+    env = OsWorldEnv(benchmark="osworld2", task_root=root, vm_path=tmp_path / "vm",
+                     run_root=tmp_path / "run", asset_root=assets,
+                     startup_wait_seconds=0.0, env_factory=lambda **kw: FakeDesktopEnv())
+    task = env.fetch_task("001")  # 先于 reset：模块级 asset() 必须已指向本地
+    assert task["THUMB"] == str(assets / "task_001" / "profile.tar.gz")
+    assert os.environ.get("OSWORLD_FILE_BASE_URL") == str(assets)
+    sys.path[:] = [p for p in sys.path if not p.startswith(str(tmp_path))]
