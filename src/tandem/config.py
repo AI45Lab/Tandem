@@ -11,9 +11,10 @@ class SessionConfig:
     route_policy: str = "auto"
     cli_timeout_seconds: int = 90
     jev_timeout_seconds: float = 300
-    kimi_max_tokens: int = 8192
+    kimi_max_tokens: int = 16384
     kimi_timeout_seconds: float = 120
     kimi_direct_api: bool = False
+    kimi_reasoning_effort: str = "low"  # off=enable_thinking:false | low/medium/high=reasoning_effort
     selector_backend: str = "jev"  # "jev"（qwen-jev-choice /rank）| "kev"（Kev System One）
 
     def __post_init__(self):
@@ -23,3 +24,5 @@ class SessionConfig:
             raise ValueError("cli_timeout_seconds must be within 1..120 (协议上限)")
         if self.selector_backend not in {"jev", "kev"}:
             raise ValueError("selector_backend must be jev or kev")
+        if self.kimi_reasoning_effort not in {"off", "low", "medium", "high"}:
+            raise ValueError("kimi_reasoning_effort must be off/low/medium/high")

@@ -37,6 +37,8 @@ def main(argv: list[str] | None = None) -> int:
     run_cmd.add_argument("--selector", choices=["jev", "kev"], default=None,
                          help="排序后端（kev 需档案提供 kev_endpoint）")
     run_cmd.add_argument("--kimi-max-tokens", type=int, default=None)
+    run_cmd.add_argument("--kimi-reasoning", choices=["off", "low", "medium", "high"],
+                         default=None, help="kimi 思考强度（默认 low）")
     run_cmd.add_argument("--export-paths", default="", help="逗号分隔的 VM 内交付物路径")
     run_cmd.add_argument("--poll", type=float, default=60)
     run_cmd.add_argument("--timeout", type=float, default=None, help="watch 超时秒数")
@@ -79,6 +81,8 @@ def main(argv: list[str] | None = None) -> int:
             harness_config["selector_backend"] = args.selector
         if args.kimi_max_tokens:
             harness_config["kimi_max_tokens"] = args.kimi_max_tokens
+        if args.kimi_reasoning:
+            harness_config["kimi_reasoning_effort"] = args.kimi_reasoning
         if harness_config:
             overrides["harness_config"] = harness_config
         budget: dict = {}

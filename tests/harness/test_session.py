@@ -291,3 +291,50 @@ def test_truncated_reasoning_raises_actionable_error(tmp_path, monkeypatch):
                                 role="plan_step")
     finally:
         urllib.request.urlopen = original_urlopen
+
+
+def test_kimi_payload_controls_reasoning_and_tokens(tmp_path):
+    """payload 携带 reasoning_effort / enable_thinking 与翻倍后的 max_tokens。"""
+    import base64
+    import urllib.request
+
+    from tandem.config import SessionConfig
+    from tandem.providers import KimiClient
+
+    captured = {}
+
+    class _Resp:
+        status, headers = 200, {}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def read(self):
+            return json.dumps({
+                "choices": [{"message": {"content": "{\"done\": true}"},
+                             "finish_reason": "stop"}],
+            }).encode()
+
+    def fake_urlopen(request, timeout=None):
+        captured["payload"] = json.loads(request.data.decode())
+        return _Resp()
+
+    original = urllib.request.urlopen
+    urllib.request.urlopen = fake_urlopen
+    try:
+        config = SessionConfig()
+        client = KimiClient({"base_url": "http://x"}, config, tmp_path / "a.jsonl")
+        client.json_request([{"role": "user", "content": "hi"}], lambda v: True, role="r")
+        assert captured["payload"]["max_tokens"] == 16384
+        assert captured["payload"]["reasoning_effort"] == "low"
+        client_off = KimiClient({"base_url": "http://x"}, SessionConfig(kimi_reasoning_effort="off"),
+                                tmp_path / "a.jsonl")
+        client_off.json_request([{"role": "user", "content": "hi"}], lambda v: True, role="r")
+        assert captured["payload"]["enable_thinking"] is False
+        assert "reasoning_effort" not in captured["payload"]
+    finally:
+        urllib.request.urlopen = original
+    del base64

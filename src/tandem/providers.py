@@ -30,6 +30,11 @@ class KimiClient:
             "stream": False,
             "max_tokens": self.config.kimi_max_tokens,
         }
+        effort = getattr(self.config, "kimi_reasoning_effort", "low")
+        if effort == "off":
+            payload["enable_thinking"] = False
+        else:
+            payload["reasoning_effort"] = effort
         request = urllib.request.Request(
             credentials["base_url"].rstrip("/") + "/chat/completions",
             data=json.dumps(payload).encode("utf-8"),
