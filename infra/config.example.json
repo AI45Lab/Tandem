@@ -32,7 +32,7 @@
     "api_key": "sk-xxx",
     "model": "kimi-k3"
   },
-  "jev_endpoint": "http://10.x.x.x:8891",
+  "jev_endpoint": "",
   "kev_endpoint": "",
   "registry": {
     "auths": {
@@ -42,5 +42,7 @@
     }
   },
   "jev_image_stage_write": "/mnt/shared-storage-user/evobox-share-gpfs2/chenxinquan/tandem_jev_images",
-  "jev_image_stage_read": "/mnt/shared-storage-gpfs2/evobox-share-gpfs2/chenxinquan/tandem_jev_images"
+  "jev_image_stage_read": "/mnt/shared-storage-gpfs2/evobox-share-gpfs2/chenxinquan/tandem_jev_images",
+  "jev_endpoint_file": "/mnt/shared-storage-user/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/services/jev_endpoint.json",
+  "kev_endpoint_file": "/mnt/shared-storage-user/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/services/kev_endpoint.json"
 }

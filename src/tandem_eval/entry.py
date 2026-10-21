@@ -33,6 +33,46 @@ class LlmTap:
             self.current(**kwargs)
 
 
+_EVOBOX_CANONICAL = "/mnt/shared-storage-gpfs2/evobox-share-gpfs2"
+_EVOBOX_USER = "/mnt/shared-storage-user/evobox-share-gpfs2"
+
+
+def read_endpoint_file(path: str) -> str:
+    """从部署侧维护的 endpoint 文件读 base_url；符号链接在当前挂载视角断裂时
+    尝试规范/用户两种前缀。"""
+    candidates = [Path(path)]
+    translated = str(path).replace(_EVOBOX_CANONICAL, _EVOBOX_USER)
+    if translated != str(path):
+        candidates.append(Path(translated))
+    reverse = str(path).replace(_EVOBOX_USER, _EVOBOX_CANONICAL)
+    if reverse != str(path):
+        candidates.append(Path(reverse))
+    for candidate in candidates:
+        try:
+            data = json.loads(candidate.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        base_url = data.get("base_url") if isinstance(data, dict) else None
+        if base_url:
+            return str(base_url).rstrip("/")
+    raise ValueError(
+        f"无法从 {path} 读取 endpoint（文件缺失/损坏，或符号链接在当前挂载视角下断裂）"
+    )
+
+
+def resolve_selector_endpoint(secrets: dict, backend: str) -> str:
+    """显式 endpoint 优先；为空则从对应发现文件读取（JEV 闲时部署，地址常变）。"""
+    explicit = secrets.get(backend_key := ("kev_endpoint" if backend == "kev" else "jev_endpoint"))
+    if explicit:
+        return explicit
+    file_path = secrets.get(f"{backend_key}_file")
+    if file_path:
+        return read_endpoint_file(file_path)
+    raise ValueError(
+        f"selector_backend={backend}：config.json 的 {backend_key} 为空且未配置 {backend_key}_file"
+    )
+
+
 def git_describe(repo_root: Path) -> str:
     try:
         return subprocess.run(
@@ -116,9 +156,7 @@ def build_session(spec: dict, *, llm_tap: LlmTap | None = None) -> TandemSession
         credentials = dict(secrets["kimi"])
         credentials.setdefault("model", "kimi-k3")
         backend = getattr(config, "selector_backend", "jev")
-        endpoint_key = "kev_endpoint" if backend == "kev" else "jev_endpoint"
-        if not secrets.get(endpoint_key):
-            raise ValueError(f"selector_backend={backend} 需要 spec.secrets.{endpoint_key}")
+        endpoint = resolve_selector_endpoint(secrets, backend)
         run_root = Path(spec["output_root"])
         run_root.mkdir(parents=True, exist_ok=True)
         client = KimiClient(credentials, config, run_root / "kimi_http.jsonl", llm_sink=llm_tap)
@@ -127,7 +165,7 @@ def build_session(spec: dict, *, llm_tap: LlmTap | None = None) -> TandemSession
         if jev.get("image_stage_write") and jev.get("image_stage_read"):
             image_stage = (jev["image_stage_write"], jev["image_stage_read"])
         components = build_default(
-            client=client, endpoint=secrets[endpoint_key], config=config,
+            client=client, endpoint=endpoint, config=config,
             image_stage=image_stage,
         )
         return TandemSession(components, config=config)

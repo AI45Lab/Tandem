@@ -140,11 +140,17 @@ def _secrets_section(benchmark: str, config: dict) -> dict:
         return {}
     section = {
         "kimi": dict(config["kimi"]),
-        "jev_endpoint": config["jev_endpoint"],
+        # jev 部署在闲时 GPU，ip/端口随重新部署变化：endpoint 为空时由 worker
+        # 从 jev_endpoint_file（部署后写入的 {"base_url": ...}）自动发现
+        "jev_endpoint": config.get("jev_endpoint", ""),
         "registry": config.get("registry"),
     }
+    if config.get("jev_endpoint_file"):
+        section["jev_endpoint_file"] = config["jev_endpoint_file"]
     if config.get("kev_endpoint"):
         section["kev_endpoint"] = config["kev_endpoint"]
+    if config.get("kev_endpoint_file"):
+        section["kev_endpoint_file"] = config["kev_endpoint_file"]
     return section
 
 
