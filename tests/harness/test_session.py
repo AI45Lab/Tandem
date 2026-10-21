@@ -251,10 +251,13 @@ def test_cli_timeout_clamped_to_protocol_limit():
     assert SessionConfig(cli_timeout_seconds=120).cli_timeout_seconds == 120
 
 
-def test_truncated_reasoning_raises_actionable_error(tmp_path):
+def test_truncated_reasoning_raises_actionable_error(tmp_path, monkeypatch):
     """finish_reason=length（推理吃满 max_tokens、正文为空）必须报可定位的错误。"""
+    import tandem.providers as providers_module
     from tandem.config import SessionConfig
     from tandem.providers import KimiClient
+
+    monkeypatch.setattr(providers_module.time, "sleep", lambda seconds: None)
 
     class TruncatingOpener:
         def __call__(self, request, timeout=None):
