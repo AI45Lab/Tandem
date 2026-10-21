@@ -29,7 +29,11 @@ class TandemSession:
 
     def begin(self, instruction: str = "", requirements: list | None = None) -> None:
         self.instruction = instruction
-        self.requirements = requirements or []
+        # requirements=None（真实 run）时走组件抽取（旧 runtime 同款）；
+        # 显式 []（mock 链路）跳过 LLM 调用
+        if requirements is None:
+            requirements = self.components.requirements(instruction)
+        self.requirements = requirements
         self.recent: list[dict] = []
         self.consecutive_no_action = 0
         self.verified_focus = None

@@ -338,3 +338,25 @@ def test_kimi_payload_controls_reasoning_and_tokens(tmp_path):
     finally:
         urllib.request.urlopen = original
     del base64
+
+
+def test_begin_without_requirements_extracts_via_component():
+    """requirements=None 走组件抽取（旧 runtime 行为）；显式 [] 不调用。"""
+    calls = []
+
+    def requirements_fn(instruction):
+        calls.append(instruction)
+        return [{"id": "R1", "requirement": "保存文件", "output_path": None}]
+
+    planner = ScriptedPlanner([
+        {"done": True, "task_status": "completed", "current_goal": "g", "expected_observation": ""},
+    ])
+    verifier = ScriptedVerifier([valid_verifier_response(task_status="completed")])
+    components = make_components(planner, verifier, FixedSelector())
+    components.requirements = requirements_fn
+    session = TandemSession(components)
+    session.begin("整理并保存", None)
+    assert session.requirements == [{"id": "R1", "requirement": "保存文件", "output_path": None}]
+    assert calls == ["整理并保存"]
+    session.begin("整理并保存", [])
+    assert session.requirements == [] and len(calls) == 1  # 显式 [] 不再抽取

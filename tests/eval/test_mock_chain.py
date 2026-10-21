@@ -111,3 +111,12 @@ def test_worker_sh_mock_mode_end_to_end(tmp_path):
     assert result.returncode == 0, result.stderr
     assert (tmp_path / "run" / "worker" / "entry.log").is_file()
     assert json.loads((tmp_path / "run" / "summary.json").read_text())["scored"] == 1
+
+
+def test_obs_stage_cleaned_after_episode(tmp_path):
+    """episode 结束后 obs_stage 任务目录应被清理（截图正本在 episode 目录）。"""
+    run_from_spec(_spec(tmp_path))
+    staging = tmp_path / "run" / "obs_stage"
+    assert not staging.exists() or not any(staging.iterdir())
+    # 契约正本仍在
+    assert (tmp_path / "run" / "episodes" / "mock-mock-000" / "screenshots").is_dir()

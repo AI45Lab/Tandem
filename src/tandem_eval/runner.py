@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 import time
 from dataclasses import replace
 from pathlib import Path
@@ -98,7 +99,7 @@ def run(spec: dict, *, env, session: TandemSession, tasks: list[TaskRef],
             )
             if llm_tap is not None:
                 llm_tap.current = recorder.record_llm_call
-            session.begin(task["instruction"], spec.get("requirements", []))
+            session.begin(task["instruction"], spec.get("requirements"))
             episodes.append(
                 run_episode(env, session, recorder, task,
                             max_steps=max_steps, max_wall_seconds=max_wall,
@@ -121,6 +122,10 @@ def run(spec: dict, *, env, session: TandemSession, tasks: list[TaskRef],
         finally:
             if llm_tap is not None:
                 llm_tap.current = None
+            # obs_stage 是 episode 内工作区（截图正本已由 recorder 写入 episode 目录，
+            # a11y 摘要已入 traj）；episode 结束即清理，避免双份存储
+            staging = run_root / "obs_stage" / str(ref.task_id)
+            shutil.rmtree(staging, ignore_errors=True)
     write_summary(run_root, episodes, spec)
     write_heartbeat(run_root, done=len(episodes), total=len(tasks), current="")
     return episodes
