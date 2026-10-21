@@ -234,3 +234,10 @@ def test_env_section_seeds_setup_cache_for_osw1():
     assert section["root"] == "/shared/osw1"
     assert section["setup_cache_root"] == "/shared/osw1/cache"
     assert "setup_cache_root" not in _env_section("osworld2", CONFIG)
+
+
+def test_rsync_never_deletes_job_specs():
+    """job_specs 在部署副本里而非源仓库，必须排除出 rsync --delete（并发 run 互踩根因）。"""
+    from tandem_eval.rjob import RSYNC_EXCLUDES
+
+    assert "job_specs/" in RSYNC_EXCLUDES

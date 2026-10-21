@@ -17,7 +17,10 @@ import time
 from pathlib import Path
 
 TERMINAL_STATES = {"succeeded", "failed", "deleted"}
-RSYNC_EXCLUDES = [".git/", ".venv/", "__pycache__/", ".pytest_cache/", ".ruff_cache/", "rjob_logs/"]
+# job_specs/ 必须排除：--delete 会把"目标多出而源没有"的文件删掉，而每个 run 的 spec
+# 写在部署副本里 —— 不排除的话，后一个 run 的同步会删掉前一个还在排队/运行的 spec
+RSYNC_EXCLUDES = [".git/", ".venv/", "__pycache__/", ".pytest_cache/", ".ruff_cache/",
+                  "rjob_logs/", "job_specs/"]
 
 
 class RjobError(RuntimeError):

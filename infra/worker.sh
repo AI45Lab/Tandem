@@ -6,6 +6,11 @@
 set -euo pipefail
 
 SPEC="${1:?用法: worker.sh <job spec json 绝对路径>}"
+if [ ! -f "$SPEC" ]; then
+  echo "job spec 不存在: $SPEC —— 通常因并发 run 的 rsync --delete 删掉了在跑任务的 spec" \
+    "（已修复：job_specs 现被排除出同步）；请重跑该 run-id" >&2
+  exit 4
+fi
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}"
 
