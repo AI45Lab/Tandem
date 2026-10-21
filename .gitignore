@@ -10,6 +10,7 @@ dist/
 .coverage
 htmlcov/
 episodes/
+rjob_logs/
 results/
 *.log
 infra/config.json

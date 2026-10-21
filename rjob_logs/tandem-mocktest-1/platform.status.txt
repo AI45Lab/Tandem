@@ -1,3 +1,0 @@
-10-20 20:15:52 [INFO] rjob tandem-mocktest-1: Succeeded
-10-20 20:15:52 [INFO]   |- task generated-task-0: 1 replicas {'active': 0, 'succeeded': 0, 'failed': 0, 'created_failed': 0, 'pending': 0}
-10-20 20:15:52 [INFO]        |- replica tandem-mocktest-1-fdq75: SUCCEED, lg-cmc-h-cpu-0097.host.h.pjlab.org.cn
