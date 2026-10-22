@@ -26,7 +26,7 @@ def main(argv: list[str] | None = None) -> int:
     _rjob_args(run_cmd)
     run_cmd.add_argument("--repo", default=".", help="本地仓库根")
     run_cmd.add_argument("--run-id", required=True)
-    run_cmd.add_argument("--benchmark", default="mock", choices=["mock", "osworld1", "osworld2"])
+    run_cmd.add_argument("--benchmark", default="mock", choices=["mock", "osworld1", "osworld2", "osworld21"])
     run_cmd.add_argument("--tasks", default="", help="逗号分隔 task id（覆盖 manifest）")
     run_cmd.add_argument("--limit", type=int, default=None, help="清单截取数量")
     run_cmd.add_argument("--shard", default=None, metavar="I/N",

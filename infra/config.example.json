@@ -11,6 +11,10 @@
     {
       "source": "gpfs://gpfs2/adpc-share",
       "target": "/mnt/shared-storage-user/adpc-share"
+    },
+    {
+      "source": "gpfs://gpfs2/evobox-share-gpfs2",
+      "target": "/mnt/shared-storage-gpfs2/evobox-share-gpfs2"
     }
   ],
   "rjob": {
@@ -27,6 +31,14 @@
   "osw2_root": "/mnt/shared-storage-user/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/benchmarks/osworld2",
   "osw2_vm": "/mnt/shared-storage-user/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/vm/osworld2/osworld-v2-ubuntu-x86.qcow2",
   "asset_root": "/mnt/shared-storage-user/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/osworld2_0808/assets",
+  "osw21_root": "/mnt/shared-storage-gpfs2/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/osworld21/prepared/runtime",
+  "osw21_vm": "/mnt/shared-storage-gpfs2/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/osworld21/vm/osworld-v2-ubuntu-x86.qcow2",
+  "osw21_asset_root": "/mnt/shared-storage-gpfs2/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/osworld21/assets",
+  "osw21_shared_env": "/mnt/shared-storage-gpfs2/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/osworld21/prepared/env.sh",
+  "_osw21_inner_image_comment": "Fill osw21_inner_image with the release-pinned image available to your registry account; no latest tag.",
+  "osw21_inner_image": "",
+  "osw21_proxy": "http://100.100.135.73:3128",
+  "osw21_volume_size": 64,
   "kimi": {
     "base_url": "https://your-kimi-endpoint/v1",
     "api_key": "sk-xxx",

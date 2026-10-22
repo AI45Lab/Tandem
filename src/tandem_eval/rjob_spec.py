@@ -31,6 +31,11 @@ def _git_describe(repo_root: Path) -> str:
 
 
 def _env_section(benchmark: str, config: dict) -> dict:
+    if benchmark == "osworld21":
+        return {"root": config["osw21_root"], "vm": config["osw21_vm"],
+                "asset_root": config["osw21_asset_root"], "shared_env": config["osw21_shared_env"],
+                "proxy": config["osw21_proxy"], "volume_size": config["osw21_volume_size"],
+                "startup_wait_seconds": 30}
     if benchmark == "osworld1":
         return {"root": config["osw1_root"], "vm": config["osw1_vm"],
                 "setup_cache_root": str(Path(config["osw1_root"]) / "cache"),
@@ -42,7 +47,7 @@ def _env_section(benchmark: str, config: dict) -> dict:
 
 
 def _secrets_section(benchmark: str, config: dict) -> dict:
-    if benchmark not in {"osworld1", "osworld2"}:
+    if benchmark not in {"osworld1", "osworld2", "osworld21"}:
         return {}
     section = {
         "kimi": dict(config["kimi"]),
@@ -74,6 +79,8 @@ def build_job_spec(*, config: dict, run_id: str, repo_root: Path,
                    spec_overrides: dict) -> dict:
     """组装 job spec 并写入部署副本 job_specs/<run_id>.json（路径两侧一致，无视角换算）。"""
     benchmark = spec_overrides.get("benchmark", "mock")
+    if benchmark == "osworld21" and not config.get("osw21_inner_image"):
+        raise ValueError("osw21_inner_image must identify the release-pinned OSWorld 2.1 runtime image")
     spec = {
         "run_id": run_id,
         "repo_root": config["deploy_root"],
@@ -89,7 +96,7 @@ def build_job_spec(*, config: dict, run_id: str, repo_root: Path,
             "git_describe": _git_describe(repo_root),
             "images": {
                 "outer": config["rjob"]["image"],
-                "inner": config["inner_image"],
+                "inner": config["osw21_inner_image"] if benchmark == "osworld21" else config["inner_image"],
             },
         },
         **spec_overrides,
