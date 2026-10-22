@@ -35,6 +35,23 @@
 | `episode.json` | `{task_id, harness, stop_reason, steps, status(scored\|failed_unscored), score, exception_type}` | episode 终态（必写） |
 | `timing.json` | `{wall_seconds, status}` | episode 终态 |
 
+## 步号语义（demo 侧对齐依据）
+
+以下三条由 recorder 的写入顺序决定，demo 侧按此还原轨迹；改动任一处必须同步本文档。
+
+| 约定 | 说明 |
+|------|------|
+| 截图索引 0 基 = **动作执行后** | `recorder.screenshot(steps_used, …)` 在 `env.execute` 之后落盘，故 `screenshots/step_NN.png` 是**第 N 个动作之后**的屏幕（NN 从 00 起） |
+| `traj.step_idx` = 截图索引 + 1 | `traj.step_idx = N+1` 与 `screenshots/step_NN.png` 是同一次观察（`a11y_digests.jsonl` 的 `step_idx=N` 与 `traj.step_idx=N+1` 的 digest 一致） |
+| 验证事件落在**下一步骤**桶 | `gui_verified` / `cli_verified` 在动作之后才产生，排水时归入下一个 `step`；因此动作步 s 的裁决取自 s+1 桶 |
+
+推论（demo 直接依赖）：
+
+- 动作步 s 的「执行后」帧 = `step_{s:02d}.png`，「执行前」帧 = `step_{s-1:02d}.png`；
+- 第 0 步没有执行前帧（初始观察只在 `obs_stage/`，episode 结束即清）；
+- 终态动作（finish/fail）不写截图，故最后一步没有执行后帧；
+- 异常题（`failed_unscored`）在 `fetch_task` 阶段失败时没有任何帧与 LLM 调用。
+
 ## llm_calls.jsonl 的 role 值
 
 | role | 调用方 | 触发时机 |

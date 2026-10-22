@@ -101,6 +101,19 @@ rjob_logs/<run_id>/
     └── episode.json       # 终态（score/status/stop_reason/steps）
 ```
 
+## Demo（轨迹回放与对比）
+
+`demo/` 只读结果目录，把 OSWorld2 的运行变成静态站点：逐步回放桌面轨迹与模型操作链
+（规划 → 候选排序 → 编译动作 → 独立验证 → 终态双确认），并横向对比多个 run 的
+**成本 / 耗时 / 准确率**。
+
+```bash
+python demo/build_site.py --runs-root rjob_logs --out demo/site --benchmark osworld2
+python -m http.server 8899 --directory demo/site    # 本地预览
+```
+
+详见 [demo/README.md](demo/README.md)。
+
 ## 排序服务（JEV / Kev）
 
 两个后端跑同一套两阶段排序（operation → action），harness 侧一行开关切换：

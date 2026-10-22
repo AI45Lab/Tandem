@@ -81,11 +81,13 @@ src/tandem/              harness 主体（组件、协议、CLI）
 src/tandem/protocol/     消息层协议：schema/ 真源、validate/ 校验、samples/ golden
 src/tandem_eval/         worker 侧 6 文件（entry/env/runner/recorder/scoring/manifest）
                          + 开发机侧 rjob.py 生命周期客户端
-tests/                   protocol/ harness/ eval/ 三组
+tests/                   protocol/ harness/ eval/ demo/ 四组
 infra/worker.sh          rjob worker 入口（mock 即跑；真实基准走共享 env.sh+docker）
 infra/config.json        唯一配置文件（含密钥 → gitignore；模板 config.example.json 提交）
 scripts/                 批量运行脚本（run_osw2_20x5.sh 等）
 tools/                   render_summary.py（demo 占位；完整 studio 后续平移）
+demo/                    轨迹回放与对比站点（adapter/metrics/frames/render + player/）
+                         只读结果目录，不 import harness、不调模型、不碰 VM
 docs/                    RESULT_DIR_CONTRACT.md（eval↔demo 唯一接口）
 ```
 
