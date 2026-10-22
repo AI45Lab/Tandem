@@ -47,6 +47,13 @@ def _env_section(benchmark: str, config: dict) -> dict:
         section = benchmarks["osworld2"]
         return {"root": section["root"], "vm": section["vm"],
                 "asset_root": section["asset_root"], "startup_wait_seconds": 30}
+    if benchmark == "osworld21":
+        # OSW2.1 自带独立 runtime/VM/资产/env.sh，不与旧环境混用
+        section = benchmarks["osworld21"]
+        return {"root": section["root"], "vm": section["vm"],
+                "asset_root": section["asset_root"], "shared_env": section["shared_env"],
+                "proxy": section.get("proxy", ""), "volume_size": section.get("volume_size"),
+                "startup_wait_seconds": 30}
     return {}
 
 
@@ -118,6 +125,16 @@ def build_job_spec(*, config: dict, run_id: str, repo_root: Path,
     slow_name, slow_api = select_api(config, "slow_model", requested.get("slow"))
     fast_name, fast_api = select_api(config, "fast_model", requested.get("fast"))
 
+    inner_image = config["eval"]["inner_image"]
+    if benchmark == "osworld21":
+        # OSW2.1 用发布清单固定的运行镜像（digest），不覆盖 latest，也不复用 OSW2 的镜像
+        inner_image = config["eval"]["benchmarks"]["osworld21"].get("inner_image", "")
+        if not inner_image:
+            raise ValueError(
+                "eval.benchmarks.osworld21.inner_image 必须填发布清单固定的运行镜像"
+                "（<repo>@sha256:…；见 osworld21/runtime/benchmark_releases/osworld-v2.1.json）"
+            )
+
     harness_config = _harness_config_section(config, slow_api, fast_api)
     harness_config.update(overrides.pop("harness_config", {}) or {})
     budget = _budget_section(config)
@@ -143,7 +160,7 @@ def build_job_spec(*, config: dict, run_id: str, repo_root: Path,
             "git_describe": _git_describe(repo_root),
             "images": {
                 "outer": config["eval"]["rjob"]["image"],
-                "inner": config["eval"]["inner_image"],
+                "inner": inner_image,
             },
         },
         **overrides,

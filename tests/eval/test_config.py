@@ -134,6 +134,33 @@ def test_select_api_error_lists_available_names():
         select_api(config, "fast_model", "no-such-api")
 
 
+def test_osworld21_section_is_validated():
+    config = load_config(CONFIG_PATH)
+    section = config["eval"]["benchmarks"]["osworld21"]
+    for key in ("root", "vm", "asset_root", "shared_env"):
+        assert section[key].startswith("/"), f"{key} 必须是绝对路径"
+    assert section["proxy"].startswith("http")
+    assert isinstance(section["volume_size"], int) and section["volume_size"] > 0
+
+
+def test_missing_osworld21_paths_are_reported(tmp_path):
+    config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+    del config["eval"]["benchmarks"]["osworld21"]["shared_env"]
+    bad = tmp_path / "bad.json"
+    bad.write_text(json.dumps(config), encoding="utf-8")
+    with pytest.raises(ConfigError, match="osworld21.shared_env"):
+        load_config(bad)
+
+
+def test_osworld21_inner_image_must_be_release_pinned(tmp_path):
+    config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+    config["eval"]["benchmarks"]["osworld21"]["inner_image"] = "registry.example/osw21:latest"
+    bad = tmp_path / "bad.json"
+    bad.write_text(json.dumps(config), encoding="utf-8")
+    with pytest.raises(ConfigError, match="latest"):
+        load_config(bad)
+
+
 def test_cli_model_flags_reach_spec_overrides(monkeypatch):
     """启动命令按名字切大脑/小脑：--slow-model / --fast-model 进 spec 的 models 段。"""
     from tandem_eval.__main__ import main

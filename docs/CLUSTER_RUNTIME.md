@@ -59,6 +59,11 @@ worker 入口、共享资源与已知坑。
 | `eval.benchmarks.osworld1.root` / `.vm` | OSWorld1 基准根与 qcow2 |
 | `eval.benchmarks.osworld2.root` / `.vm` | OSWorld2 基准根与 qcow2 |
 | `eval.benchmarks.osworld2.asset_root` | OSW2 任务资产根（`OSWORLD_FILE_BASE_URL` 指向它，避免外网下载） |
+| `eval.benchmarks.osworld21.root` / `.vm` / `.asset_root` | OSW2.1 的 runtime（prepared 软链层）、qcow2 与资产根 |
+| `eval.benchmarks.osworld21.shared_env` | OSW2.1 独立 `env.sh`（**不与旧环境 env.sh 混用**） |
+| `eval.benchmarks.osworld21.inner_image` | OSW2.1 运行镜像，必须发布固定（`<repo>@sha256:…`，禁 `latest`）；留空时跑 osworld21 会明确报错 |
+| `eval.benchmarks.osworld21.proxy` | OSW2.1 用的代理（覆盖 worker.sh 的默认代理） |
+| `eval.benchmarks.osworld21.volume_size` | 传给官方接口的**卷参数**，不等于根盘容量（实测根盘约 49GB、可用约 21GB） |
 | `eval.registry` | docker registry auth（内联传给 worker 写 `~/.docker/config.json`） |
 
 ### log —— 结果落盘
@@ -118,7 +123,7 @@ cleanup  stop（释放资源）+ delete（永久删除 rjob 记录）——默�
 | 参数 | 说明 |
 |---|---|
 | `--run-id` | 必填。run 目录名 = `rjob_logs/<run_id>/` |
-| `--benchmark` | `mock` / `osworld1` / `osworld2` |
+| `--benchmark` | `mock` / `osworld1` / `osworld2` / `osworld21` |
 | `--tasks` | 逗号分隔 task id（覆盖 manifest） |
 | `--limit N` | 取清单前 N 题 |
 | `--shard I/N` | 把（limit 后的）清单**交错**切成 N 片，本 run 跑第 I 片（并发用） |
@@ -192,6 +197,30 @@ JEV 的 `/rank` 要求 `image_path` 是**服务宿主机可读的文件路径**�
 因此由 harness 暂存到 evobox 中转目录（`harness.fast_model.image_stage.write` → `.read`），
 payload 带 JEV 宿主机视角路径。暂存按内容哈希命名去重（`step_00_<sha16>.png`），断点无害。
 
+## 6.5 OSWorld 2.1 的特别约定
+
+OSW2.1 走**独立环境**（独立 runtime / VM / 资产 / venv / env.sh），与 OSW1、OSW2 不共用：
+
+- **共享资源**：`<sa_cua>/osworld21/`（`README_CN.md` 是环境侧的权威说明）。
+  `prepared/runtime/` 是一层**指向 canonical 路径 `/mnt/shared-storage-gpfs2/...` 的软链**，
+  因此这些路径**只在 worker 内可见**——开发机没有 canonical 挂载点，软链是断的。
+  开发机要用 OSW2.1 的 runtime，请走 worker（`tandem-eval rjob run --benchmark osworld21`）。
+- **挂载**：因此 `eval.mounts` 里多了一条 `gpfs://gpfs2/evobox-share-gpfs2` →
+  `/mnt/shared-storage-gpfs2/evobox-share-gpfs2`（canonical 视角），旧的 user 视角保留不变。
+- **env.sh**：worker 用 `eval.benchmarks.osworld21.shared_env` 指定的独立 env.sh
+  （它再 source canonical 的 `osworld21/env.sh`），**不与旧环境 env.sh 混用**。
+- **镜像**：直接拉发布清单固定的运行镜像（digest），**不覆盖 `latest`**，
+  也不复用 `eval.inner_image`；OSW2.1 的 runtime 自己按固定版本引用。
+  固定版本见 `osworld21/runtime/benchmark_releases/osworld-v2.1.json` 与
+  `desktop_env/providers/docker/provider.py`。
+- **依赖自检**：OSW2.1 的独立 venv 按官方 `uv.lock` 安装，**没有 easyocr**，
+  worker 只检查 Pillow；旧环境仍检查 `easyocr + PIL`。
+- **题目子集**：`tandem_eval/manifest.py` 的 `OSWORLD21_TASK_IDS`（56 题）取自
+  `osworld21/validation/coverage.json` 中 `official_vm.status == "passed"` 的题；
+  该覆盖表由环境侧持续重生成，**子集要定期重新核对**。
+- **卷参数**：`volume_size` 只是传给官方接口的卷参数，**不代表根盘真有这么大**
+  （实测根盘约 49GB、可用约 21GB）。
+
 ## 7. 批量运行
 
 ```bash
@@ -241,4 +270,4 @@ worker 侧各段日志：
 真机 smoke：
 
 - `--benchmark mock` 走 mock 链路（不起 VM、不碰共享资源），可本地跑；
-- 真实基准走 OSW1 / OSW2，按本文 §3–§7。
+- 真实基准走 OSW1 / OSW2 / OSW2.1，按本文 §3–§7。

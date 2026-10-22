@@ -56,6 +56,10 @@
       {
         "source": "gpfs://gpfs2/adpc-share",
         "target": "/mnt/shared-storage-user/adpc-share"
+      },
+      {
+        "source": "gpfs://gpfs2/evobox-share-gpfs2",
+        "target": "/mnt/shared-storage-gpfs2/evobox-share-gpfs2"
       }
     ],
     "rjob": {
@@ -76,6 +80,15 @@
         "root": "/mnt/shared-storage-user/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/benchmarks/osworld2",
         "vm": "/mnt/shared-storage-user/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/vm/osworld2/osworld-v2-ubuntu-x86.qcow2",
         "asset_root": "/mnt/shared-storage-user/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/osworld2_0808/assets"
+      },
+      "osworld21": {
+        "root": "/mnt/shared-storage-gpfs2/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/osworld21/prepared/runtime",
+        "vm": "/mnt/shared-storage-gpfs2/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/osworld21/vm/osworld-v2-ubuntu-x86.qcow2",
+        "asset_root": "/mnt/shared-storage-gpfs2/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/osworld21/assets",
+        "shared_env": "/mnt/shared-storage-gpfs2/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/osworld21/prepared/env.sh",
+        "inner_image": "",
+        "proxy": "http://100.100.135.73:3128",
+        "volume_size": 64
       }
     },
     "registry": {

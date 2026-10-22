@@ -39,6 +39,10 @@ REQUIRED_PATHS = (
     "eval.benchmarks.osworld2.root",
     "eval.benchmarks.osworld2.vm",
     "eval.benchmarks.osworld2.asset_root",
+    "eval.benchmarks.osworld21.root",
+    "eval.benchmarks.osworld21.vm",
+    "eval.benchmarks.osworld21.asset_root",
+    "eval.benchmarks.osworld21.shared_env",
     "eval.registry",
     "log.results_root",
 )
@@ -53,6 +57,10 @@ ABSOLUTE_PATH_PATHS = (
     "eval.benchmarks.osworld2.root",
     "eval.benchmarks.osworld2.vm",
     "eval.benchmarks.osworld2.asset_root",
+    "eval.benchmarks.osworld21.root",
+    "eval.benchmarks.osworld21.vm",
+    "eval.benchmarks.osworld21.asset_root",
+    "eval.benchmarks.osworld21.shared_env",
     "harness.fast_model.image_stage.write",
     "harness.fast_model.image_stage.read",
 )
@@ -149,6 +157,29 @@ def _validate_absolute_paths(config: dict) -> list[str]:
     return problems
 
 
+def _validate_osworld21(config: dict) -> list[str]:
+    """OSW2.1 专项校验：镜像必须发布固定（禁 latest），代理与卷参数合法。
+
+    inner_image 允许留空——它只在真正跑 osworld21 时才需要，届时
+    build_job_spec 会明确报错，而不是静默拿错镜像。
+    """
+    problems: list[str] = []
+    section = get_path(config, "eval.benchmarks.osworld21") or {}
+    image = section.get("inner_image")
+    if isinstance(image, str) and image.strip():
+        if ":latest" in image:
+            problems.append("eval.benchmarks.osworld21.inner_image（不能用 latest，必须发布固定版本）")
+        elif "@sha256:" not in image:
+            problems.append("eval.benchmarks.osworld21.inner_image（应固定到 digest：<repo>@sha256:…）")
+    proxy = section.get("proxy")
+    if not _is_missing(proxy) and not str(proxy).startswith("http"):
+        problems.append("eval.benchmarks.osworld21.proxy（应为 http(s) 地址）")
+    volume_size = section.get("volume_size")
+    if volume_size is not None and (not isinstance(volume_size, int) or volume_size <= 0):
+        problems.append("eval.benchmarks.osworld21.volume_size（应为正整数）")
+    return problems
+
+
 def validate(config: dict) -> list[str]:
     """返回全部问题（空列表 = 配置合法）。"""
     problems: list[str] = []
@@ -157,6 +188,7 @@ def validate(config: dict) -> list[str]:
     problems += _validate_slow_models(config)
     problems += _validate_fast_models(config)
     problems += _validate_absolute_paths(config)
+    problems += _validate_osworld21(config)
     return problems
 
 

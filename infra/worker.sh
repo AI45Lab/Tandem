@@ -14,6 +14,19 @@ fi
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}"
 
+# 从 job spec 取点号路径的值（缺失 → 空串）
+spec_get() {
+  python3 -c '
+import json, sys
+node = json.load(open(sys.argv[1]))
+for part in sys.argv[2].split("."):
+    if not isinstance(node, dict):
+        node = None
+        break
+    node = node.get(part)
+print("" if node is None else node)' "$SPEC" "$1"
+}
+
 read -r BENCHMARK OUTPUT_ROOT < <(python3 -c '
 import json, sys
 spec = json.load(open(sys.argv[1]))
@@ -28,7 +41,8 @@ fi
 # ---- 真实基准：共享资源 + docker 准备 ----
 SHARED_ENV="${SA_CUA_SHARED_ENV:-/mnt/shared-storage-user/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/env.sh}"
 if [ "$BENCHMARK" = "osworld21" ]; then
-  SHARED_ENV="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["env"]["shared_env"])' "$SPEC")"
+  # OSW2.1 自带独立 env.sh，不与旧环境混用
+  SHARED_ENV="$(spec_get env.shared_env)"
 fi
 if [ ! -f "$SHARED_ENV" ]; then
   echo "缺少共享资源 env.sh: $SHARED_ENV" | tee "$OUTPUT_ROOT/worker/entry.log" >&2
@@ -48,11 +62,11 @@ pathlib.Path.home().joinpath(".docker/config.json").write_text(json.dumps(regist
   echo "registry 凭据写入失败" | tee -a "$OUTPUT_ROOT/worker/entry.log" >&2; exit 3; }
 chmod 600 "$HOME/.docker/config.json"
 
-INNER_IMAGE="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["code"]["images"]["inner"])' "$SPEC")"
+INNER_IMAGE="$(spec_get code.images.inner)"
 # 平台可能预注入不可用的代理（真机 2026-10-20：httpproxy-headless-dev-test 无法解析），
 # 一律覆盖为已知可用代理，不继承环境变量。
-PROXY="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("env", {}).get(
-    "proxy", "http://httpproxy-headless.kubebrain.svc.pjlab.local:3128"))' "$SPEC")"
+PROXY="$(spec_get env.proxy)"
+PROXY="${PROXY:-http://httpproxy-headless.kubebrain.svc.pjlab.local:3128}"
 export HTTP_PROXY="$PROXY" HTTPS_PROXY="$PROXY" http_proxy="$PROXY" https_proxy="$PROXY"
 export NO_PROXY='10.0.0.0/8,100.96.0.0/12,localhost,127.0.0.1,.pjlab.org.cn'
 export no_proxy="$NO_PROXY"
@@ -70,6 +84,7 @@ docker info > "$OUTPUT_ROOT/worker/docker-info.txt" 2>&1 || {
   echo "dockerd 未就绪" | tee -a "$OUTPUT_ROOT/worker/entry.log" >&2; exit 3; }
 docker pull "$INNER_IMAGE" > "$OUTPUT_ROOT/worker/docker-pull.log" 2>&1
 if [ "$BENCHMARK" = "osworld21" ]; then
+  # OSW2.1 的独立 venv 按官方 uv.lock 装，没有 easyocr；只查 Pillow
   DEPS_CHECK='import PIL'
 else
   docker tag "$INNER_IMAGE" happysixd/osworld-docker:latest

@@ -93,6 +93,12 @@ CONFIG = {
             "osworld1": {"root": "/shared/osw1", "vm": "/shared/vm1.qcow2"},
             "osworld2": {"root": "/shared/osw2", "vm": "/shared/vm2.qcow2",
                          "asset_root": "/shared/assets"},
+            "osworld21": {
+                "root": "/shared/osw21/runtime", "vm": "/shared/osw21/vm.qcow2",
+                "asset_root": "/shared/osw21/assets", "shared_env": "/shared/osw21/env.sh",
+                "inner_image": "registry.example/osw21@sha256:deadbeef",
+                "proxy": "http://proxy.example:3128", "volume_size": 64,
+            },
         },
         "registry": {"auths": {"registry.h.pjlab.org.cn": {"auth": "xxx"}}},
     },

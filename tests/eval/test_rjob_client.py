@@ -97,6 +97,29 @@ def test_build_job_spec_rejects_unknown_model_name(tmp_path):
                        spec_overrides={"benchmark": "mock", "models": {"fast": "nope"}})
 
 
+def test_build_job_spec_for_osworld21(tmp_path):
+    """OSW2.1 用自己的 runtime/env/镜像，不复用 OSW2 的。"""
+    config = with_paths(CONFIG, deploy_root=str(tmp_path / "deploy"))
+    spec = build_job_spec(config=config, run_id="r1", repo_root=tmp_path,
+                          spec_overrides={"benchmark": "osworld21"})
+    section = CONFIG["eval"]["benchmarks"]["osworld21"]
+    assert spec["env"]["shared_env"] == section["shared_env"]
+    assert spec["env"]["proxy"] == section["proxy"]
+    assert spec["env"]["volume_size"] == section["volume_size"]
+    assert spec["code"]["images"]["inner"] == section["inner_image"]
+    old = build_job_spec(config=config, run_id="r2", repo_root=tmp_path,
+                         spec_overrides={"benchmark": "osworld2"})
+    assert old["code"]["images"]["inner"] == CONFIG["eval"]["inner_image"]
+
+
+def test_build_job_spec_rejects_missing_osworld21_inner_image(tmp_path):
+    config = with_paths(CONFIG, deploy_root=str(tmp_path / "deploy"))
+    config["eval"]["benchmarks"]["osworld21"]["inner_image"] = ""
+    with pytest.raises(ValueError, match="inner_image"):
+        build_job_spec(config=config, run_id="r1", repo_root=tmp_path,
+                       spec_overrides={"benchmark": "osworld21"})
+
+
 def test_cli_budget_override_merges_with_config(tmp_path):
     """预算来自 config，命令行只覆盖给定的那一项。"""
     config = with_paths(CONFIG, deploy_root=str(tmp_path / "deploy"))

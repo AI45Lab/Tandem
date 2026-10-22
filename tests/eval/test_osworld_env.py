@@ -205,7 +205,7 @@ def test_setup_cache_seeding(tmp_path):
 
 
 @pytest.mark.parametrize("benchmark", ["osworld2", "osworld21"])
-def test_osw2_module_level_asset_urls_resolve_locally(tmp_path, monkeypatch, benchmark):
+def test_task_module_level_asset_urls_resolve_locally(tmp_path, monkeypatch, benchmark):
     """OSW2 任务模块在 import 时（fetch_task 阶段）顶层调用 asset()；
     OSWORLD_FILE_BASE_URL 必须在那之前就绪（task_001 真机 404 根因）。"""
     import os
@@ -252,7 +252,7 @@ def test_osw2_module_level_asset_urls_resolve_locally(tmp_path, monkeypatch, ben
     assert os.environ.get("OSWORLD_FILE_BASE_URL") == str(assets)
 
 
-def test_native_task_setup_and_evaluation_are_preserved(tmp_path, monkeypatch):
+def test_task_object_is_passed_through_to_desktop_env(tmp_path, monkeypatch):
     import sys
 
     monkeypatch.setattr(sys, "path", sys.path.copy())
