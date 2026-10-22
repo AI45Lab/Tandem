@@ -73,15 +73,29 @@ def test_paths_are_absolute_and_credentials_inlined():
     assert config["eval"]["repo_root"].endswith("/tandem")
 
 
-def test_mounts_cover_both_volumes_with_user_style_targets():
+def test_mounts_cover_both_volumes_without_duplicate_sources():
+    """两个卷各挂一次；同一 source 挂两次会被平台拒（"the value of source path repeats"）。
+
+    evobox 卷在 worker 里挂 canonical 视角——OSW2.1 的 env.sh 与 prepared 软链层写的是
+    canonical 路径，只有这个视角能解析；旧环境的 env.sh 是自相对的，两种视角都行。
+    adpc 卷（部署副本与结果目录）维持 user 视角。
+    """
     config = load_config(CONFIG_PATH)
-    targets = {m["target"] for m in config["eval"]["mounts"]}
-    assert "/mnt/shared-storage-user/evobox-share-gpfs2" in targets
+    mounts = config["eval"]["mounts"]
+    sources = [m["source"] for m in mounts]
+    assert len(sources) == len(set(sources)), f"同一 source 不能挂两次: {mounts}"
+    targets = {m["target"] for m in mounts}
+    assert "/mnt/shared-storage-gpfs2/evobox-share-gpfs2" in targets
     assert "/mnt/shared-storage-user/adpc-share" in targets
-    # evobox 卷两侧一致（user 风格），共享资源路径随之 user 风格
+    # 配置里引用的 evobox 路径必须与 worker 的挂载视角一致
     benchmarks = config["eval"]["benchmarks"]
-    assert benchmarks["osworld1"]["root"].startswith("/mnt/shared-storage-user/evobox-share-gpfs2/")
-    assert benchmarks["osworld1"]["vm"].startswith("/mnt/shared-storage-user/evobox-share-gpfs2/")
+    for key in ("osworld1", "osworld2", "osworld21"):
+        for field in ("root", "vm", "asset_root"):
+            value = benchmarks[key].get(field)
+            if value:
+                assert value.startswith("/mnt/shared-storage-gpfs2/evobox-share-gpfs2/"), value
+    assert config["harness"]["fast_model"]["image_stage"]["write"].startswith(
+        "/mnt/shared-storage-gpfs2/evobox-share-gpfs2/")
 
 
 def test_budget_and_route_come_from_config():

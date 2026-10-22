@@ -53,12 +53,13 @@ worker 入口、共享资源与已知坑。
 |---|---|
 | `eval.repo_root` | 本仓库路径（开发机） |
 | `eval.deploy_root` | rsync 部署副本路径（worker 读代码；两侧挂载点一致） |
-| `eval.mounts` | rjob `--mount` 参数（gpfs 源 → 容器内挂载点） |
+| `eval.mounts` | rjob `--mount` 参数（gpfs 源 → 容器内挂载点）。**同一 source 不能挂两次**（平台报 `the value of source path repeats`），所以 evobox 卷只挂一次 |
 | `eval.rjob` | `charged_group` / `private_machine` / `cpu` / `memory` / `gpu` / `image` |
 | `eval.inner_image` | OSWorld VM 用的 inner 镜像（worker 内 dockerd 拉取） |
 | `eval.benchmarks.osworld1.root` / `.vm` | OSWorld1 基准根与 qcow2 |
 | `eval.benchmarks.osworld2.root` / `.vm` | OSWorld2 基准根与 qcow2 |
 | `eval.benchmarks.osworld2.asset_root` | OSW2 任务资产根（`OSWORLD_FILE_BASE_URL` 指向它，避免外网下载） |
+| `eval.shared_env` | 旧环境（OSW1/OSW2）的 `env.sh`（脚本自相对，两种视角都行） |
 | `eval.benchmarks.osworld21.root` / `.vm` / `.asset_root` | OSW2.1 的 runtime（prepared 软链层）、qcow2 与资产根 |
 | `eval.benchmarks.osworld21.shared_env` | OSW2.1 独立 `env.sh`（**不与旧环境 env.sh 混用**） |
 | `eval.benchmarks.osworld21.inner_image` | OSW2.1 运行镜像，必须发布固定（`<repo>@sha256:…`，禁 `latest`）；留空时跑 osworld21 会明确报错 |
@@ -202,11 +203,14 @@ payload 带 JEV 宿主机视角路径。暂存按内容哈希命名去重（`ste
 OSW2.1 走**独立环境**（独立 runtime / VM / 资产 / venv / env.sh），与 OSW1、OSW2 不共用：
 
 - **共享资源**：`<sa_cua>/osworld21/`（`README_CN.md` 是环境侧的权威说明）。
-  `prepared/runtime/` 是一层**指向 canonical 路径 `/mnt/shared-storage-gpfs2/...` 的软链**，
-  因此这些路径**只在 worker 内可见**——开发机没有 canonical 挂载点，软链是断的。
-  开发机要用 OSW2.1 的 runtime，请走 worker（`tandem-eval rjob run --benchmark osworld21`）。
-- **挂载**：因此 `eval.mounts` 里多了一条 `gpfs://gpfs2/evobox-share-gpfs2` →
-  `/mnt/shared-storage-gpfs2/evobox-share-gpfs2`（canonical 视角），旧的 user 视角保留不变。
+- **挂载视角只有一个**：平台不允许同一 source 挂两次，而 OSW2.1 的 `env.sh` 与
+  `prepared/runtime/` 软链层写的是 **canonical 路径** `/mnt/shared-storage-gpfs2/...`，
+  所以 evobox 卷在 worker 里统一挂 canonical 视角，配置里所有 evobox 路径也随之统一
+  （旧环境的 `env.sh` 是自相对的，两种视角都行，不受影响）。
+  - worker：`gpfs://gpfs2/evobox-share-gpfs2` → `/mnt/shared-storage-gpfs2/evobox-share-gpfs2`
+  - 开发机：默认只有 user 视角 `/mnt/shared-storage-user/evobox-share-gpfs2`，
+    想在开发机直接读配置里的路径，建一个软链即可（只影响开发机）：
+    `ln -s /mnt/shared-storage-user/evobox-share-gpfs2 /mnt/shared-storage-gpfs2/evobox-share-gpfs2`
 - **env.sh**：worker 用 `eval.benchmarks.osworld21.shared_env` 指定的独立 env.sh
   （它再 source canonical 的 `osworld21/env.sh`），**不与旧环境 env.sh 混用**。
 - **镜像**：直接拉发布清单固定的运行镜像（digest），**不覆盖 `latest`**，

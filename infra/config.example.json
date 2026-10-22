@@ -20,18 +20,18 @@
         "jev": {
           "backend": "jev",
           "endpoint": "",
-          "endpoint_file": "/mnt/shared-storage-user/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/services/qwen_jev.json",
+          "endpoint_file": "/mnt/shared-storage-gpfs2/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/services/qwen_jev.json",
           "timeout_seconds": 300
         },
         "kev": {
           "backend": "kev",
           "endpoint": "",
-          "endpoint_file": "/mnt/shared-storage-user/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/services/kev.json",
+          "endpoint_file": "/mnt/shared-storage-gpfs2/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/services/kev.json",
           "timeout_seconds": 300
         }
       },
       "image_stage": {
-        "write": "/mnt/shared-storage-user/evobox-share-gpfs2/chenxinquan/tandem_jev_images",
+        "write": "/mnt/shared-storage-gpfs2/evobox-share-gpfs2/chenxinquan/tandem_jev_images",
         "read": "/mnt/shared-storage-gpfs2/evobox-share-gpfs2/chenxinquan/tandem_jev_images"
       }
     },
@@ -50,10 +50,6 @@
     "deploy_root": "/mnt/shared-storage-user/adpc-share/chenxinquan/fastslow/tandem-deploy",
     "mounts": [
       {
-        "source": "gpfs://gpfs2/evobox-share-gpfs2",
-        "target": "/mnt/shared-storage-user/evobox-share-gpfs2"
-      },
-      {
         "source": "gpfs://gpfs2/adpc-share",
         "target": "/mnt/shared-storage-user/adpc-share"
       },
@@ -71,15 +67,16 @@
       "image": "registry.h.pjlab.org.cn/ailab-evobox-evobox_cpu/weavebench:osworld-v2-rjob-openclaw-kimi-tasks-uploadfix-20260701"
     },
     "inner_image": "registry.h.pjlab.org.cn/ailab-evobox-evobox_cpu/weavebench:osworld-v2-inner-osworld-docker-socat-20260712",
+    "shared_env": "/mnt/shared-storage-gpfs2/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/env.sh",
     "benchmarks": {
       "osworld1": {
-        "root": "/mnt/shared-storage-user/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/benchmarks/osworld1",
-        "vm": "/mnt/shared-storage-user/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/vm/osworld1/Ubuntu.qcow2"
+        "root": "/mnt/shared-storage-gpfs2/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/benchmarks/osworld1",
+        "vm": "/mnt/shared-storage-gpfs2/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/vm/osworld1/Ubuntu.qcow2"
       },
       "osworld2": {
-        "root": "/mnt/shared-storage-user/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/benchmarks/osworld2",
-        "vm": "/mnt/shared-storage-user/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/vm/osworld2/osworld-v2-ubuntu-x86.qcow2",
-        "asset_root": "/mnt/shared-storage-user/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/osworld2_0808/assets"
+        "root": "/mnt/shared-storage-gpfs2/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/benchmarks/osworld2",
+        "vm": "/mnt/shared-storage-gpfs2/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/vm/osworld2/osworld-v2-ubuntu-x86.qcow2",
+        "asset_root": "/mnt/shared-storage-gpfs2/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/osworld2_0808/assets"
       },
       "osworld21": {
         "root": "/mnt/shared-storage-gpfs2/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/osworld21/prepared/runtime",

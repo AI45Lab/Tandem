@@ -43,6 +43,7 @@ REQUIRED_PATHS = (
     "eval.benchmarks.osworld21.vm",
     "eval.benchmarks.osworld21.asset_root",
     "eval.benchmarks.osworld21.shared_env",
+    "eval.shared_env",
     "eval.registry",
     "log.results_root",
 )
@@ -51,6 +52,7 @@ REQUIRED_PATHS = (
 ABSOLUTE_PATH_PATHS = (
     "eval.repo_root",
     "eval.deploy_root",
+    "eval.shared_env",
     "log.results_root",
     "eval.benchmarks.osworld1.root",
     "eval.benchmarks.osworld1.vm",

@@ -39,11 +39,9 @@ if [ "$BENCHMARK" = "mock" ]; then
 fi
 
 # ---- 真实基准：共享资源 + docker 准备 ----
-SHARED_ENV="${SA_CUA_SHARED_ENV:-/mnt/shared-storage-user/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/env.sh}"
-if [ "$BENCHMARK" = "osworld21" ]; then
-  # OSW2.1 自带独立 env.sh，不与旧环境混用
-  SHARED_ENV="$(spec_get env.shared_env)"
-fi
+# shared_env 由 spec 给出（OSW1/OSW2 用旧环境的 env.sh，OSW2.1 用它自己的独立 env.sh）；
+# SA_CUA_SHARED_ENV 可临时覆盖。
+SHARED_ENV="${SA_CUA_SHARED_ENV:-$(spec_get env.shared_env)}"
 if [ ! -f "$SHARED_ENV" ]; then
   echo "缺少共享资源 env.sh: $SHARED_ENV" | tee "$OUTPUT_ROOT/worker/entry.log" >&2
   exit 3

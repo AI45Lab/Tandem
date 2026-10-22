@@ -38,14 +38,15 @@ def _git_describe(repo_root: Path) -> str:
 
 def _env_section(benchmark: str, config: dict) -> dict:
     benchmarks = config["eval"]["benchmarks"]
+    shared_env = config["eval"]["shared_env"]
     if benchmark == "osworld1":
         section = benchmarks["osworld1"]
-        return {"root": section["root"], "vm": section["vm"],
+        return {"root": section["root"], "vm": section["vm"], "shared_env": shared_env,
                 "setup_cache_root": str(Path(section["root"]) / "cache"),
                 "startup_wait_seconds": 30}
     if benchmark == "osworld2":
         section = benchmarks["osworld2"]
-        return {"root": section["root"], "vm": section["vm"],
+        return {"root": section["root"], "vm": section["vm"], "shared_env": shared_env,
                 "asset_root": section["asset_root"], "startup_wait_seconds": 30}
     if benchmark == "osworld21":
         # OSW2.1 自带独立 runtime/VM/资产/env.sh，不与旧环境混用

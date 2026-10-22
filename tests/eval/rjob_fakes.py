@@ -85,6 +85,7 @@ CONFIG = {
     "eval": {
         "repo_root": "/dev-repo",
         "deploy_root": "/dev-deploy",
+        "shared_env": "/shared/env.sh",
         "mounts": [{"source": "gpfs://gpfs2/share", "target": "/mnt/share"}],
         "rjob": {"charged_group": "evobox_proxy", "private_machine": True, "cpu": 4,
                  "memory": 16384, "gpu": 0, "image": "reg.example/outer:1"},
