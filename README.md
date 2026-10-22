@@ -1,47 +1,129 @@
 # Tandem
 
-**本仓库主体是 Tandem harness**（快慢双模 CUA agent）；`tandem_eval` 仅为适配集群 rjob 的测评薄适配层。
+快慢双模 CUA harness + 集群测评适配层。
 
 ```
-Tandem harness ──Observation/Action/Receipt（消息层协议 v0.1）──▶ tandem_eval（rjob/VM/评分）
-                                                                      │ 写
-                                                              结果目录（自包含契约）
-                                                                      │ 读
-                                                                  Demo 离线回放
-```
-
-三个硬边界：harness ↔ eval 只走协议消息；demo ↔ 其余只走结果目录；本仓库 ↔ 共享资源只读（环境变量寻址，零新增依赖）。
-
-## 状态
-
-- **M0（完成）**：repo 骨架 + 协议 schema v0.1 + golden 测试 + CI。
-- **M1（完成）**：planner_led 主路径移植——组件契约（planner/verifier/selector/target/candidate/compile）+ 停止条件 + CLI 路由 + deliverables 声明；全 mock 单测。与旧仓库行为差异见 [DEVIATIONS.md](DEVIATIONS.md)。
-- **M2（完成）**：tandem_eval（worker 侧 6 文件 + 开发机侧 rjob 生命周期客户端）；mock 全链路（spec→entry→runner→recorder→结果目录→渲染→worker.sh）；结果目录契约见 [docs/RESULT_DIR_CONTRACT.md](docs/RESULT_DIR_CONTRACT.md)。
-- 里程碑排期见 [重构计划](../TANDEM_REFACTOR_PLAN_CN.md)；开发纪律见 [AGENTS.md](AGENTS.md)。
-
-## 提交一次 rjob 测评（mock 示例）
-
-```bash
-tandem-eval rjob run --run-id demo-1 --benchmark mock \
-  --repo . --config infra/config.json --poll 30
-# 自动：rsync 部署副本 → 写 job spec → rjob submit（挂载 gpfs2）→ 轮询至终态
-#      → 平台日志补写进 run 目录 → rjob stop 收尾
-# 唯一落盘位置：rjob_logs/<run_id>/（worker 直写 + 平台日志，无其它副本）
+┌─────────────────┐      消息层协议 v0.1       ┌──────────────────┐
+│  Tandem harness  │ ◀──Observation/Action──▶  │  tandem_eval      │
+│  (src/tandem)    │      Receipt (JSON)        │  (src/tandem_eval)│
+│  planner_led     │                            │  rjob / VM / 评分  │
+└─────────────────┘                            └────────┬─────────┘
+                                                        │ 写
+                                                ┌───────▼────────┐
+                                                │ rjob_logs/<id>/  │
+                                                │ (自包含结果目录)  │
+                                                └───────┬────────┘
+                                                        │ 读
+                                                ┌───────▼────────┐
+                                                │  Demo / 分析     │
+                                                │  render_summary  │
+                                                └────────────────┘
 ```
 
 ## 快速开始
 
 ```bash
+# 安装（Python ≥ 3.10，运行时依赖仅 Pillow）
 pip install -e '.[dev]'
-ruff check src tests   # lint
-pytest                 # 测试（协议 golden 样例 + 负例 + 往返一致）
-tandem check           # 协议样例自检
+
+# 验证
+ruff check src tests && pytest && tandem check
 ```
 
-## 协议 v0.1 一览
+## 配置
 
-- **Observation**（环境→harness）：task_id / instruction / step_idx / budget / screenshot(文件引用) / accessibility_tree(可选, vm|jev 来源) / last_receipt / protocol_version
-- **Action**（harness→环境）：`gui`（OSWorld 动作集）| `cli`（VM 内 bash -lc，timeout≤120s，want_observation=screenshot|none）| `wait` | `finish` | `fail`。**1 个动作 = 1 步，共用 max_steps 预算。**
-- **Receipt**（环境→harness）：returncode / stdout / stderr（截尾 12000，全文见 full_output_ref）/ kind / acknowledged
+唯一配置文件 [infra/config.json](infra/config.json)（含密钥，已 gitignore；模板见 [config.example.json](infra/config.example.json)）。所有值为绝对路径，开发机与 worker 内一致（adpc 和 evobox 两卷挂载点两侧相同），无占位符、无多档案。
 
-真源：`src/tandem/protocol/schema/`；样例：`src/tandem/protocol/samples/`。
+```jsonc
+{
+  "repo_root":    "…/fastslow/tandem",           // 本仓库
+  "deploy_root":  "…/fastslow/tandem-deploy",     // rsync 部署副本（worker 读代码）
+  "results_root": "…/tandem/rjob_logs",           // 唯一落盘位置（run 目录 = rjob_logs/<run_id>/）
+  "mounts":  [ … ],                               // rjob --mount 参数
+  "rjob":    { … },                               // charged_group / cpu / memory / image
+  "osw1_root": "…/sa_cua/benchmarks/osworld1",   // 共享资源路径
+  "kimi":    { "base_url": "…", "api_key": "…" }, // LLM 凭据（内联值，不通过文件）
+  "jev_endpoint": "",                             // 空 = 自动从发现文件读取
+  "jev_endpoint_file": "…/services/qwen_jev.json" // 部署侧维护的活地址
+}
+```
+
+## 运行单题
+
+```bash
+tandem-eval rjob run --run-id <name> --benchmark osworld1 \
+  --tasks <task-id> \
+  --repo . --config infra/config.json --poll 60 --timeout 3600
+```
+
+常用参数：
+
+| 参数 | 说明 |
+|------|------|
+| `--benchmark` | `mock` / `osworld1` / `osworld2` |
+| `--tasks` | 逗号分隔 task id（覆盖 manifest） |
+| `--limit N` | 取清单前 N 题 |
+| `--shard I/N` | 把（limit 后的）清单交错切成 N 片，本 run 跑第 I 片（并发用） |
+| `--selector jev/kev` | 排序后端（默认 jev；kev 走 System One API） |
+| `--max-steps / --max-wall` | 单题预算（步数/墙钟秒） |
+| `--allow-cli true/false` | 是否允许 planner 选 CLI 路由 |
+| `--kimi-reasoning off/low/medium/high` | LLM 思考强度（默认 low） |
+| `--export-paths` | 逗号分隔的 VM 内交付物路径（finish 时导出） |
+
+## 批量运行
+
+```bash
+bash scripts/run_osw2_20x5.sh    # 20 题、5 并发（自动切片+提交+等收敛+汇总）
+```
+
+## 结果目录结构
+
+所有产物落盘在 **唯一位置** `rjob_logs/<run_id>/`（无其它副本）：
+
+```
+rjob_logs/<run_id>/
+├── summary.json           # run 级汇总（demo/人工验收入口）
+├── heartbeat.json         # 进度心跳（done/total/current_task）
+├── code_version.json      # git describe + 协议版本 + 镜像 + run spec（secrets 已脱敏）
+├── platform.status.txt    # rjob get 输出
+├── platform.tail.log      # rjob 平台日志尾部
+├── worker/entry.log       # worker 侧运行日志（LLM 审计 + 事件流）
+└── episodes/<task_id>/
+    ├── task.json          # 任务定义副本（自包含）
+    ├── traj.jsonl         # 每步：观察(截图/a11y/预算) + 动作 + 回执 + protocol_version
+    ├── llm_calls.jsonl    # 全量 LLM 请求/响应（role: plan_step / verify_observation / task_requirements）
+    ├── events.jsonl       # 决策事件（planner 计划 / JEV/Kev 排序 / 验证裁决 / 终态）
+    ├── screenshots/       # 逐步截图（契约正本）
+    ├── a11y_digests.jsonl # 每步 a11y 摘要（sha256 + 节点数）
+    ├── deliverables/      # finish 时导出的 VM 文件
+    ├── evaluation.json    # 官方评分（source/raw/score）
+    ├── result.txt         # 分数
+    └── episode.json       # 终态（score/status/stop_reason/steps）
+```
+
+## 排序服务（JEV / Kev）
+
+两个后端跑同一套两阶段排序（operation → action），harness 侧一行开关切换：
+
+| 后端 | 协议 | 截图 | endpoint 发现 |
+|------|------|------|--------------|
+| **jev**（默认） | `GET /` + `POST /rank` | 需要（暂存到 evobox 中转目录） | `qwen_jev.json` |
+| **kev** | System One `POST /v1/systemone` | 不需要（纯文本） | `kev.json` |
+
+两个服务部署在闲时 GPU，地址随重新部署变化 → 配置里 endpoint 留空即自动从发现文件读取最新地址（worker 侧建 session 时解析，含就绪位检查和双视角符号链接兜底）。
+
+## 架构要点
+
+| 边界 | 规则 |
+|------|------|
+| harness ↔ eval | 只走消息层协议（Observation/Action/Receipt JSON Schema） |
+| eval ↔ demo/分析 | 只读结果目录（契约见 [docs](docs/RESULT_DIR_CONTRACT.md)） |
+| 仓库 ↔ 共享资源 | 只读，经 `infra/config.json` 寻址，零新增依赖 |
+| 落盘 | 唯一位置 `rjob_logs/<run_id>/`；`obs_stage/`（episode 内工作区）结束即清 |
+
+## 更多文档
+
+- [docs/RESULT_DIR_CONTRACT.md](docs/RESULT_DIR_CONTRACT.md) — 结果目录契约（字段级定义）
+- [DEVIATIONS.md](DEVIATIONS.md) — 与旧仓库的行为差异清单（M1–M3 全量）
+- [AGENTS.md](AGENTS.md) — 开发纪律与目录地图
+- [TANDEM_REFACTOR_PLAN_CN.md](../TANDEM_REFACTOR_PLAN_CN.md) — 重构总计划
