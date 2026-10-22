@@ -98,6 +98,22 @@ def test_build_job_spec_rejects_unknown_model_name(tmp_path):
                        spec_overrides={"benchmark": "mock", "models": {"fast": "nope"}})
 
 
+@pytest.mark.parametrize("benchmark", ["osworld1", "osworld2", "osworld21"])
+def test_real_benchmarks_carry_credentials(tmp_path, benchmark):
+    """每个真实基准的 spec 都必须带凭据段。
+
+    基准名在白名单里漏一个，secrets 就会是空的——worker 在拉 inner 镜像前
+    因没有 registry 凭据直接退出（2026-10-22 跑 osworld21 时踩过）。
+    """
+    config = with_paths(CONFIG, deploy_root=str(tmp_path / "deploy"))
+    spec = build_job_spec(config=config, run_id="r1", repo_root=tmp_path,
+                          spec_overrides={"benchmark": benchmark})
+    secrets = spec["secrets"]
+    assert secrets["slow_model"]["api_key"]
+    assert secrets["fast_model"]["endpoint_file"]
+    assert secrets["registry"]["auths"]
+
+
 def test_build_job_spec_for_osworld21(tmp_path):
     """OSW2.1 用自己的 runtime/env/镜像，不复用 OSW2 的。"""
     config = with_paths(CONFIG, deploy_root=str(tmp_path / "deploy"))

@@ -60,7 +60,7 @@ def _env_section(benchmark: str, config: dict) -> dict:
 
 def _secrets_section(benchmark: str, config: dict, slow_api: dict, fast_api: dict) -> dict:
     """凭据段：慢模型三件套 + 快模型地址 + registry auth（落盘时整体脱敏）。"""
-    if benchmark not in {"osworld1", "osworld2"}:
+    if benchmark not in {"osworld1", "osworld2", "osworld21"}:
         return {}
     return {
         "slow_model": {key: slow_api[key] for key in ("base_url", "api_key", "model")},

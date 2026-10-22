@@ -56,7 +56,7 @@ registry = json.load(open(sys.argv[1]))["secrets"].get("registry")
 if not registry:
     print("缺少 registry 凭据（config.json 的 registry 段为空）", file=sys.stderr); raise SystemExit(3)
 pathlib.Path.home().joinpath(".docker/config.json").write_text(json.dumps(registry))' "$SPEC" || {
-  cat "$OUTPUT_ROOT/worker/entry.log" 2>/dev/null
+  cat "$OUTPUT_ROOT/worker/entry.log" 2>/dev/null || true
   echo "registry 凭据写入失败" | tee -a "$OUTPUT_ROOT/worker/entry.log" >&2; exit 3; }
 chmod 600 "$HOME/.docker/config.json"
 
@@ -80,7 +80,9 @@ for _ in $(seq 1 90); do
 done
 docker info > "$OUTPUT_ROOT/worker/docker-info.txt" 2>&1 || {
   echo "dockerd 未就绪" | tee -a "$OUTPUT_ROOT/worker/entry.log" >&2; exit 3; }
-docker pull "$INNER_IMAGE" > "$OUTPUT_ROOT/worker/docker-pull.log" 2>&1
+docker pull "$INNER_IMAGE" > "$OUTPUT_ROOT/worker/docker-pull.log" 2>&1 || {
+  tail -20 "$OUTPUT_ROOT/worker/docker-pull.log" | tee -a "$OUTPUT_ROOT/worker/entry.log" >&2
+  echo "inner 镜像拉取失败: $INNER_IMAGE" | tee -a "$OUTPUT_ROOT/worker/entry.log" >&2; exit 3; }
 if [ "$BENCHMARK" = "osworld21" ]; then
   # OSW2.1 的独立 venv 按官方 uv.lock 装，没有 easyocr；只查 Pillow
   DEPS_CHECK='import PIL'
@@ -91,6 +93,7 @@ fi
 
 "$OSWORLD_PYTHON" -c "$DEPS_CHECK" \
   > "$OUTPUT_ROOT/worker/deps-check.log" 2>&1 || {
+  tail -20 "$OUTPUT_ROOT/worker/deps-check.log" | tee -a "$OUTPUT_ROOT/worker/entry.log" >&2
   echo "共享 venv 依赖检查失败" | tee -a "$OUTPUT_ROOT/worker/entry.log" >&2; exit 3; }
 
 "$OSWORLD_PYTHON" -m tandem_eval entry --spec "$SPEC" 2>&1 | tee "$OUTPUT_ROOT/worker/entry.log"
