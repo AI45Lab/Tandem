@@ -15,7 +15,8 @@ CONFIG_PATH = Path(__file__).resolve().parents[2] / "infra" / "config.example.js
 def test_repo_config_loads_and_is_absolute():
     config = load_config(CONFIG_PATH)
     PATH_KEYS = ("repo_root", "deploy_root", "results_root", "osw1_root", "osw1_vm",
-                 "osw2_root", "osw2_vm", "asset_root")
+                 "osw2_root", "osw2_vm", "asset_root", "osw21_root", "osw21_vm",
+                 "osw21_asset_root", "osw21_shared_env")
     for key in PATH_KEYS:
         assert config[key].startswith("/"), f"{key} 必须是绝对路径: {config[key]}"
     assert config["inner_image"].startswith("registry.")
@@ -28,6 +29,8 @@ def test_repo_config_loads_and_is_absolute():
     assert "auths" in config["registry"]
     assert config["results_root"].endswith("tandem/rjob_logs")
     assert config["repo_root"].endswith("/tandem")
+    for key in ("osw21_root", "osw21_vm", "osw21_asset_root", "osw21_shared_env"):
+        assert "/shared_resources/sa_cua/" in config[key]
 
 
 def test_mounts_cover_both_volumes_with_user_style_targets():
@@ -60,6 +63,45 @@ def test_real_config_is_gitignored_with_example_committed():
     repo = Path(__file__).resolve().parents[2]
     ignore = (repo / ".gitignore").read_text(encoding="utf-8")
     assert "infra/config.json" in ignore, "含密钥的真实配置必须 gitignore"
+
+
+def test_osworld21_spec_uses_configured_environment_without_changing_osw2(tmp_path):
+    from tandem_eval.rjob_spec import build_job_spec
+
+    config = load_config(CONFIG_PATH)
+    config.update(deploy_root=str(tmp_path / "deploy"), osw21_volume_size=80,
+                  osw21_inner_image="registry.example/runtime:2.1")
+    spec = build_job_spec(config=config, run_id="new", repo_root=tmp_path,
+                          spec_overrides={"benchmark": "osworld21"})
+    for key in ("root", "vm", "asset_root", "shared_env", "proxy", "volume_size"):
+        assert spec["env"][key] == config[f"osw21_{key}"]
+    assert "setup_bundles" not in spec["env"]
+    assert spec["code"]["images"]["inner"] == config["osw21_inner_image"]
+    old = build_job_spec(config=config, run_id="old", repo_root=tmp_path,
+                         spec_overrides={"benchmark": "osworld2"})
+    assert old["env"]["root"] == config["osw2_root"]
+    assert old["code"]["images"]["inner"] == config["inner_image"]
+    config["osw21_inner_image"] = ""
+    with pytest.raises(ValueError, match="release-pinned"):
+        build_job_spec(config=config, run_id="bad", repo_root=tmp_path,
+                       spec_overrides={"benchmark": "osworld21"})
+
+
+@pytest.mark.parametrize("benchmark", ["osworld1", "osworld2", "osworld21"])
+def test_entry_uses_one_osworld_adapter(tmp_path, monkeypatch, benchmark):
+    import sys
+
+    from tandem_eval.entry import build_env
+    from tandem_eval.osworld import OsWorldEnv
+
+    monkeypatch.setattr(sys, "path", sys.path.copy())
+    monkeypatch.setenv("OSWORLD_FILE_BASE_URL", "before")
+    env = build_env({"benchmark": benchmark, "output_root": str(tmp_path / "run"),
+                     "env": {"root": str(tmp_path / "runtime"), "vm": str(tmp_path / "vm"),
+                             "volume_size": 80, "asset_root": str(tmp_path / "assets")}})
+    assert type(env) is OsWorldEnv
+    assert env.task_root == tmp_path / "runtime"
+    assert env.volume_size == 80
 
 
 def test_endpoint_discovery_prefers_explicit_then_file(tmp_path, monkeypatch):

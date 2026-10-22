@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import struct
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 
@@ -203,12 +204,20 @@ def test_setup_cache_seeding(tmp_path):
     del _shutil
 
 
-def test_osw2_module_level_asset_urls_resolve_locally(tmp_path):
+@pytest.mark.parametrize("benchmark", ["osworld2", "osworld21"])
+def test_osw2_module_level_asset_urls_resolve_locally(tmp_path, monkeypatch, benchmark):
     """OSW2 任务模块在 import 时（fetch_task 阶段）顶层调用 asset()；
     OSWORLD_FILE_BASE_URL 必须在那之前就绪（task_001 真机 404 根因）。"""
     import os
     import sys
 
+    monkeypatch.setattr(sys, "path", sys.path.copy())
+    monkeypatch.setenv("OSWORLD_FILE_BASE_URL", "before")
+    for name in ("desktop_env", "desktop_env.file_source", "task_loader",
+                 "task_class", "task_class.task_001"):
+        # 同时记录原先不存在的模块，确保临时导入也能在测试结束时撤销。
+        monkeypatch.setitem(sys.modules, name, sys.modules.get(name))
+        monkeypatch.delitem(sys.modules, name, raising=False)
     root = tmp_path / "osw2"
     (root / "desktop_env").mkdir(parents=True)
     (root / "desktop_env" / "__init__.py").write_text("", encoding="utf-8")
@@ -235,10 +244,48 @@ def test_osw2_module_level_asset_urls_resolve_locally(tmp_path):
         encoding="utf-8")
 
     assets = tmp_path / "assets"
-    env = OsWorldEnv(benchmark="osworld2", task_root=root, vm_path=tmp_path / "vm",
+    env = OsWorldEnv(benchmark=benchmark, task_root=root, vm_path=tmp_path / "vm",
                      run_root=tmp_path / "run", asset_root=assets,
                      startup_wait_seconds=0.0, env_factory=lambda **kw: FakeDesktopEnv())
     task = env.fetch_task("001")  # 先于 reset：模块级 asset() 必须已指向本地
     assert task["THUMB"] == str(assets / "task_001" / "profile.tar.gz")
     assert os.environ.get("OSWORLD_FILE_BASE_URL") == str(assets)
-    sys.path[:] = [p for p in sys.path if not p.startswith(str(tmp_path))]
+
+
+def test_native_task_setup_and_evaluation_are_preserved(tmp_path, monkeypatch):
+    import sys
+
+    monkeypatch.setattr(sys, "path", sys.path.copy())
+    calls = []
+
+    class NativeTask(dict):
+        def setup(self, controller):
+            calls.append("setup")
+
+        def evaluate(self, env):
+            calls.append("evaluate")
+            return {"score": 0.25}
+
+    task = NativeTask(id="003", instruction="test", config=[])
+    loader = ModuleType("task_loader")
+    loader.load_task_from_file = lambda path: task
+    monkeypatch.setitem(sys.modules, "task_loader", loader)
+
+    class NativeDesktop(FakeDesktopEnv):
+        def reset(self, task_config):
+            super().reset(task_config)
+            task_config.setup(self.controller)
+
+        def evaluate(self):
+            return self.task_config.evaluate(self)
+
+    env = OsWorldEnv(benchmark="osworld21", task_root=tmp_path / "runtime", vm_path=tmp_path / "vm",
+                     run_root=tmp_path / "run", startup_wait_seconds=0, env_factory=NativeDesktop)
+    loaded = env.fetch_task("003")
+    assert loaded is task
+    env.reset(loaded)
+    assert env.env.task_config is task
+    assert env.score(loaded) == {"score": 0.25}
+    assert calls == ["setup", "evaluate"]
+    env.close()
+    assert env.env is None

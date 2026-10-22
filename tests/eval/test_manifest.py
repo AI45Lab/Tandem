@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 
-from tandem_eval.manifest import TaskRef, load_index, resolve_manifest, write_resolved
+import pytest
+
+from tandem_eval.manifest import OSWORLD21_TASK_IDS, TaskRef, load_index, resolve_manifest, write_resolved
 
 
 def test_load_index_domain_dict_format():
@@ -39,6 +41,24 @@ def test_resolve_manifest_explicit_tasks_and_limit():
 def test_resolve_manifest_mock_default():
     refs = resolve_manifest({"benchmark": "mock"})
     assert len(refs) == 1 and refs[0].task_id == "mock-000"
+
+
+def test_osworld21_subset_and_sharding():
+    refs = resolve_manifest({"benchmark": "osworld21"})
+    assert tuple(ref.task_id for ref in refs) == OSWORLD21_TASK_IDS
+    assert len(OSWORLD21_TASK_IDS) == len(set(OSWORLD21_TASK_IDS)) == 56
+    assert all(not ref.domain for ref in refs)
+    assert not set(OSWORLD21_TASK_IDS) & {"026", "035", "041", "069", "087", "095"}
+    shards = [resolve_manifest({"benchmark": "osworld21", "manifest": {
+        "shard": {"index": index, "total": 4}}}) for index in range(1, 5)]
+    assert sorted(ref.task_id for shard in shards for ref in shard) == sorted(OSWORLD21_TASK_IDS)
+
+
+def test_osworld21_explicit_subset_limit_and_unsupported_task():
+    spec = {"benchmark": "osworld21", "manifest": {"tasks": ["054", "003"], "limit": 1}}
+    assert [ref.task_id for ref in resolve_manifest(spec)] == ["054"]
+    with pytest.raises(ValueError, match="outside the supported subset"):
+        resolve_manifest({"benchmark": "osworld21", "manifest": {"tasks": ["069"]}})
 
 
 def test_resolve_manifest_from_index_root():

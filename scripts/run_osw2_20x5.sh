@@ -6,6 +6,8 @@
 # 可用环境变量：
 #   LIMIT（默认 20）/ SHARDS（默认 5）/ MAX_STEPS（默认 30）/ MAX_WALL（默认 1800）
 #   TIMEOUT（整片 watch 上限，默认 7200）/ PREFIX（run-id 前缀，默认 osw2-20）
+# OSW2.1：BENCHMARK=osworld21 LIMIT=56 SHARDS=4 PREFIX=osw21-56 bash scripts/run_osw2_20x5.sh
+# 单题：再设置 TASKS=004 LIMIT=1 SHARDS=1；ROUTE_POLICY=gui 可限定 GUI 路由。
 set -u
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -16,6 +18,8 @@ SHARDS="${SHARDS:-5}"
 MAX_STEPS="${MAX_STEPS:-30}"
 MAX_WALL="${MAX_WALL:-1800}"
 TIMEOUT="${TIMEOUT:-7200}"
+BENCHMARK="${BENCHMARK:-osworld2}"
+TASKS="${TASKS:-}"
 PREFIX="${PREFIX:-osw2-20}"
 BATCH_TS="$(date +%Y%m%d-%H%M%S)"
 LOG_DIR="rjob_logs/${PREFIX}x${SHARDS}-${BATCH_TS}"
@@ -26,6 +30,12 @@ echo "[$(date '+%F %T')] 批次启动: ${LIMIT} 题 / ${SHARDS} 并发 → 日�
 pids=()
 for i in $(seq 1 "$SHARDS"); do
   EXTRA=()
+  if [ -n "$TASKS" ]; then
+    EXTRA+=(--tasks "$TASKS")
+  fi
+  if [ -n "${ROUTE_POLICY:-}" ]; then
+    EXTRA+=(--route-policy "$ROUTE_POLICY")
+  fi
   # 只有第 1 片做 rsync：并发 --delete 同步会互删部署副本
   if [ "$i" -gt 1 ]; then
     EXTRA+=(--no-sync)
@@ -33,7 +43,7 @@ for i in $(seq 1 "$SHARDS"); do
   echo "[$(date '+%F %T')] 提交分片 $i/$SHARDS (run-id ${PREFIX}-s${i})"
   tandem-eval rjob run \
     --run-id "${PREFIX}-s${i}" \
-    --benchmark osworld2 \
+    --benchmark "$BENCHMARK" \
     --limit "$LIMIT" --shard "$i/$SHARDS" \
     --max-steps "$MAX_STEPS" --max-wall "$MAX_WALL" \
     --repo . --config infra/config.json \

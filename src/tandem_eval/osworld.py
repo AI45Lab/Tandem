@@ -1,10 +1,6 @@
-"""OSW1/OSW2 真实环境适配器：DesktopEnv ↔ 协议消息。
+"""OSW1/OSW2/OSW2.1 统一环境适配器：DesktopEnv ↔ 协议消息。
 
-- 代码生成（gui_code/cli_code）语义对齐旧仓库 gui/actions.py + execution.py（DEVIATIONS #6）；
-- 回执确认纪律：包装 controller.execute_python_command，无回执不重放（旧 execution.py:30-35）；
-- want_observation="none" 当前仍返回完整观察（截图+a11y 由 controller 一次读取，成本低），
-  协议字段保留，严格跳过推迟到真机 profiling 后（DEVIATIONS #20）；
-- 终态动作（finish/fail）经 env.step("DONE"/"FAIL") 送达 VM（评分钩子依赖它，旧 runtime 同款）。
+无回执不重放动作；终态 DONE/FAIL 送达 VM。want_observation="none" 暂仍返回完整观察。
 """
 
 from __future__ import annotations
@@ -54,10 +50,7 @@ def gui_code(action: GuiAction) -> str:
             steps.append(f"pyautogui.{'press' if len(keys) == 1 else 'hotkey'}({keys_text})")
         return "; __import__('time').sleep(0.2); ".join(steps)
     if action.action_type == "scroll":
-        return (
-            f"pyautogui.moveTo({params['x']}, {params['y']}); "
-            f"pyautogui.scroll({params['dy']})"
-        )
+        return f"pyautogui.moveTo({params['x']}, {params['y']}); pyautogui.scroll({params['dy']})"
     if action.action_type == "type":
         steps = []
         if params.get("click"):
@@ -101,6 +94,7 @@ class OsWorldEnv:
     def __init__(self, *, benchmark: str, task_root: Path, vm_path: Path,
                  run_root: Path, asset_root: Path | None = None,
                  setup_cache_root: Path | None = None,
+                 volume_size: int | None = None,
                  startup_wait_seconds: float = 30.0, env_factory: Callable[..., Any] | None = None):
         self.benchmark = benchmark
         self.task_root = Path(task_root)
@@ -108,12 +102,10 @@ class OsWorldEnv:
         self.run_root = Path(run_root)
         self.asset_root = Path(asset_root) if asset_root else None
         self.setup_cache_root = Path(setup_cache_root) if setup_cache_root else None
+        self.volume_size = volume_size
         self.startup_wait_seconds = startup_wait_seconds
         self._env_factory = env_factory or self._import_desktop_env
-        # bootstrap 必须先于 fetch_task：OSW2 任务模块在 import 时（fetch_task 阶段）
-        # 就于顶层调用 asset() 固化资产 URL——晚设 OSWORLD_FILE_BASE_URL 会让
-        # 模块级 URL 烘焙成默认 HF 地址（task_001 真机 404 的根因；函数体内调用
-        # 的 task_066 恰好躲过）
+        # 任务模块在 import 时解析资产 URL，必须先设置本地资产根路径。
         self._bootstrap_runtime()
 
     def _bootstrap_runtime(self) -> None:
@@ -131,12 +123,13 @@ class OsWorldEnv:
     def name(self) -> str:
         return f"osworld-{self.benchmark}"
 
-    # ------------------------------------------------------------------ 装载
     def _import_desktop_env(self, **kwargs):
         self._bootstrap_runtime()
         os.chdir(self.task_root)
         from desktop_env.desktop_env import DesktopEnv
 
+        if self.volume_size is not None:
+            kwargs["volume_size"] = self.volume_size
         return DesktopEnv(**kwargs)
 
     def _task_file(self, task_id: str, domain: str) -> Path:
@@ -171,7 +164,6 @@ class OsWorldEnv:
             )
         return task
 
-    # ------------------------------------------------------------------ 观察
     def _observation(self, task: dict, step_idx: int, budget: Budget,
                      receipt: Receipt | None) -> Observation:
         stage = self.run_root / "obs_stage" / str(task["id"])
@@ -205,10 +197,8 @@ class OsWorldEnv:
         self.last_screenshot = obs["screenshot"]
         self.last_a11y = obs.get("accessibility_tree") or ""
 
-    # ------------------------------------------------------------------ 协议
     def _seed_setup_cache(self, task_id: str) -> None:
-        """把共享盘已缓存的 setup 文件播种进本次 evaluation_cache（旧 runtime.py:532-539），
-        避免任务 setup 走外网下载（HF 下载在 worker 内经代理，慢且可能失败）。"""
+        """把已缓存的 setup 文件复制到本次 evaluation_cache，避免外网下载。"""
         if self.setup_cache_root is None:
             return
         source = self.setup_cache_root / task_id

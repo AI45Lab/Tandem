@@ -1,11 +1,17 @@
-"""任务清单：OSW1 用共享目录 test_nogdrive.json（361 题），OSW2 用 test_v2.json（108 题），
-或显式 id 列表 / repo 内清单文件。"""
+"""任务清单：OSW1/OSW2 使用共享索引，OSW2.1 使用 56 题清单，也支持显式题号或清单文件。"""
 
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass
 from pathlib import Path
+
+OSWORLD21_TASK_IDS = tuple((
+    "001 002 003 004 006 009 010 011 012 014 017 022 023 024 "
+    "025 027 029 030 032 034 037 040 042 044 045 049 051 053 "
+    "054 055 059 061 062 063 066 067 071 074 075 076 078 080 "
+    "083 084 085 086 088 089 090 092 093 094 096 097 099 108"
+).split())
 
 
 @dataclass(frozen=True)
@@ -48,6 +54,8 @@ def resolve_manifest(spec: dict) -> list[TaskRef]:
         if not path.is_absolute():
             path = Path(spec["repo_root"]) / path
         refs = load_index(path)
+    elif benchmark == "osworld21":
+        refs = [TaskRef(task_id=task_id) for task_id in OSWORLD21_TASK_IDS]
     elif benchmark in {"osworld1", "osworld2"} and (
         spec.get("index_root") or spec.get("env", {}).get("root")
     ):
@@ -65,6 +73,10 @@ def resolve_manifest(spec: dict) -> list[TaskRef]:
         refs = [TaskRef(task_id=f"mock-{i:03d}", domain="mock") for i in range(1)]
     else:
         raise ValueError(f"无法解析 manifest：benchmark={benchmark} 且未提供 index_root/tasks/path")
+    if benchmark == "osworld21":
+        unsupported = [ref.task_id for ref in refs if ref.task_id not in OSWORLD21_TASK_IDS]
+        if unsupported:
+            raise ValueError(f"OSWorld 2.1 tasks outside the supported subset: {unsupported}")
     limit = manifest.get("limit")
     if isinstance(limit, int) and limit > 0:
         refs = refs[:limit]

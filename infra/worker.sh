@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # rjob worker 内入口：读取 job spec，进入 tandem_eval entry。
 # - mock 基准：直接用系统 python3 跑（无需共享资源/docker）。
-# - osworld1/2：加载共享资源 env.sh（冻结 venv/评测工具/JEV），启动 dockerd 并拉取
+# - osworld1/2/21：加载共享资源 env.sh（冻结 venv/评测工具/JEV），启动 dockerd 并拉取
 #   inner 镜像（VM 容器），然后用 OSWORLD_PYTHON 跑 entry（Pillow 等依赖已在冻结 venv 内）。
 set -euo pipefail
 
@@ -27,6 +27,9 @@ fi
 
 # ---- 真实基准：共享资源 + docker 准备 ----
 SHARED_ENV="${SA_CUA_SHARED_ENV:-/mnt/shared-storage-user/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/env.sh}"
+if [ "$BENCHMARK" = "osworld21" ]; then
+  SHARED_ENV="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["env"]["shared_env"])' "$SPEC")"
+fi
 if [ ! -f "$SHARED_ENV" ]; then
   echo "缺少共享资源 env.sh: $SHARED_ENV" | tee "$OUTPUT_ROOT/worker/entry.log" >&2
   exit 3
@@ -48,7 +51,8 @@ chmod 600 "$HOME/.docker/config.json"
 INNER_IMAGE="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["code"]["images"]["inner"])' "$SPEC")"
 # 平台可能预注入不可用的代理（真机 2026-10-20：httpproxy-headless-dev-test 无法解析），
 # 一律覆盖为已知可用代理，不继承环境变量。
-PROXY="http://httpproxy-headless.kubebrain.svc.pjlab.local:3128"
+PROXY="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("env", {}).get(
+    "proxy", "http://httpproxy-headless.kubebrain.svc.pjlab.local:3128"))' "$SPEC")"
 export HTTP_PROXY="$PROXY" HTTPS_PROXY="$PROXY" http_proxy="$PROXY" https_proxy="$PROXY"
 export NO_PROXY='10.0.0.0/8,100.96.0.0/12,localhost,127.0.0.1,.pjlab.org.cn'
 export no_proxy="$NO_PROXY"
@@ -65,9 +69,14 @@ done
 docker info > "$OUTPUT_ROOT/worker/docker-info.txt" 2>&1 || {
   echo "dockerd 未就绪" | tee -a "$OUTPUT_ROOT/worker/entry.log" >&2; exit 3; }
 docker pull "$INNER_IMAGE" > "$OUTPUT_ROOT/worker/docker-pull.log" 2>&1
-docker tag "$INNER_IMAGE" happysixd/osworld-docker:latest
+if [ "$BENCHMARK" = "osworld21" ]; then
+  DEPS_CHECK='import PIL'
+else
+  docker tag "$INNER_IMAGE" happysixd/osworld-docker:latest
+  DEPS_CHECK='import easyocr, PIL; assert callable(easyocr.Reader)'
+fi
 
-"$OSWORLD_PYTHON" -c 'import easyocr, PIL; assert callable(easyocr.Reader)' \
+"$OSWORLD_PYTHON" -c "$DEPS_CHECK" \
   > "$OUTPUT_ROOT/worker/deps-check.log" 2>&1 || {
   echo "共享 venv 依赖检查失败" | tee -a "$OUTPUT_ROOT/worker/entry.log" >&2; exit 3; }
 

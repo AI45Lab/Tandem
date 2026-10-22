@@ -1,8 +1,8 @@
 """entry：job spec → 环境/harness/runner 组装（worker 侧唯一入口，infra/worker.sh 调用）。
 
 benchmark=mock：MockEnv + 确定性脚本组件（全链路自检）。
-benchmark=osworld1/2：OsWorldEnv（共享目录 runtime/VM）+ KimiClient + build_default 组件，
-凭据与端点路径由 rjob.py 在提交侧从环境档案注入 spec（secrets 段）。
+真实基准：环境适配器（共享目录 runtime/VM）+ KimiClient + build_default 组件，
+凭据与端点路径由提交侧从 infra/config.json 注入 spec（secrets 段）。
 """
 
 from __future__ import annotations
@@ -155,7 +155,7 @@ def build_session(spec: dict, *, llm_tap: LlmTap | None = None) -> TandemSession
     benchmark = spec.get("benchmark")
     if benchmark == "mock":
         return TandemSession(mock_components(), config=config)
-    if benchmark in {"osworld1", "osworld2"}:
+    if benchmark in {"osworld1", "osworld2", "osworld21"}:
         from tandem.components import build_default
         from tandem.providers import KimiClient
 
@@ -184,7 +184,7 @@ def build_env(spec: dict):
     if benchmark == "mock":
         base = Path(spec["output_root"]) / "mock_env"
         return MockEnv(base_dir=base)
-    if benchmark in {"osworld1", "osworld2"}:
+    if benchmark in {"osworld1", "osworld2", "osworld21"}:
         from .osworld import OsWorldEnv
 
         env_spec = spec["env"]
@@ -196,6 +196,7 @@ def build_env(spec: dict):
             asset_root=Path(env_spec["asset_root"]) if env_spec.get("asset_root") else None,
             setup_cache_root=Path(env_spec["setup_cache_root"]) if env_spec.get("setup_cache_root") else None,
             startup_wait_seconds=float(env_spec.get("startup_wait_seconds", 30.0)),
+            volume_size=env_spec.get("volume_size"),
         )
     raise NotImplementedError(f"未知 benchmark: {benchmark}")
 

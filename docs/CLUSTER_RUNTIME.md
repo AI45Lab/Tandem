@@ -98,7 +98,7 @@ cleanup  stop（释放资源）+ delete（永久删除 rjob 记录）——默�
 | 参数 | 说明 |
 |---|---|
 | `--run-id` | 必填。run 目录名 = `rjob_logs/<run_id>/` |
-| `--benchmark` | `mock` / `osworld1` / `osworld2` |
+| `--benchmark` | `mock` / `osworld1` / `osworld2` / `osworld21` |
 | `--tasks` | 逗号分隔 task id（覆盖 manifest） |
 | `--limit N` | 取清单前 N 题 |
 | `--shard I/N` | 把（limit 后的）清单**交错**切成 N 片，本 run 跑第 I 片（并发用） |
@@ -133,6 +133,9 @@ tandem-eval rjob watch tandem-<run-id> --run-id <run-id> --config infra/config.j
      打 tag 为 `happysixd/osworld-docker:latest`；
   5. 用 `$OSWORLD_PYTHON` 跑 `tandem_eval entry`（Pillow / easyocr 已在冻结 venv 内），
      跑前先做一次依赖自检。
+
+OSW2.1 使用 `osw21_shared_env`、`osw21_proxy` 和 `osw21_inner_image`，
+直接拉取固定版本镜像，不覆盖 `latest`；冻结 venv 只检查 Pillow，不要求 easyocr。
 
 worker 侧 `tandem_eval entry --spec <spec>` 是实际执行体：起 VM → 跑任务 → 录事件 → 评分 →
 写 run 目录。环境生命周期、预算强制、落盘都在这一层，harness 只管决策。
@@ -220,6 +223,6 @@ worker 侧各段日志：
 真机 smoke：
 
 - `--benchmark mock` 走 mock 链路（不起 VM、不碰共享资源），可本地跑；
-- 真实基准走 OSW1 / OSW2，按本文 §3–§7。
+- 真实基准走 OSW1 / OSW2 / OSW2.1，按本文 §3–§7。
 
 上游重构总计划：`../../TANDEM_REFACTOR_PLAN_CN.md`（在仓库外，与本仓库同级目录的上级）。
