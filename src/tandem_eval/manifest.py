@@ -51,12 +51,15 @@ def resolve_manifest(spec: dict) -> list[TaskRef]:
     elif benchmark in {"osworld1", "osworld2"} and (
         spec.get("index_root") or spec.get("env", {}).get("root")
     ):
-        index_root = spec.get("index_root") or spec["env"]["root"]
-        index = Path(index_root) / (
-            "osworld1/evaluation_examples/test_nogdrive.json"
-            if benchmark == "osworld1"
-            else "osworld2/evaluation_examples/test_v2.json"
+        index_file = (
+            "test_nogdrive.json" if benchmark == "osworld1" else "test_v2.json"
         )
+        if spec.get("index_root"):
+            # 显式 index_root = 共享 benchmarks 根（含 osworld1/、osworld2/ 子目录）
+            index = Path(spec["index_root"]) / benchmark / "evaluation_examples" / index_file
+        else:
+            # env.root 已是各基准根目录
+            index = Path(spec["env"]["root"]) / "evaluation_examples" / index_file
         refs = load_index(index)
     elif benchmark == "mock":
         refs = [TaskRef(task_id=f"mock-{i:03d}", domain="mock") for i in range(1)]
