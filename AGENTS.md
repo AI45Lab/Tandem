@@ -35,6 +35,11 @@
 改代码 → ruff check src tests → pytest →（若触碰协议）tandem check → PR（附单测 + smoke 链接）
 ```
 
+- **remote 约定**：`origin` = 自己的 fork（推送目标），`upstream` = 上游仓库（PR 目标）。
+  上游 `main` 受保护（需 review），**不能直接 push**，一律走 PR。
+- **提 PR**：`bash scripts/pr.sh` —— 把当前分支推到 fork，并向上游 `main` 开 PR
+  （标题/正文默认取最近一次提交信息）。提 PR 前先同步上游：
+  `git fetch upstream && git rebase upstream/main`。
 - `tandem check`：协议样例自检（CI 也跑）。
 - `tandem-eval rjob run …`：一站式提交（sync→spec→submit→watch→fetch→cleanup）。
   **收尾默认删 rjob**——成功/失败/超时/异常都删，不在集群上留残留；`--keep` 保留现场。
@@ -85,7 +90,7 @@ src/tandem_eval/         worker 侧 6 文件（entry/env/runner/recorder/scoring
 tests/                   protocol/ harness/ eval/ demo/ 四组
 infra/worker.sh          rjob worker 入口（mock 即跑；真实基准走共享 env.sh+docker）
 infra/config.json        唯一配置文件（含密钥 → gitignore；模板 config.example.json 提交）
-scripts/                 批量运行脚本（run_osw2_20x5.sh 等）
+scripts/                 批量运行脚本（run_osw2_20x5.sh 等）+ pr.sh（fork → 上游提 PR）
 tools/                   render_summary.py（demo 占位；完整 studio 后续平移）
 demo/                    轨迹回放与对比站点（adapter/metrics/frames/render + player/）
                          只读结果目录，不 import harness、不调模型、不碰 VM
