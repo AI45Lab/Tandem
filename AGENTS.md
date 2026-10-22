@@ -89,6 +89,7 @@ tools/                   render_summary.py（demo 占位；完整 studio 后续�
 demo/                    轨迹回放与对比站点（adapter/metrics/frames/render + player/）
                          只读结果目录，不 import harness、不调模型、不碰 VM
 docs/                    RESULT_DIR_CONTRACT.md（eval↔demo 唯一接口）
+                         CLUSTER_RUNTIME.md（内部集群运行手册：rjob/共享资源/已知坑）
 ```
 
 ## 结果目录纪律

@@ -1,0 +1,203 @@
+# 内部集群运行手册
+
+本文覆盖 **Tandem 在内部集群（adpc / evobox）上的运行方式**：配置、run 生命周期、
+worker 入口、共享资源与已知坑。
+
+产品定位与架构说明见根目录 [README.md](../README.md)；结果目录字段级定义见
+[RESULT_DIR_CONTRACT.md](RESULT_DIR_CONTRACT.md)。
+
+---
+
+## 1. 适用范围与前提
+
+| 组件 | 位置 | 职责 |
+|---|---|---|
+| `src/tandem/` | 仓库主体 | harness 本体，与集群无关（见 README） |
+| `src/tandem_eval/` | 薄适配层 | worker 侧 6 文件（entry/env/runner/recorder/scoring/manifest）+ 开发机侧 `rjob.py` 生命周期客户端 |
+| `infra/config.json` | 唯一配置 | 全绝对路径、含密钥 → **已 gitignore**，模板 `infra/config.example.json` 提交 |
+| `infra/worker.sh` | worker 入口 | rjob worker 内被调用，按 benchmark 分 mock / 真机两条路 |
+| `scripts/` | 批量脚本 | `run_osw2_20x5.sh` 等批量运行 |
+
+原则（AGENTS.md 配置纪律）：
+
+- **只有一个配置文件** `infra/config.json` —— 禁止环境档案、占位符展开、多配置文件；
+- 所有值为**绝对路径**，且开发机与 worker 内**完全一致**（adpc 与 evobox 两卷挂载点两侧相同）；
+- 凭据（LLM 三件套、docker registry auth）内联在 config 里，经 job spec 传入 worker，
+  落盘时在 `code_version.json` 的 run_spec 副本中**脱敏为 `***`**；
+- 共享资源**只读**，共享 venv **冻结**——不在其中安装/升级任何包。
+
+## 2. 配置文件
+
+必填键（`rjob.REQUIRED_CONFIG_KEYS`，缺一个直接报错）：
+
+| 键 | 说明 |
+|---|---|
+| `repo_root` | 本仓库路径（开发机） |
+| `deploy_root` | rsync 部署副本路径（worker 读代码；两侧挂载点一致） |
+| `results_root` | 唯一落盘位置，run 目录 = `<results_root>/<run_id>/` |
+| `mounts` | rjob `--mount` 参数（gpfs 源 → 容器内挂载点） |
+| `rjob` | `charged_group` / `private_machine` / `cpu` / `memory` / `gpu` / `image` |
+| `inner_image` | OSWorld VM 用的 inner 镜像（worker 内 dockerd 拉取） |
+| `osw1_root` / `osw1_vm` | OSWorld1 基准根与 qcow2 |
+| `osw2_root` / `osw2_vm` | OSWorld2 基准根与 qcow2 |
+| `asset_root` | OSW2 任务资产根（`OSWORLD_FILE_BASE_URL` 指向它，避免外网下载） |
+| `kimi` | LLM 凭据三件套：`base_url` / `api_key` / `model` |
+| `jev_endpoint` | 排序服务地址；**留空 = 自动从发现文件读取**（见 §6） |
+| `registry` | docker registry auth（内联传给 worker 写 `~/.docker/config.json`） |
+
+可选但常用：
+
+| 键 | 说明 |
+|---|---|
+| `jev_endpoint_file` / `kev_endpoint_file` | 排序服务活地址发现文件（部署侧维护） |
+| `jev_image_stage_write` / `jev_image_stage_read` | JEV 截图中转目录的**两侧视角**：写入侧在 adpc，读取侧在 evobox（服务端宿主机要能读到） |
+
+## 3. 一次 run 的生命周期
+
+`tandem-eval rjob run` 一站式完成 **sync → spec → submit → watch → fetch → cleanup**
+（`rjob.run_job`）：
+
+```
+sync     rsync -a --delete 仓库 → deploy_root
+         排除 .git/ .venv/ __pycache__/ .pytest_cache/ .ruff_cache/ rjob_logs/ job_specs/
+         （job_specs 排除是必须的：否则并发 run 会删掉在跑任务的 spec）
+spec     组装 job spec → deploy_root/job_specs/<run_id>.json
+         spec 段：env（基准根 / VM / 资产 / 启动等待）/ secrets（kimi / registry /
+         排序服务地址）/ jev（截图中转目录）/ harness / budget / record / code
+         （git describe + 内外镜像）
+submit   rjob submit（先 delete 同名残留做防御性清理）
+watch    轮询至终态（--poll 间隔，--timeout 上限）
+fetch    取平台日志补写进同一 run 目录（尽力而为，失败不阻断 cleanup）
+cleanup  stop rjob（--delete 额外删除 job 记录，高危）
+```
+
+常用参数：
+
+| 参数 | 说明 |
+|---|---|
+| `--run-id` | 必填。run 目录名 = `rjob_logs/<run_id>/` |
+| `--benchmark` | `mock` / `osworld1` / `osworld2` |
+| `--tasks` | 逗号分隔 task id（覆盖 manifest） |
+| `--limit N` | 取清单前 N 题 |
+| `--shard I/N` | 把（limit 后的）清单**交错**切成 N 片，本 run 跑第 I 片（并发用） |
+| `--selector jev/kev` | 排序后端（默认 jev；kev 走 System One API） |
+| `--route-policy` / `--allow-cli` | 路由策略与 CLI 开关 |
+| `--max-steps` / `--max-wall` | 单题预算（步数 / 墙钟秒） |
+| `--kimi-reasoning` | `off` / `low`（默认）/ `medium` / `high` |
+| `--kimi-max-tokens` | 慢模型单次响应上限 |
+| `--export-paths` | 逗号分隔的 VM 内交付物路径（finish 时导出） |
+| `--poll` / `--timeout` | 轮询间隔与总超时 |
+| `--keep` / `--delete` | 结束后保留 rjob / 删除 rjob 记录 |
+| `--no-sync` | 跳过 rsync（复用已有部署副本） |
+
+单独盯一个已提交的 job：
+
+```bash
+tandem-eval rjob watch tandem-<run-id> --run-id <run-id> --config infra/config.json
+```
+
+## 4. worker 侧入口
+
+`infra/worker.sh <job spec 绝对路径>` 由 rjob worker 调用：
+
+- **mock 基准**：直接用系统 `python3` 跑 `tandem_eval entry`，不碰共享资源与 docker；
+- **真实基准**：
+  1. source 共享 `env.sh`（`OSWORLD_PYTHON` / `EVAL_TOOLS` / `LD_LIBRARY_PATH` 等）；
+  2. 把 config 里的 registry 凭据写入 `~/.docker/config.json`（`chmod 600`）；
+  3. 覆盖平台预注入的代理（真机上 `httpproxy-headless-dev-test` 不可解析），
+     固定为 `httpproxy-headless.kubebrain.svc.pjlab.local:3128`，并设置 `NO_PROXY`；
+  4. 起 `dockerd`（独立 data-root/exec-root，指向该代理），拉 `inner_image`，
+     打 tag 为 `happysixd/osworld-docker:latest`；
+  5. 用 `$OSWORLD_PYTHON` 跑 `tandem_eval entry`（Pillow / easyocr 已在冻结 venv 内），
+     跑前先做一次依赖自检。
+
+worker 侧 `tandem_eval entry --spec <spec>` 是实际执行体：起 VM → 跑任务 → 录事件 → 评分 →
+写 run 目录。环境生命周期、预算强制、落盘都在这一层，harness 只管决策。
+
+## 5. 共享资源（只读）
+
+路径：`/mnt/shared-storage-user/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua`
+
+| 内容 | 位置 |
+|---|---|
+| `env.sh` | 共享环境变量（`OSWORLD_PYTHON` / `EVAL_TOOLS` / `LD_LIBRARY_PATH`） |
+| 基准 | `benchmarks/osworld1`、`benchmarks/osworld2` |
+| 任务索引 | `benchmarks/osworld2/evaluation_examples/test_v2.json`（形状 `{"tasks": [...]}`） |
+| 任务类 | `benchmarks/osworld2/evaluation_examples/task_class/task_NNN.py` |
+| VM 镜像 | `vm/osworld1/Ubuntu.qcow2`、`vm/osworld2/osworld-v2-ubuntu-x86.qcow2` |
+| 排序服务活地址 | `services/qwen_jev.json`、`services/kev.json` |
+
+纪律：
+
+- 共享 venv **冻结**——不装包、不升级；本仓库代码经 rsync 部署副本 + `PYTHONPATH` 挂载即用
+  （纯 Python、零新增依赖、Python 3.12 兼容）；
+- OSW2 任务资产经 `OSWORLD_FILE_BASE_URL` 指向本地 `asset_root`，**必须在任务模块 import 前设置**
+  （见 `osworld.py` 的 `_bootstrap_runtime`），否则资产 URL 会在 import 期被固化；
+- 每个 run 的 `code_version.json` 记录 git describe、protocol_version、镜像 digest、run spec（secrets 脱敏）。
+
+## 6. 排序服务地址发现
+
+JEV / Kev 部署在闲时 GPU，**地址随重新部署变化**。因此：
+
+- 配置里 `jev_endpoint` / `kev_endpoint` **留空** = worker 侧建 session 时从发现文件
+  （`services/qwen_jev.json` / `services/kev.json`）读取最新地址；
+- 发现文件带 `ready` / `status` 就绪位检查，并有双视角符号链接兜底；
+- 固定地址时直接写配置值，不走发现。
+
+JEV 的 `/rank` 要求 `image_path` 是**服务宿主机可读的文件路径**。截图本体在 adpc，
+因此由 harness 暂存到 evobox 中转目录（`jev_image_stage_write` → `jev_image_stage_read`），
+payload 带 JEV 宿主机视角路径。暂存按内容哈希命名去重（`step_00_<sha16>.png`），断点无害。
+
+## 7. 批量运行
+
+```bash
+bash scripts/run_osw2_20x5.sh    # 20 题、5 并发（切片 → 提交 → 等收敛 → 汇总）
+```
+
+脚本把任务清单交错切成 5 片，每片一个 rjob。并发注意：部署副本 rsync 用 `--delete`，
+`job_specs/` 已排除在同步之外——否则并发 run 会删掉彼此在跑的 spec。
+
+## 8. 已知坑
+
+| 现象 | 根因 | 处理 |
+|---|---|---|
+| **大批量任务在 `fetch_task` 阶段即死**：wall=0.001s、0 次 LLM 调用、0 帧、异常 `ValueError` | `desktop_env/controllers/website.py` 顶层 `raise ValueError("WEBSITE_HOST_SUFFIX must be set in environment variables")`。import 该模块的 9 个任务全部在 import 期死，其余 11 个全过——**完美相关** | 在 worker 环境注入 `WEBSITE_HOST_SUFFIX`，或提供 `.env`。**不是模型能力问题**，但会让准确率被严重低估 |
+| episode 只有 `exception_type`，没有异常消息 | `episode.json` 契约未记异常正文 | 诊断缺口；已知问题，暂未修 |
+| 批量脚本总打印「退出码 0」 | `scripts/run_osw2_20x5.sh:61` 的 `echo "... $?"` 与 `$(date)` 同次展开，`$?` 被重置 | 已知问题，暂未修 |
+| OSW2 索引里的 domain 被标成 `tasks` | `test_v2.json` 形状是 `{"tasks": [...]}`，`load_index` 误取 | 已知问题，暂未修 |
+| 3 题 `stop_reason=done` 却 0 分 | verifier 的完成判定偏乐观 | 与 harness 能力分开评估，别当成"模型没做对" |
+| 输入 token 是输出的 15–25 倍 | a11y 树整段进 prompt | 成本优化的主要空间 |
+
+## 9. 排障速查
+
+| 想看 | 去哪 |
+|---|---|
+| 这次 run 整体结果 | `rjob_logs/<run_id>/summary.json` |
+| 进度 / 卡在哪一题 | `rjob_logs/<run_id>/heartbeat.json` |
+| worker 侧日志（LLM 审计 + 事件流） | `rjob_logs/<run_id>/worker/entry.log` |
+| 平台日志 | `rjob_logs/<run_id>/platform.tail.log`、`platform.status.txt` |
+| 某题的完整决策链 | `rjob_logs/<run_id>/episodes/<task_id>/events.jsonl` |
+| 某题的全部 LLM 请求/响应 | `.../llm_calls.jsonl` |
+| 这次到底跑了什么版本 | `rjob_logs/<run_id>/code_version.json`（git describe + 镜像 digest + run spec） |
+| 想看轨迹回放 | `python demo/build_site.py --runs-root rjob_logs --out demo/site --benchmark osworld2` |
+
+worker 侧各段日志：
+
+| 文件 | 内容 |
+|---|---|
+| `worker/entry.log` | entry 主日志 |
+| `worker/dockerd.log` / `docker-info.txt` / `docker-pull.log` | 容器运行时准备 |
+| `worker/deps-check.log` | 冻结 venv 依赖自检（easyocr / PIL） |
+
+## 10. 开发闭环
+
+```
+改代码 → ruff check src tests demo → pytest →（若触碰协议）tandem check → 提交
+```
+
+真机 smoke：
+
+- `--benchmark mock` 走 mock 链路（不起 VM、不碰共享资源），可本地跑；
+- 真实基准走 OSW1 / OSW2，按本文 §3–§7。
+
+上游重构总计划：`../../TANDEM_REFACTOR_PLAN_CN.md`（在仓库外，与本仓库同级目录的上级）。
