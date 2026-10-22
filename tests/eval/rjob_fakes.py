@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import copy
+
 
 class FakeRunner:
     """假命令执行器：rjob 按子命令路由到脚本化输出（列表逐个弹出，最后一个常驻）。
@@ -50,16 +52,60 @@ REAL_RUNNING = (
     "{'active': 1, 'succeeded': 0, 'failed': 0, 'created_failed': 0, 'pending': 0}"
 )
 
+#: 最小配置（结构同 infra/config.json：harness / eval / log 三段）
 CONFIG = {
-    "deploy_root": "/dev-deploy",
-    "results_root": "/dev-results",
-    "rjob": {"charged_group": "evobox_proxy", "private_machine": True, "cpu": 4,
-             "memory": 16384, "gpu": 0, "image": "reg.example/outer:1"},
-    "mounts": [{"source": "gpfs://gpfs2/share", "target": "/mnt/share"}],
-    "osw1_root": "/shared/osw1", "osw1_vm": "/shared/vm1.qcow2",
-    "osw2_root": "/shared/osw2", "osw2_vm": "/shared/vm2.qcow2",
-    "asset_root": "/shared/assets", "jev_endpoint": "http://10.1.1.1:8891",
-    "kimi": {"base_url": "https://k.example/v1", "api_key": "sk-x", "model": "kimi-k3"},
-    "registry": {"auths": {"registry.h.pjlab.org.cn": {"auth": "xxx"}}},
-    "inner_image": "reg.example/inner:1",
+    "harness": {
+        "slow_model": {
+            "default": "kimi-k3",
+            "apis": {
+                "kimi-k3": {
+                    "base_url": "https://k.example/v1", "api_key": "sk-x", "model": "kimi-k3",
+                    "max_tokens": 4096, "timeout_seconds": 60,
+                    "reasoning_effort": "low", "direct_api": False,
+                },
+            },
+        },
+        "fast_model": {
+            "default": "jev",
+            "apis": {
+                "jev": {
+                    "backend": "jev", "endpoint": "http://10.1.1.1:8891",
+                    "endpoint_file": "/shared/services/qwen_jev.json", "timeout_seconds": 30,
+                },
+                "kev": {
+                    "backend": "kev", "endpoint": "",
+                    "endpoint_file": "/shared/services/kev.json", "timeout_seconds": 30,
+                },
+            },
+            "image_stage": {"write": "/stage", "read": "/stage-read"},
+        },
+        "route": {"policy": "auto", "allow_cli": True, "cli_timeout_seconds": 90},
+        "budget": {"max_steps": 5, "max_wall_seconds": 60},
+    },
+    "eval": {
+        "repo_root": "/dev-repo",
+        "deploy_root": "/dev-deploy",
+        "mounts": [{"source": "gpfs://gpfs2/share", "target": "/mnt/share"}],
+        "rjob": {"charged_group": "evobox_proxy", "private_machine": True, "cpu": 4,
+                 "memory": 16384, "gpu": 0, "image": "reg.example/outer:1"},
+        "inner_image": "reg.example/inner:1",
+        "benchmarks": {
+            "osworld1": {"root": "/shared/osw1", "vm": "/shared/vm1.qcow2"},
+            "osworld2": {"root": "/shared/osw2", "vm": "/shared/vm2.qcow2",
+                         "asset_root": "/shared/assets"},
+        },
+        "registry": {"auths": {"registry.h.pjlab.org.cn": {"auth": "xxx"}}},
+    },
+    "log": {"results_root": "/dev-results", "record": {"a11y_full": False}},
 }
+
+
+def with_paths(config: dict, *, deploy_root: str | None = None,
+               results_root: str | None = None) -> dict:
+    """深拷贝配置并替换 eval.deploy_root / log.results_root（避免共享嵌套 dict）。"""
+    merged = copy.deepcopy(config)
+    if deploy_root is not None:
+        merged["eval"]["deploy_root"] = deploy_root
+    if results_root is not None:
+        merged["log"]["results_root"] = results_root
+    return merged

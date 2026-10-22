@@ -58,3 +58,28 @@
 24. 【重构】**rjob.py 拆成三块**（原 322 行超单模块 300 行纪律）：
     rjob.py（生命周期客户端）/ rjob_spec.py（job spec 与 submit 参数）/
     rjob_status.py（`rjob get` 状态解析）；旧的 `tandem_eval.rjob` 导入路径保持可用。
+
+## 配置与命名重构（2026-10-22，human in the loop）
+
+25. 【重构】**配置 schema 角色化**：`infra/config.json` 从平铺键（`kimi` / `jev_endpoint` /
+    `kev_endpoint` / `jev_endpoint_file` / `kev_endpoint_file` / `osw1_root` …）改为三段结构
+    ——`harness`（慢模型/快模型/路由/预算）、`eval`（集群与基准）、`log`（结果落盘）；
+    `_comment` 等说明字段删除（说明属于文档，不属于配置）。
+    慢模型与快模型都改为**命名 API 登记表**（`harness.slow_model.apis` /
+    `harness.fast_model.apis`），启动命令用 `--slow-model <名字>` / `--fast-model <名字>` 挑，
+    缺省取各自的 `default`——为"不同大脑 × 不同小脑"的对比实验留出入口。
+    CLI 旧参数 `--selector jev|kev` → `--fast-model <名字>`，`--kimi-max-tokens` /
+    `--kimi-reasoning` → `--slow-max-tokens` / `--slow-reasoning`。
+    默认行为不变（jev + kimi-k3）；但单题预算从 rjob_spec 硬编码的 15/900 改为
+    config 里的 `harness.budget`（30/1800，与批量脚本实际用值一致）。
+26. 【重构】**SessionConfig 字段角色化**：`kimi_max_tokens` / `kimi_reasoning_effort` /
+    `kimi_timeout_seconds` / `kimi_direct_api` → `slow_*`；`jev_timeout_seconds` →
+    `fast_timeout_seconds`；`selector_backend` → `fast_backend`。
+    `KimiClient` 类名保留（它确实是 Kimi 方言的具体实现），但审计日志的 provider 字段
+    由 `"kimi"` 改为 `"slow_model"`，worker 侧审计文件名 `kimi_http.jsonl` →
+    `slow_model_http.jsonl`。
+27. 【重构】**开发机侧新增 `config_schema.py`**：config 的校验与 API 选取独立成模块
+    （worker 侧仍是 6 文件封顶；rjob.py 不再背着 schema 知识）。
+    `demo/` 同步角色化：run 文档 `selector_backend` → `fast_model`（新增 `slow_model` 名），
+    排序调用计数 `jev_calls` → `fast_calls`、`jev_latency_ms_total` → `fast_latency_ms_total`
+    （这两个是 demo 层自算字段，不在结果目录契约里）。

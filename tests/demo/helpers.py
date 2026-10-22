@@ -50,7 +50,9 @@ def make_run(root: Path, run_id: str, tasks: list[dict]) -> Path:
             "images": {"inner": "img:inner"},
             "run_spec": {
                 "budget": {"max_steps": 30, "max_wall_seconds": 1800.0},
-                "harness_config": {"selector_backend": "kev"},
+                "harness": {"name": "tandem", "mode": "planner_led",
+                            "models": {"slow": "kimi-k3", "fast": "kev"}},
+                "harness_config": {"fast_backend": "kev"},
             },
         },
     )

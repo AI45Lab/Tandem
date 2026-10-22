@@ -76,3 +76,23 @@ def test_heartbeat_and_code_version(tmp_path):
     write_code_version(tmp_path, {"git_describe": "abc123", "resources": {"schema_version": "v1"}})
     info = json.loads((tmp_path / "code_version.json").read_text())
     assert info["git_describe"] == "abc123" and info["protocol_version"] == "0.1"
+
+
+def test_run_spec_masks_credentials_but_keeps_model_identity():
+    """secrets 段整体脱敏；模型身份留在 secrets 之外——结果目录要能回答"这次谁在跑"。"""
+    from tandem_eval.entry import _mask_secrets
+
+    spec = {
+        "secrets": {
+            "slow_model": {"base_url": "https://x/v1", "api_key": "sk-secret", "model": "kimi-k3"},
+            "fast_model": {"endpoint": "http://10.0.0.1:8891", "endpoint_file": "/x/kev.json"},
+            "registry": {"auths": {"reg": {"auth": "base64"}}},
+        },
+        "harness": {"name": "tandem", "mode": "planner_led",
+                    "models": {"slow": "kimi-k3", "fast": "jev"}},
+    }
+    masked = _mask_secrets(spec)
+    assert masked["secrets"]["slow_model"]["api_key"] == "***"
+    assert masked["secrets"]["fast_model"]["endpoint"] == "***"
+    assert masked["secrets"]["registry"]["auths"] == "***"
+    assert masked["harness"]["models"] == {"slow": "kimi-k3", "fast": "jev"}

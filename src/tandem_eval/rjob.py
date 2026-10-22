@@ -13,12 +13,12 @@ rjob 档案是 worker 容器视角（submit 命令行与 job spec 内路径用�
 
 from __future__ import annotations
 
-import json
 import subprocess
 import time
 from pathlib import Path
 
 # 以下仍从本模块导出（对外兼容旧导入路径）
+from .config_schema import ConfigError, load_config  # noqa: F401  （对外兼容旧导入路径）
 from .rjob_spec import build_job_spec, build_submit_args, job_name  # noqa: F401
 from .rjob_status import TERMINAL_STATES, parse_status  # noqa: F401
 
@@ -69,24 +69,6 @@ def _subprocess_run(argv: list[str]) -> tuple[int, str]:
     env = {key: value for key, value in os.environ.items() if key != "KUBEBRAIN_QUOTA_GROUP"}
     result = subprocess.run(argv, capture_output=True, text=True, env=env, timeout=600)
     return result.returncode, (result.stdout + result.stderr)
-
-
-REQUIRED_CONFIG_KEYS = (
-    "repo_root", "deploy_root", "results_root", "mounts", "rjob", "inner_image",
-    "osw1_root", "osw1_vm", "osw2_root", "osw2_vm", "asset_root",
-    "kimi", "jev_endpoint", "registry",
-)
-
-
-def load_config(path: str | Path) -> dict:
-    """加载唯一配置文件（infra/config.json）：全绝对路径，开发机与 worker 内一致。"""
-    config = json.loads(Path(path).read_text(encoding="utf-8"))
-    missing = [key for key in REQUIRED_CONFIG_KEYS if key not in config]
-    if missing:
-        raise RjobError(f"配置缺少必填键: {missing}（见 infra/config.json）")
-    if not config["rjob"].get("image"):
-        raise RjobError("配置 rjob.image 不能为空")
-    return config
 
 
 def sync_repo(repo_root: Path, deploy_root_dev: Path) -> None:
@@ -175,7 +157,7 @@ def run_job(*, config: dict, repo_root: Path, run_id: str,
             sync: bool = True) -> dict:
     """一站式：sync → spec → submit → watch → fetch → cleanup。
 
-    唯一落盘位置 = results_root/<run_id>（= tandem/rjob_logs/<run_id>）：
+    唯一落盘位置 = log.results_root/<run_id>（= tandem/rjob_logs/<run_id>）：
     worker 直接写 run 目录（adpc 挂载），平台日志由 fetch 补写进同一目录。
 
     **收尾默认删 rjob**（delete=True）：submit 之后的任何结局——成功、失败、
@@ -185,7 +167,7 @@ def run_job(*, config: dict, repo_root: Path, run_id: str,
     spec_overrides = spec_overrides or {}
     client = client or RjobClient()
     if sync:
-        sync_repo(repo_root, Path(config["deploy_root"]))
+        sync_repo(repo_root, Path(config["eval"]["deploy_root"]))
     build_job_spec(config=config, run_id=run_id,
                    repo_root=repo_root, spec_overrides=spec_overrides)
     name = job_name(run_id)
@@ -207,7 +189,7 @@ def run_job(*, config: dict, repo_root: Path, run_id: str,
         result["status"], result["error"] = "error", str(error)
     finally:
         # fetch 失败不得阻断 cleanup（否则资源泄漏）；错误记入 result 继续
-        run_root = Path(config["results_root"]) / run_id
+        run_root = Path(config["log"]["results_root"]) / run_id
         result["run_root"] = str(run_root)
         try:
             fetch_artifacts(client, name, run_root)

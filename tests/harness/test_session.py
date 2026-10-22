@@ -286,7 +286,7 @@ def test_truncated_reasoning_raises_actionable_error(tmp_path, monkeypatch):
     original_urlopen = urllib.request.urlopen
     urllib.request.urlopen = opener_holder
     try:
-        with pytest.raises(ValueError, match="raise kimi_max_tokens"):
+        with pytest.raises(ValueError, match="raise slow_max_tokens"):
             client.json_request([{"role": "user", "content": "hi"}], lambda v: True,
                                 role="plan_step")
     finally:
@@ -330,7 +330,7 @@ def test_kimi_payload_controls_reasoning_and_tokens(tmp_path):
         client.json_request([{"role": "user", "content": "hi"}], lambda v: True, role="r")
         assert captured["payload"]["max_tokens"] == 16384
         assert captured["payload"]["reasoning_effort"] == "low"
-        client_off = KimiClient({"base_url": "http://x"}, SessionConfig(kimi_reasoning_effort="off"),
+        client_off = KimiClient({"base_url": "http://x"}, SessionConfig(slow_reasoning_effort="off"),
                                 tmp_path / "a.jsonl")
         client_off.json_request([{"role": "user", "content": "hi"}], lambda v: True, role="r")
         assert captured["payload"]["enable_thinking"] is False

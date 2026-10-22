@@ -6,6 +6,9 @@
 # 可用环境变量：
 #   LIMIT（默认 20）/ SHARDS（默认 5）/ MAX_STEPS（默认 30）/ MAX_WALL（默认 1800）
 #   TIMEOUT（整片 watch 上限，默认 7200）/ PREFIX（run-id 前缀，默认 osw2-20）
+#   BENCHMARK（基准，默认 osworld2）/ TASKS（逗号分隔题号，空 = 走清单）/ ROUTE_POLICY（路由，空 = 用 config）
+#   SLOW_MODEL（慢模型 API 名，默认用 config 的 default）/ FAST_MODEL（快模型 API 名）
+#   PREFIX 建议带上模型组合（如 osw2-kimi-kev），demo 按 run 对比时一眼能看出谁在跑
 # OSW2.1：BENCHMARK=osworld21 LIMIT=56 SHARDS=4 PREFIX=osw21-56 bash scripts/run_osw2_20x5.sh
 # 单题：再设置 TASKS=004 LIMIT=1 SHARDS=1；ROUTE_POLICY=gui 可限定 GUI 路由。
 set -u
@@ -21,6 +24,11 @@ TIMEOUT="${TIMEOUT:-7200}"
 BENCHMARK="${BENCHMARK:-osworld2}"
 TASKS="${TASKS:-}"
 PREFIX="${PREFIX:-osw2-20}"
+SLOW_MODEL="${SLOW_MODEL:-}"
+FAST_MODEL="${FAST_MODEL:-}"
+MODEL_FLAGS=()
+[ -n "$SLOW_MODEL" ] && MODEL_FLAGS+=(--slow-model "$SLOW_MODEL")
+[ -n "$FAST_MODEL" ] && MODEL_FLAGS+=(--fast-model "$FAST_MODEL")
 BATCH_TS="$(date +%Y%m%d-%H%M%S)"
 LOG_DIR="rjob_logs/${PREFIX}x${SHARDS}-${BATCH_TS}"
 mkdir -p "$LOG_DIR"
@@ -48,7 +56,7 @@ for i in $(seq 1 "$SHARDS"); do
     --max-steps "$MAX_STEPS" --max-wall "$MAX_WALL" \
     --repo . --config infra/config.json \
     --poll 60 --timeout "$TIMEOUT" \
-    "${EXTRA[@]}" \
+    "${EXTRA[@]}" "${MODEL_FLAGS[@]}" \
     > "$LOG_DIR/shard-${i}.log" 2>&1 &
   pids+=($!)
   # 错开提交，给第 1 片的 rsync 留出完成窗口

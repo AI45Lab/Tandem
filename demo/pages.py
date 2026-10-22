@@ -22,7 +22,7 @@ def _run_card(run: dict[str, Any]) -> str:
     )
     return f"""<article class="card">
   <h3>{html.escape(run['run_id'])}</h3>
-  <p class="sub">git {html.escape(str(run['git_describe']))} · selector={html.escape(run['selector_backend'])}</p>
+  <p class="sub">git {html.escape(str(run['git_describe']))} · 大脑={html.escape(str(run.get('slow_model', '')))} · 小脑={html.escape(run['fast_model'])}</p>
   <dl>
     <div><dt>已出分</dt><dd>{totals['scored']} / {totals['total']}</dd></div>
     <div><dt>未出分</dt><dd>{totals['failed_unscored']}</dd></div>
@@ -33,7 +33,7 @@ def _run_card(run: dict[str, Any]) -> str:
     <div><dt>输入 token</dt><dd>{totals['cost']['prompt_tokens']:,}</dd></div>
     <div><dt>输出 token</dt><dd>{totals['cost']['completion_tokens']:,}</dd></div>
     <div><dt>其中思考 token</dt><dd>{totals['cost']['reasoning_tokens']:,}</dd></div>
-    <div><dt>JEV 排序次数</dt><dd>{totals['jev_calls']}</dd></div>
+    <div><dt>快模型排序次数</dt><dd>{totals['fast_calls']}</dd></div>
     <div><dt>失败分类</dt><dd class="wrap">{html.escape(failures)}</dd></div>
   </dl>
 </article>"""
@@ -178,7 +178,7 @@ def _task_rows(comparison: dict[str, Any]) -> str:
   <td>{cell['steps']}</td>
   <td>{cell['tokens']:,}</td>
   <td>{cell['llm_calls']}</td>
-  <td>{cell['jev_calls']}</td>
+  <td>{cell['fast_calls']}</td>
 </tr>"""
             )
     return "".join(rows)
@@ -222,7 +222,7 @@ def render_index(runs: list[dict[str, Any]], comparison: dict[str, Any]) -> str:
   <h2>逐题对比（成本 / 耗时 / 准确率）· 点表头排序</h2>
   <table class="grid">
     <thead><tr><th>任务</th><th>run</th><th>分数</th><th>状态</th><th>停止原因</th>
-    <th>耗时</th><th>步数</th><th>token</th><th>LLM 调用</th><th>JEV 排序</th></tr></thead>
+    <th>耗时</th><th>步数</th><th>token</th><th>LLM 调用</th><th>快模型排序</th></tr></thead>
     <tbody>{_task_rows(comparison)}</tbody>
   </table>
 </section>
@@ -244,7 +244,7 @@ def render_compare(comparison: dict[str, Any]) -> str:
     }
     options = "".join(
         f'<option value="{html.escape(run["run_id"])}">{html.escape(run["run_id"])}'
-        f'（selector={html.escape(run["selector_backend"])}）</option>'
+        f'（大脑={html.escape(str(run.get("slow_model", "")))} · 小脑={html.escape(run["fast_model"])}）</option>'
         for run in comparison["runs"]
     )
     return f"""<!DOCTYPE html>

@@ -62,7 +62,7 @@
             ? String(task.score) : "未出分（不计 0 分）"],
           ["终止原因", esc(reason)],
           ["决策步", "0"],
-          ["JEV 排序", String(task.jev_calls === undefined ? "-" : task.jev_calls) + " 次"],
+          ["快模型排序", String(task.fast_calls === undefined ? "-" : task.fast_calls) + " 次"],
           ["模型调用", String(calls.length) + " 次" +
             (roles.length ? "（" + esc(roles.join("、")) + "）" : "")],
           ["真实用时", typeof wall === "number" ? wall.toFixed(3) + "s" : "-"]

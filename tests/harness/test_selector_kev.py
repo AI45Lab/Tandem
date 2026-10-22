@@ -116,13 +116,13 @@ def test_malformed_response_raises(tmp_path):
 
 
 def test_config_and_build_default_backend_switch(tmp_path):
-    with pytest.raises(ValueError, match="selector_backend"):
-        SessionConfig(selector_backend="omni")
+    with pytest.raises(ValueError, match="fast_backend"):
+        SessionConfig(fast_backend="omni")
     class NullClient:
         pass
 
     kev_components = build_default(client=NullClient(), endpoint="http://kev:8008",
-                                   config=SessionConfig(selector_backend="kev"))
+                                   config=SessionConfig(fast_backend="kev"))
     assert isinstance(kev_components.selector, KevPolicy)
     jev_components = build_default(client=NullClient(), endpoint="http://jev:8891",
                                    config=SessionConfig())

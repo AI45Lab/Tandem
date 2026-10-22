@@ -165,9 +165,9 @@
         "<p class='sub'>合计 " + (total.calls || 0) + " 次调用 · " +
         num(total.prompt_tokens) + " 输入 token · " + num(total.completion_tokens) +
         " 输出 token（含 " + num(total.reasoning_tokens) + " 思考 token）· " +
-        "JEV 排序 " + (task.jev_calls || 0) + " 次 / " +
-        (typeof task.jev_latency_ms_total === "number"
-          ? (task.jev_latency_ms_total / 1000).toFixed(1) + "s" : "-") +
+        "快模型排序 " + (task.fast_calls || 0) + " 次 / " +
+        (typeof task.fast_latency_ms_total === "number"
+          ? (task.fast_latency_ms_total / 1000).toFixed(1) + "s" : "-") +
         " · 端到端 " + secs(task.wall_seconds) +
         "<br>成本以 token 用量与调用次数表达，未换算货币单价。</p>";
     }

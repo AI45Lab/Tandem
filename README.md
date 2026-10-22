@@ -179,7 +179,7 @@ from tandem.session import TandemSession
 components = build_default(
     client=kimi_client,                       # providers.KimiClient
     endpoint="http://<排序服务>/rank",
-    config=SessionConfig(selector_backend="jev"),
+    config=SessionConfig(fast_backend="jev"),
 )
 session = TandemSession(components)
 session.begin("把 FYP 答辩安排逐条加进日历", None)   # None → 慢模型抽取需求
@@ -192,6 +192,10 @@ action = session.act(observation)                     # Observation → Action
 tandem-eval rjob run --run-id <name> --benchmark osworld2 --tasks <task-id> \
   --repo . --config infra/config.json --poll 60 --timeout 3600
 ```
+
+换大脑 / 换小脑只改启动参数：`infra/config.json` 里登记多套 API（`harness.slow_model.apis` /
+`harness.fast_model.apis`），运行时用 `--slow-model <名字> --fast-model <名字>` 挑，
+用来比较"不同大脑 × 不同小脑"的性能差距。
 
 跑完**自动删除 rjob**——无论成功、失败、超时还是中途异常，都不在集群上留残留；
 要保留现场（事后查 `rjob logs`）加 `--keep`。
@@ -207,19 +211,19 @@ tandem-eval rjob run --run-id <name> --benchmark osworld2 --tasks <task-id> \
 | `allow_cli` | `True` | 是否允许 planner 走 CLI 路由 |
 | `route_policy` | `"auto"` | `auto` / `gui` / `cli` |
 | `cli_timeout_seconds` | `90` | CLI 超时（协议上限 120） |
-| `jev_timeout_seconds` | `300` | 排序服务超时（jev 与 kev 共用） |
-| `kimi_max_tokens` | `16384` | 慢模型单次响应上限 |
-| `kimi_timeout_seconds` | `120` | 慢模型超时 |
-| `kimi_direct_api` | `False` | 直连 API（不经代理） |
-| `kimi_reasoning_effort` | `"low"` | `off`（归零思考）/ `low` / `medium` / `high` |
-| `selector_backend` | `"jev"` | `jev`（`/rank`，需截图）/ `kev`（System One，纯文本） |
+| `fast_timeout_seconds` | `300` | 快模型排序服务超时（jev 与 kev 共用） |
+| `slow_max_tokens` | `16384` | 慢模型单次响应上限 |
+| `slow_timeout_seconds` | `120` | 慢模型超时 |
+| `slow_direct_api` | `False` | 直连 API（不经代理） |
+| `slow_reasoning_effort` | `"low"` | `off`（归零思考）/ `low` / `medium` / `high` |
+| `fast_backend` | `"jev"` | `jev`（`/rank`，需截图）/ `kev`（System One，纯文本） |
 
 慢模型的调用纪律（`providers.py`）：
 
 - 思考强度默认 `low`（实测 97 → 22 token）；空正文（全留在思考通道）→ 下一次重试自动升档；
 - 叙述文字包裹 JSON → 自动剥围栏取首个平衡 `{…}` 抢救；
 - 403（TPM 配额限流）→ 指数退避 60/120/240/480s，总计 5 次尝试；
-- `finish_reason=length` → 明确报错，提示调大 `kimi_max_tokens`。
+- `finish_reason=length` → 明确报错，提示调大 `slow_max_tokens`。
 
 ## 排序后端
 

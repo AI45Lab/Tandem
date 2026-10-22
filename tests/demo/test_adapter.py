@@ -88,7 +88,8 @@ def test_load_run_reports_unscored_without_counting_as_zero(tmp_path):
     assert totals["failed_unscored"] == 1
     assert totals["average_score"] == 0.625  # 未出分不计入均分
     assert totals["failures"] == {"ValueError": 1}
-    assert run["selector_backend"] == "kev"
+    assert run["fast_model"] == "kev"
+    assert run["slow_model"] == "kimi-k3"
 
 
 def test_build_comparison_aligns_runs_by_task(tmp_path):

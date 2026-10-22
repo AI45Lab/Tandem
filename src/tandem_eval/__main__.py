@@ -36,11 +36,14 @@ def main(argv: list[str] | None = None) -> int:
     run_cmd.add_argument("--allow-cli", choices=["true", "false"], default=None,
                          help="harness 是否允许 CLI 路由")
     run_cmd.add_argument("--route-policy", choices=["auto", "gui", "cli"], default=None)
-    run_cmd.add_argument("--selector", choices=["jev", "kev"], default=None,
-                         help="排序后端（kev 需档案提供 kev_endpoint）")
-    run_cmd.add_argument("--kimi-max-tokens", type=int, default=None)
-    run_cmd.add_argument("--kimi-reasoning", choices=["off", "low", "medium", "high"],
-                         default=None, help="kimi 思考强度（默认 low）")
+    run_cmd.add_argument("--slow-model", default=None, metavar="NAME",
+                         help="慢模型（大脑）API 名：config 的 harness.slow_model.apis 里选；默认取 default")
+    run_cmd.add_argument("--fast-model", default=None, metavar="NAME",
+                         help="快模型（小脑）API 名：config 的 harness.fast_model.apis 里选；默认取 default")
+    run_cmd.add_argument("--slow-max-tokens", type=int, default=None,
+                         help="慢模型单次响应上限")
+    run_cmd.add_argument("--slow-reasoning", choices=["off", "low", "medium", "high"],
+                         default=None, help="慢模型思考强度（默认 low）")
     run_cmd.add_argument("--export-paths", default="", help="逗号分隔的 VM 内交付物路径")
     run_cmd.add_argument("--poll", type=float, default=60)
     run_cmd.add_argument("--timeout", type=float, default=None, help="watch 超时秒数")
@@ -80,17 +83,22 @@ def main(argv: list[str] | None = None) -> int:
             manifest["shard"] = {"index": int(index_text), "total": int(total_text)}
         if manifest:
             overrides["manifest"] = manifest
+        models: dict = {}
+        if args.slow_model:
+            models["slow"] = args.slow_model
+        if args.fast_model:
+            models["fast"] = args.fast_model
+        if models:
+            overrides["models"] = models
         harness_config: dict = {}
         if args.allow_cli is not None:
             harness_config["allow_cli"] = args.allow_cli == "true"
         if args.route_policy:
             harness_config["route_policy"] = args.route_policy
-        if args.selector:
-            harness_config["selector_backend"] = args.selector
-        if args.kimi_max_tokens:
-            harness_config["kimi_max_tokens"] = args.kimi_max_tokens
-        if args.kimi_reasoning:
-            harness_config["kimi_reasoning_effort"] = args.kimi_reasoning
+        if args.slow_max_tokens:
+            harness_config["slow_max_tokens"] = args.slow_max_tokens
+        if args.slow_reasoning:
+            harness_config["slow_reasoning_effort"] = args.slow_reasoning
         if harness_config:
             overrides["harness_config"] = harness_config
         budget: dict = {}
@@ -119,7 +127,7 @@ def main(argv: list[str] | None = None) -> int:
 
     client = RjobClient()
     status = watch(client, args.job, poll_seconds=args.poll, timeout_seconds=args.timeout)
-    run_root = Path(config["results_root"]) / args.run_id
+    run_root = Path(config["log"]["results_root"]) / args.run_id
     fetch_artifacts(client, args.job, run_root)
     if args.keep:
         print(f"已保留 rjob {args.job}（--keep）", file=sys.stderr)
