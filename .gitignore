@@ -12,5 +12,6 @@ htmlcov/
 episodes/
 rjob_logs/
 results/
+demo/site/
 *.log
 infra/config.json
