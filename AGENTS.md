@@ -37,6 +37,7 @@
 
 - `tandem check`：协议样例自检（CI 也跑）。
 - `tandem-eval rjob run …`：一站式提交（sync→spec→submit→watch→fetch→cleanup）。
+  **收尾默认删 rjob**——成功/失败/超时/异常都删，不在集群上留残留；`--keep` 保留现场。
 - `tandem-eval entry --spec …`：worker 侧入口（infra/worker.sh 调用）。
 
 ## 共享资源纪律（worker 侧）
@@ -80,7 +81,7 @@
 src/tandem/              harness 主体（组件、协议、CLI）
 src/tandem/protocol/     消息层协议：schema/ 真源、validate/ 校验、samples/ golden
 src/tandem_eval/         worker 侧 6 文件（entry/env/runner/recorder/scoring/manifest）
-                         + 开发机侧 rjob.py 生命周期客户端
+                         + 开发机侧 rjob.py / rjob_spec.py / rjob_status.py 生命周期客户端
 tests/                   protocol/ harness/ eval/ demo/ 四组
 infra/worker.sh          rjob worker 入口（mock 即跑；真实基准走共享 env.sh+docker）
 infra/config.json        唯一配置文件（含密钥 → gitignore；模板 config.example.json 提交）

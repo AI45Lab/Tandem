@@ -68,8 +68,30 @@ spec     组装 job spec → deploy_root/job_specs/<run_id>.json
 submit   rjob submit（先 delete 同名残留做防御性清理）
 watch    轮询至终态（--poll 间隔，--timeout 上限）
 fetch    取平台日志补写进同一 run 目录（尽力而为，失败不阻断 cleanup）
-cleanup  stop rjob（--delete 额外删除 job 记录，高危）
+cleanup  stop（释放资源）+ delete（永久删除 rjob 记录）——默认行为
 ```
+
+### 收尾默认删 rjob
+
+**跑完就删，不在集群上留残留。** `submit` 之后的任何结局都会走到收尾：
+
+| 结局 | status | 收尾 |
+|---|---|---|
+| 正常完成 | `succeeded` / `failed` | stop + delete |
+| watch 超时 | `timeout` | stop + delete |
+| 平台侧报错（`rjob get` 失败等） | `error` | stop + delete |
+| submit 失败 | `error` | stop + delete（不留半成品） |
+| 中途 Ctrl-C | — | stop + delete（`finally` 保证） |
+
+细节：
+
+- **顺序固定**：先 `fetch` 取平台日志，**再** delete —— 日志取完才敢删；
+- **delete 带重试**：`rjob stop` 是异步的，刚 stop 完立刻 delete 可能被平台以
+  「仍在终止中」拒绝，故 delete 重试 3 次（间隔 5s）；
+- **删不掉不抛异常**：收尾失败不该盖掉真正的运行结果，状态如实回报在
+  `result["cleanup"] = {"stopped": bool, "deleted": bool}`；
+- **要保留现场**用 `--keep`：不 stop 不 delete，事后可查 `rjob logs` / `rjob get`。
+  注意保留的 job 会继续占集群配额，用完记得自己 `rjob delete`。
 
 常用参数：
 
@@ -87,7 +109,8 @@ cleanup  stop rjob（--delete 额外删除 job 记录，高危）
 | `--kimi-max-tokens` | 慢模型单次响应上限 |
 | `--export-paths` | 逗号分隔的 VM 内交付物路径（finish 时导出） |
 | `--poll` / `--timeout` | 轮询间隔与总超时 |
-| `--keep` / `--delete` | 结束后保留 rjob / 删除 rjob 记录 |
+| `--keep` | 结束后**保留** rjob（不 stop 不 delete），供事后排查；默认跑完即删 |
+| `--delete` | 已默认开启，保留此参数仅为兼容旧脚本 |
 | `--no-sync` | 跳过 rsync（复用已有部署副本） |
 
 单独盯一个已提交的 job：
@@ -162,9 +185,8 @@ bash scripts/run_osw2_20x5.sh    # 20 题、5 并发（切片 → 提交 → 等
 | 现象 | 根因 | 处理 |
 |---|---|---|
 | **大批量任务在 `fetch_task` 阶段即死**：wall=0.001s、0 次 LLM 调用、0 帧、异常 `ValueError` | `desktop_env/controllers/website.py` 顶层 `raise ValueError("WEBSITE_HOST_SUFFIX must be set in environment variables")`。import 该模块的 9 个任务全部在 import 期死，其余 11 个全过——**完美相关** | 在 worker 环境注入 `WEBSITE_HOST_SUFFIX`，或提供 `.env`。**不是模型能力问题**，但会让准确率被严重低估 |
-| episode 只有 `exception_type`，没有异常消息 | `episode.json` 契约未记异常正文 | 诊断缺口；已知问题，暂未修 |
-| 批量脚本总打印「退出码 0」 | `scripts/run_osw2_20x5.sh:61` 的 `echo "... $?"` 与 `$(date)` 同次展开，`$?` 被重置 | 已知问题，暂未修 |
-| OSW2 索引里的 domain 被标成 `tasks` | `test_v2.json` 形状是 `{"tasks": [...]}`，`load_index` 误取 | 已知问题，暂未修 |
+| episode 只有 `exception_type`，没有异常消息 | `recorder.py` 只记异常类型不记正文 | 诊断缺口；已知问题，暂未修 |
+| OSW2 索引里的 domain 被标成 `tasks` | `test_v2.json` 形状是 `{"tasks": ["001", ...]}`（顶层只有 `tasks` 一个键，值是 task id 列表），`load_index` 把顶层键当 domain | 已知问题，暂未修 |
 | 3 题 `stop_reason=done` 却 0 分 | verifier 的完成判定偏乐观 | 与 harness 能力分开评估，别当成"模型没做对" |
 | 输入 token 是输出的 15–25 倍 | a11y 树整段进 prompt | 成本优化的主要空间 |
 

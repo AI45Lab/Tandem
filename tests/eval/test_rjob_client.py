@@ -1,4 +1,7 @@
-"""rjob 客户端：submit 参数构造 / 状态解析 / watch / 一站式 run_job 生命周期。"""
+"""rjob 客户端：submit 参数构造 / 状态解析 / watch / 一站式 run_job 生命周期。
+
+收尾与自动删除的用例见 test_rjob_cleanup.py。
+"""
 
 from __future__ import annotations
 
@@ -11,7 +14,6 @@ from tandem_eval.rjob import (
     RjobError,
     build_job_spec,
     build_submit_args,
-    cleanup,
     fetch_artifacts,
     job_name,
     parse_status,
@@ -19,55 +21,7 @@ from tandem_eval.rjob import (
     watch,
 )
 
-
-class FakeRunner:
-    """假命令执行器：rjob 按子命令路由到脚本化输出（列表逐个弹出，最后一个常驻）。
-    fail_on 中的子命令返回退出码 1（模拟 rjob CLI 自身崩溃）。"""
-
-    def __init__(self, script: dict | None = None, fail_on: set[str] | None = None):
-        self.script = script or {}
-        self.fail_on = fail_on or set()
-        self.calls: list[list[str]] = []
-
-    def __call__(self, argv):
-        self.calls.append(list(argv))
-        if argv[:1] == ["rjob"]:
-            if argv[1] in self.fail_on:
-                return 1, "TypeError: 'NoneType' object is not iterable"
-            outputs = self.script.get(argv[1], [""])
-            value = outputs.pop(0) if len(outputs) > 1 else outputs[0]
-            return 0, value
-        return 0, ""
-
-
-# 2026-10-20 真机捕获的 rjob get 输出（tandem-mocktest-1，Succeeded）
-REAL_SUCCEEDED = (
-    "10-20 20:14:08 [INFO] rjob tandem-mocktest-1: Succeeded\n"
-    "10-20 20:14:08 [INFO]   |- task generated-task-0: 1 replicas "
-    "{'active': 0, 'succeeded': 0, 'failed': 0, 'created_failed': 0, 'pending': 0}\n"
-    "10-20 20:14:08 [INFO]        |- replica tandem-mocktest-1-fdq75: SUCCEED, "
-    "lg-cmc-h-cpu-0097.host.h.pjlab.org.cn"
-)
-REAL_RUNNING = (
-    "10-20 20:13:29 [INFO] rjob tandem-mocktest-1: Running\n"
-    "10-20 20:13:29 [INFO]   |- task generated-task-0: 1 replicas "
-    "{'active': 1, 'succeeded': 0, 'failed': 0, 'created_failed': 0, 'pending': 0}"
-)
-
-
-CONFIG = {
-    "deploy_root": "/dev-deploy",
-    "results_root": "/dev-results",
-    "rjob": {"charged_group": "evobox_proxy", "private_machine": True, "cpu": 4,
-             "memory": 16384, "gpu": 0, "image": "reg.example/outer:1"},
-    "mounts": [{"source": "gpfs://gpfs2/share", "target": "/mnt/share"}],
-    "osw1_root": "/shared/osw1", "osw1_vm": "/shared/vm1.qcow2",
-    "osw2_root": "/shared/osw2", "osw2_vm": "/shared/vm2.qcow2",
-    "asset_root": "/shared/assets", "jev_endpoint": "http://10.1.1.1:8891",
-    "kimi": {"base_url": "https://k.example/v1", "api_key": "sk-x", "model": "kimi-k3"},
-    "registry": {"auths": {"registry.h.pjlab.org.cn": {"auth": "xxx"}}},
-    "inner_image": "reg.example/inner:1",
-}
+from .rjob_fakes import CONFIG, REAL_RUNNING, REAL_SUCCEEDED, FakeRunner
 
 
 def test_parse_status_variants():
@@ -167,6 +121,7 @@ def test_run_job_timeout_still_fetches_and_cleans(tmp_path):
     assert result["status"] == "timeout"
     assert (tmp_path / "rjob_logs" / "r2" / "platform.tail.log").is_file()
     assert any(c[:2] == ["rjob", "stop"] for c in runner.calls)
+    assert result["cleanup"]["deleted"] is True, "超时也必须删 rjob"
 
 
 def test_client_raises_on_nonzero_exit():
@@ -175,10 +130,6 @@ def test_client_raises_on_nonzero_exit():
         client.get("j")
 
 
-def test_cleanup_delete_flag(tmp_path):
-    runner = FakeRunner({"stop": ["ok"], "delete": ["ok"]})
-    cleanup(RjobClient(runner), "j", delete=True)
-    assert any(c[:2] == ["rjob", "delete"] for c in runner.calls)
 
 
 def test_fetch_artifacts_writes_platform_logs_into_run_root(tmp_path):
@@ -225,10 +176,11 @@ def test_run_job_fetch_failure_never_skips_cleanup(tmp_path, monkeypatch):
     assert result["status"] == "succeeded"
     assert "fetch_error" in result
     assert any(c[:2] == ["rjob", "stop"] for c in runner.calls)  # cleanup 仍然执行
+    assert result["cleanup"]["deleted"] is True, "fetch 失败也不许跳过删除"
 
 
 def test_env_section_seeds_setup_cache_for_osw1():
-    from tandem_eval.rjob import _env_section
+    from tandem_eval.rjob_spec import _env_section
 
     section = _env_section("osworld1", CONFIG)
     assert section["root"] == "/shared/osw1"

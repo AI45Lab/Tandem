@@ -51,3 +51,10 @@
     解析，毒化 HF 下载与外网 LLM 调用）：worker.sh 一律覆盖为已知可用代理，不继承。
 22. 【环境·已修】**OSW1 setup 走共享缓存播种**（旧 runtime.py:532-539 语义，整目录拷贝），
     避免任务 setup 依赖外网下载；Kimi 凭据改用旧 smoke 实跑验证过的 kimi-workspace.json。
+23. 【行为】**收尾默认删除 rjob**（旧仓库只 stop，job 记录留在集群上）：本仓库 cleanup
+    默认 stop + delete，且 delete 带重试（stop 是异步的，刚 stop 完可能删不掉）；
+    submit 之后的任何结局——成功、失败、超时、平台报错、submit 失败、中途 Ctrl-C——
+    都保证走到收尾，不在集群上留残留。要保留现场用 `--keep`。
+24. 【重构】**rjob.py 拆成三块**（原 322 行超单模块 300 行纪律）：
+    rjob.py（生命周期客户端）/ rjob_spec.py（job spec 与 submit 参数）/
+    rjob_status.py（`rjob get` 状态解析）；旧的 `tandem_eval.rjob` 导入路径保持可用。

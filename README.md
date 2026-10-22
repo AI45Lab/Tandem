@@ -193,6 +193,9 @@ tandem-eval rjob run --run-id <name> --benchmark osworld2 --tasks <task-id> \
   --repo . --config infra/config.json --poll 60 --timeout 3600
 ```
 
+跑完**自动删除 rjob**——无论成功、失败、超时还是中途异常，都不在集群上留残留；
+要保留现场（事后查 `rjob logs`）加 `--keep`。
+
 完整参数表与运行细节见 [docs/CLUSTER_RUNTIME.md](docs/CLUSTER_RUNTIME.md)。
 
 ## 会话配置

@@ -44,8 +44,10 @@ def main(argv: list[str] | None = None) -> int:
     run_cmd.add_argument("--export-paths", default="", help="逗号分隔的 VM 内交付物路径")
     run_cmd.add_argument("--poll", type=float, default=60)
     run_cmd.add_argument("--timeout", type=float, default=None, help="watch 超时秒数")
-    run_cmd.add_argument("--keep", action="store_true", help="结束后不 stop rjob")
-    run_cmd.add_argument("--delete", action="store_true", help="结束后 delete rjob（高危）")
+    run_cmd.add_argument("--keep", action="store_true",
+                         help="结束后保留 rjob（不 stop 不 delete），供事后查状态/日志；默认跑完即删")
+    run_cmd.add_argument("--delete", action="store_true",
+                         help="已默认开启（跑完自动删除 rjob）；保留此参数仅为兼容旧脚本")
     run_cmd.add_argument("--no-sync", action="store_true", help="跳过 rsync（复用部署副本）")
 
     watch_cmd = rjob_sub.add_parser("watch", help="盯一个已提交的 rjob 至终态并归档")
@@ -54,7 +56,8 @@ def main(argv: list[str] | None = None) -> int:
     watch_cmd.add_argument("--run-id", required=True, help="用于定位结果目录")
     watch_cmd.add_argument("--poll", type=float, default=60)
     watch_cmd.add_argument("--timeout", type=float, default=None)
-    watch_cmd.add_argument("--keep", action="store_true")
+    watch_cmd.add_argument("--keep", action="store_true",
+                           help="结束后保留 rjob；默认跑完即删")
 
     args = parser.parse_args(argv)
     if args.command == "entry":
@@ -105,20 +108,26 @@ def main(argv: list[str] | None = None) -> int:
             config=config,
             repo_root=Path(args.repo), run_id=args.run_id, spec_overrides=overrides,
             poll_seconds=args.poll,
-            timeout_seconds=args.timeout, keep=args.keep, delete=args.delete,
+            timeout_seconds=args.timeout, keep=args.keep,
+            delete=True,  # 跑完自动删除 rjob 是默认行为；--delete 仅为兼容旧脚本而保留
             sync=not args.no_sync,
         )
         print(result["status"])
+        if result.get("error"):
+            print(f"错误：{result['error']}", file=sys.stderr)
         return 0 if result["status"] == "succeeded" else 1
 
     client = RjobClient()
     status = watch(client, args.job, poll_seconds=args.poll, timeout_seconds=args.timeout)
     run_root = Path(config["results_root"]) / args.run_id
     fetch_artifacts(client, args.job, run_root)
-    if not args.keep:
+    if args.keep:
+        print(f"已保留 rjob {args.job}（--keep）", file=sys.stderr)
+    else:
         from .rjob import cleanup
 
-        cleanup(client, args.job)
+        outcome = cleanup(client, args.job)
+        print(f"收尾：stopped={outcome['stopped']} deleted={outcome['deleted']}", file=sys.stderr)
     print(status)
     return 0 if status == "succeeded" else 1
 
