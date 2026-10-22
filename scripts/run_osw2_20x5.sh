@@ -58,7 +58,8 @@ for idx in "${!pids[@]}"; do
   if wait "$pid"; then
     echo "[$(date '+%F %T')] 分片 $shard: 成功"
   else
-    echo "[$(date '+%F %T')] 分片 $shard: 失败（退出码 $?，详见 $LOG_DIR/shard-$shard.log）"
+    rc=$?
+    echo "[$(date '+%F %T')] 分片 $shard: 失败（退出码 $rc，详见 $LOG_DIR/shard-$shard.log）"
     FAILED=$((FAILED + 1))
   fi
 done

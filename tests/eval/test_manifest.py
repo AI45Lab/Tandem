@@ -78,3 +78,19 @@ def test_shard_interleaves_after_limit():
     import pytest as _pytest
     with _pytest.raises(ValueError, match="1..5"):
         resolve_manifest(spec)
+
+
+def test_index_root_derived_from_env_section(tmp_path):
+    """spec 未带 index_root 时从 env.root 推导（--limit 索引路径在真实基准上的默认来源）。"""
+    import tempfile
+    from pathlib import Path
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        examples = root / "evaluation_examples"
+        examples.mkdir()
+        (examples / "test_v2.json").write_text(
+            json.dumps({"tasks": ["001", "002", "003"]}), encoding="utf-8")
+        spec = {"benchmark": "osworld2", "env": {"root": str(root)}, "manifest": {}}
+        refs = resolve_manifest(spec)
+    assert [r.task_id for r in refs] == ["001", "002", "003"]

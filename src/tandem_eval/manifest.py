@@ -48,8 +48,11 @@ def resolve_manifest(spec: dict) -> list[TaskRef]:
         if not path.is_absolute():
             path = Path(spec["repo_root"]) / path
         refs = load_index(path)
-    elif benchmark in {"osworld1", "osworld2"} and spec.get("index_root"):
-        index = Path(spec["index_root"]) / (
+    elif benchmark in {"osworld1", "osworld2"} and (
+        spec.get("index_root") or spec.get("env", {}).get("root")
+    ):
+        index_root = spec.get("index_root") or spec["env"]["root"]
+        index = Path(index_root) / (
             "osworld1/evaluation_examples/test_nogdrive.json"
             if benchmark == "osworld1"
             else "osworld2/evaluation_examples/test_v2.json"
