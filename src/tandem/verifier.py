@@ -7,6 +7,22 @@ import json
 from pathlib import Path
 
 
+def as_text(value) -> str:
+    """把模型可能给出的多种 evidence 形状压成一段文本。
+
+    同一句 "evidence"，不同厂商给的形状不一样：字符串、字符串列表、字典都出现过
+    （MiniMax 2026-10-23 实测给了列表与字典）。校验器只认字符串，所以这里统一压平，
+    免得因为形状差异把整题判失败——大脑是可换的，形状不该是失败原因。
+    """
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        return "\n".join(f"- {as_text(item)}" for item in value)
+    if isinstance(value, dict):
+        return "\n".join(f"{key}: {as_text(item)}" for key, item in value.items())
+    return "" if value is None else str(value)
+
+
 def verify_observation(
     client,
     instruction,
@@ -97,7 +113,7 @@ def verify_observation(
             value.get("outcome") in {"achieved", "not_achieved", "uncertain"}
             and value.get("task_status") in {"completed", "incomplete", "infeasible"}
             and isinstance(value.get("path_input_focused"), bool)
-            and isinstance(value.get("evidence"), str)
+            and isinstance(value.get("evidence"), (str, list, dict))
             and isinstance(value.get("state_changed"), bool)
             and (
                 not terminal_claim
@@ -105,13 +121,18 @@ def verify_observation(
                 and all(
                     isinstance(item, dict)
                     and item.get("status") in {"met", "not_met", "uncertain"}
-                    and isinstance(item.get("evidence"), str)
+                    and isinstance(item.get("evidence"), (str, list, dict))
                     for item in value["requirement_checks"]
                 )
             )
         ),
         role="verify_observation",
     )
+    # 形状归一：evidence 一律压成字符串（下游 control_state_check 要拼字符串）
+    result["evidence"] = as_text(result.get("evidence"))
+    for item in result.get("requirement_checks", []) or []:
+        if isinstance(item, dict):
+            item["evidence"] = as_text(item.get("evidence"))
     if control_state_check is not None:
         result["control_state_check"] = control_state_check
         if not control_state_check["changed"]:

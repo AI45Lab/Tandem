@@ -69,7 +69,7 @@ class EpisodeRecorder:
         self._events.flush()
 
     def record_llm_call(self, *, role: str, request: Any, response: Any, **meta: Any) -> None:
-        """KimiClient 的 llm_sink；全量请求/响应落盘，密钥脱敏。"""
+        """慢模型客户端的 llm_sink；全量请求/响应落盘，密钥脱敏。"""
         self._llm.write(
             json.dumps(
                 _redact(

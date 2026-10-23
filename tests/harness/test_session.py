@@ -255,7 +255,7 @@ def test_truncated_reasoning_raises_actionable_error(tmp_path, monkeypatch):
     """finish_reason=length（推理吃满 max_tokens、正文为空）必须报可定位的错误。"""
     import tandem.providers as providers_module
     from tandem.config import SessionConfig
-    from tandem.providers import KimiClient
+    from tandem.providers import SlowModelClient
 
     monkeypatch.setattr(providers_module.time, "sleep", lambda seconds: None)
 
@@ -279,7 +279,7 @@ def test_truncated_reasoning_raises_actionable_error(tmp_path, monkeypatch):
                 "usage": {"completion_tokens": 4099},
             }).encode()
 
-    client = KimiClient({"base_url": "http://x"}, SessionConfig(),
+    client = SlowModelClient({"base_url": "http://x"}, SessionConfig(),
                         tmp_path / "audit.jsonl")
     import urllib.request
     opener_holder = TruncatingOpener()
@@ -299,7 +299,7 @@ def test_kimi_payload_controls_reasoning_and_tokens(tmp_path):
     import urllib.request
 
     from tandem.config import SessionConfig
-    from tandem.providers import KimiClient
+    from tandem.providers import SlowModelClient
 
     captured = {}
 
@@ -326,11 +326,11 @@ def test_kimi_payload_controls_reasoning_and_tokens(tmp_path):
     urllib.request.urlopen = fake_urlopen
     try:
         config = SessionConfig()
-        client = KimiClient({"base_url": "http://x"}, config, tmp_path / "a.jsonl")
+        client = SlowModelClient({"base_url": "http://x"}, config, tmp_path / "a.jsonl")
         client.json_request([{"role": "user", "content": "hi"}], lambda v: True, role="r")
         assert captured["payload"]["max_tokens"] == 16384
         assert captured["payload"]["reasoning_effort"] == "low"
-        client_off = KimiClient({"base_url": "http://x"}, SessionConfig(slow_reasoning_effort="off"),
+        client_off = SlowModelClient({"base_url": "http://x"}, SessionConfig(slow_reasoning_effort="off"),
                                 tmp_path / "a.jsonl")
         client_off.json_request([{"role": "user", "content": "hi"}], lambda v: True, role="r")
         assert captured["payload"]["enable_thinking"] is False
@@ -367,7 +367,7 @@ def test_kimi_retries_escalate_reasoning_effort_on_empty_content(tmp_path):
     import urllib.request
 
     from tandem.config import SessionConfig
-    from tandem.providers import KimiClient
+    from tandem.providers import SlowModelClient
 
     payloads = []
     responses = iter([
@@ -401,7 +401,7 @@ def test_kimi_retries_escalate_reasoning_effort_on_empty_content(tmp_path):
     original = urllib.request.urlopen
     urllib.request.urlopen = fake_urlopen
     try:
-        client = KimiClient({"base_url": "http://x"}, SessionConfig(), tmp_path / "a.jsonl")
+        client = SlowModelClient({"base_url": "http://x"}, SessionConfig(), tmp_path / "a.jsonl")
         value = client.json_request([{"role": "user", "content": "hi"}],
                                     lambda v: v == {"done": True}, role="plan_step")
         assert value == {"done": True}
@@ -426,7 +426,7 @@ def test_kimi_accepts_prose_wrapped_json(tmp_path):
     import urllib.request
 
     from tandem.config import SessionConfig
-    from tandem.providers import KimiClient
+    from tandem.providers import SlowModelClient
 
     class _Resp:
         status, headers = 200, {}
@@ -446,7 +446,7 @@ def test_kimi_accepts_prose_wrapped_json(tmp_path):
     original = urllib.request.urlopen
     urllib.request.urlopen = lambda request, timeout=None: _Resp()
     try:
-        client = KimiClient({"base_url": "http://x"}, SessionConfig(), tmp_path / "a.jsonl")
+        client = SlowModelClient({"base_url": "http://x"}, SessionConfig(), tmp_path / "a.jsonl")
         assert client.json_request([{"role": "user", "content": "hi"}],
                                    lambda v: v == {"done": True}, role="r") == {"done": True}
     finally:

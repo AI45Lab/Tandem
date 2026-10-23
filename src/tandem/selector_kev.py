@@ -78,7 +78,7 @@ class KevPolicy:
         try:
             probabilities = response["answers"]["q"]["probabilities"]
         except (KeyError, TypeError) as error:
-            raise ValueError(f"Kev 响应缺少 answers.q.probabilities: {response}") from error
+            raise ValueError(f"fast model 响应缺少 answers.q.probabilities: {response}") from error
         scores = [float(probabilities.get(option_id, 0.0))
                   for option_id in choice_request["option_ids"]]
         return scores, False  # 纯文本后端，used_image 恒 false

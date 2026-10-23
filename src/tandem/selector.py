@@ -1,4 +1,4 @@
-"""selector：JEV omni 选择策略（HTTP 排序服务）。从旧仓库 gui/jev_omni_policy.py 按契约移植；
+"""selector：快模型 omni 选择策略（HTTP 排序服务）。从旧仓库 gui/jev_omni_policy.py 按契约移植；
 唯一接口差异：opener 可注入（测试），默认行为不变。"""
 
 from __future__ import annotations
@@ -98,12 +98,12 @@ class JevOmniPolicy:
         self.endpoint = str(endpoint).rstrip("/")
         self.timeout_seconds = timeout_seconds
         self.opener = opener or urllib.request.build_opener(urllib.request.ProxyHandler({}))
-        # (写视角目录, JEV 宿主机读视角目录)：/rank 要求 image_path 在服务端可读，
+        # (写视角目录, 排序服务宿主机读视角目录)：/rank 要求 image_path 在服务端可读，
         # 截图本体在 adpc 时先暂存到 evobox 中转目录（按内容哈希命名去重）。
         self.image_stage = image_stage
 
     def _stage_screenshot(self, screenshot: Path | None):
-        """返回传给服务的 image_path：暂存开启时为 JEV 宿主机读视角路径，否则原样。"""
+        """返回传给服务的 image_path：暂存开启时为排序服务宿主机读视角路径，否则原样。"""
         if not self.image_stage or screenshot is None:
             return screenshot
         source = Path(screenshot)
@@ -146,7 +146,7 @@ class JevOmniPolicy:
                 try:
                     with self.opener.open(self.endpoint + "/", timeout=5) as response:
                         if json.load(response).get("status") != "ok":
-                            raise OSError("JEV health check failed")
+                            raise OSError("fast model health check failed")
                     request = urllib.request.Request(
                         self.endpoint + "/rank",
                         data=json.dumps(
@@ -168,7 +168,7 @@ class JevOmniPolicy:
                     print(
                         json.dumps(
                             {
-                                "event": "jev_service_recovery_wait",
+                                "event": "fast_model_service_recovery_wait",
                                 "error": str(error),
                                 "remaining_seconds": round(deadline - time.monotonic()),
                             },
@@ -179,7 +179,7 @@ class JevOmniPolicy:
                     time.sleep(15)
             scores = [float(score) for score in payload["scores"]]
             if len(scores) != len(choice_request["options"]):
-                raise ValueError("JEV returned a score count different from the candidate count")
+                raise ValueError("fast model returned a score count different from the candidate count")
             return scores, bool(payload.get("used_image"))
 
         operation_scores, operation_used_image = predict(operation_request)
@@ -236,7 +236,7 @@ def ranking_dict(value: Ranking) -> dict[str, Any]:
         "target_margin": value.target_margin,
         "latency_ms": value.latency_ms,
         "used_image": value.used_image,
-        "score_type": "jev_omni_choice_softmax",
+        "score_type": "fast_model_choice_softmax",
         "score_is_calibrated_correctness_probability": False,
         "operation_request": value.operation_request,
         "action_request": value.action_request,

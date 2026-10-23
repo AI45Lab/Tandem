@@ -1,5 +1,5 @@
 """慢模型（大脑）的 JSON 传输客户端——OpenAI 兼容 /chat/completions 口径，
-当前实现沿用 Kimi 的方言（reasoning_effort / enable_thinking）。含脱敏审计。
+当前实现用 OpenAI 兼容方言（reasoning_effort / enable_thinking）——Kimi 与 MiniMax 都吃这套。含脱敏审计。
 从旧仓库 providers.py 按契约移植。
 全量请求/响应落盘（llm_calls.jsonl）属于 M2 的 recorder，此处保持审计日志。"""
 
@@ -50,7 +50,7 @@ def extract_json_object(text: str):
     return None
 
 
-class KimiClient:
+class SlowModelClient:
     def __init__(self, credential_file, config, audit_path: Path, llm_sink=None):
         if isinstance(credential_file, dict):
             self.credentials = dict(credential_file)
@@ -158,19 +158,19 @@ class KimiClient:
                 if finish_reason == "length":
                     completion_tokens = (raw.get("usage") or {}).get("completion_tokens")
                     raise ValueError(
-                        f"Kimi response truncated by max_tokens (finish_reason=length, "
+                        f"slow model response truncated by max_tokens (finish_reason=length, "
                         f"completion_tokens={completion_tokens}); raise slow_max_tokens"
                     )
                 if not content and raw["choices"][0]["message"].get("reasoning_content"):
                     raise ValueError(
-                        "Kimi returned empty content (all completion tokens stayed in the "
+                        "slow model returned empty content (all completion tokens stayed in the "
                         "reasoning channel); escalating reasoning_effort for the next attempt"
                     )
                 value = extract_json_object(content)
                 if value is None:
-                    raise ValueError("Kimi response contains no JSON object")
+                    raise ValueError("slow model response contains no JSON object")
                 if not validate(value):
-                    raise ValueError("Kimi response is missing required fields")
+                    raise ValueError("slow model response is missing required fields")
                 return value
             except urllib.error.HTTPError as error:
                 body = redact(error.read().decode("utf-8", errors="replace"))

@@ -196,7 +196,7 @@ JEV / Kev 部署在闲时 GPU，**地址随重新部署变化**。因此：
 
 JEV 的 `/rank` 要求 `image_path` 是**服务宿主机可读的文件路径**。截图本体在 adpc，
 因此由 harness 暂存到 evobox 中转目录（`harness.fast_model.image_stage.write` → `.read`），
-payload 带 JEV 宿主机视角路径。暂存按内容哈希命名去重（`step_00_<sha16>.png`），断点无害。
+payload 带排序服务宿主机视角路径。暂存按内容哈希命名去重（`step_00_<sha16>.png`），断点无害。
 
 ## 6.5 OSWorld 2.1 的特别约定
 

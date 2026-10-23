@@ -24,7 +24,7 @@
 |------|------|---------|
 | `task.json` | 任务定义完整副本 | episode 开始 |
 | `traj.jsonl` | 每执行步一行：`{step_idx, wall_time, protocol_version, observation{screenshot(sha256/path/w/h), accessibility_tree(present/source/digest/node_count), budget(steps_remaining, wall_seconds_remaining), last_receipt}, action{kind, …}}` | 每步 env.execute 后 |
-| `llm_calls.jsonl` | 全量 LLM 请求/响应，每行 `{role, time, request{payload, messages}, response, attempt}`；Bearer/api_key 脱敏 | KimiClient 成功响应时（llm_sink → LlmTap → 本文件） |
+| `llm_calls.jsonl` | 全量 LLM 请求/响应，每行 `{role, time, request{payload, messages}, response, attempt}`；Bearer/api_key 脱敏 | 慢模型客户端成功响应时（llm_sink → LlmTap → 本文件） |
 | `events.jsonl` | harness 决策事件（route 字段区分）：`planner`（发给 LLM 的计划全文 + 有效响应）/ `gui`（候选列表 + ranking{operation_request, action_request, operation_ranked, action_ranked, winner, margins, latency_ms, used_image} + 编译后动作）/ `cli`（路由决策 + 命令）/ `gui_verified` / `cli_verified`（验证裁决 + 回执）/ `terminal`（终态双确认）/ `action`（runner 写的执行记录，与 session 事件穿插） | session.act() 后增量排水 |
 | `a11y_digests.jsonl` | 每步 a11y sha256 + 节点数（`{step_idx, sha256, node_count}`） | 每步（全量 xml 默认关闭，record.a11y_full=true 时另写 `a11y/step_XX.xml`） |
 | `screenshots/step_XX.png` | 逐步截图（**契约正本**） | 每步 env.execute 后 |

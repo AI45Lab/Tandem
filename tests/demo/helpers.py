@@ -107,7 +107,7 @@ def make_run(root: Path, run_id: str, tasks: list[dict]) -> Path:
                         "action_ranked": [{"id": "click:a11y:t0:0", "score": 0.8}],
                         "operation_margin": 0.5,
                         "latency_ms": 120.0,
-                        "score_type": "jev_omni_choice_softmax",
+                        "score_type": "fast_model_choice_softmax",
                         "score_is_calibrated_correctness_probability": False,
                     },
                     "action": {"kind": "gui", "action_type": "click", "parameters": {"x": 1, "y": 2}},

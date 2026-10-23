@@ -57,7 +57,7 @@
 - 每个 run 的 `code_version.json` 必须记录 git describe、protocol_version、镜像 digest、run spec（secrets 脱敏）。
 - OSW2 任务资产经 `OSWORLD_FILE_BASE_URL` 指向本地 `asset_root`（避免外网下载）；必须在任务模块 import **前**设置（见 osworld.py `_bootstrap_runtime`）。
 
-## 慢模型调用纪律（KimiClient，慢模型的当前实现）
+## 慢模型调用纪律（SlowModelClient，慢模型客户端）
 
 - `reasoning_effort` 默认 `low`（探测 97→22 token）；`off` 映射 `enable_thinking=false`（归零）。
 - 空正文（全留在思考通道）→ 下一次重试自动升档（low→medium→high）。

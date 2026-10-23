@@ -1,7 +1,7 @@
 """entry：job spec → 环境/harness/runner 组装（worker 侧唯一入口，infra/worker.sh 调用）。
 
 benchmark=mock：MockEnv + 确定性脚本组件（全链路自检）。
-真实基准：环境适配器（共享目录 runtime/VM）+ KimiClient + build_default 组件，
+真实基准：环境适配器（共享目录 runtime/VM）+ SlowModelClient + build_default 组件，
 凭据与端点路径由提交侧从 infra/config.json 注入 spec（secrets 段）。
 """
 
@@ -161,14 +161,14 @@ def build_session(spec: dict, *, llm_tap: LlmTap | None = None) -> TandemSession
         return TandemSession(mock_components(), config=config)
     if benchmark in {"osworld1", "osworld2", "osworld21"}:
         from tandem.components import build_default
-        from tandem.providers import KimiClient
+        from tandem.providers import SlowModelClient
 
         secrets = spec["secrets"]
         credentials = dict(secrets["slow_model"])
         endpoint = resolve_fast_model_endpoint(secrets.get("fast_model") or {})
         run_root = Path(spec["output_root"])
         run_root.mkdir(parents=True, exist_ok=True)
-        client = KimiClient(credentials, config, run_root / "slow_model_http.jsonl",
+        client = SlowModelClient(credentials, config, run_root / "slow_model_http.jsonl",
                             llm_sink=llm_tap)
         stage = spec.get("image_stage") or {}
         image_stage = None

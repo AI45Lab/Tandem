@@ -75,7 +75,7 @@
 26. 【重构】**SessionConfig 字段角色化**：`kimi_max_tokens` / `kimi_reasoning_effort` /
     `kimi_timeout_seconds` / `kimi_direct_api` → `slow_*`；`jev_timeout_seconds` →
     `fast_timeout_seconds`；`selector_backend` → `fast_backend`。
-    `KimiClient` 类名保留（它确实是 Kimi 方言的具体实现），但审计日志的 provider 字段
+    `KimiClient` 类名当时保留（后改名为 `SlowModelClient`，慢模型客户端），审计日志的 provider 字段
     由 `"kimi"` 改为 `"slow_model"`，worker 侧审计文件名 `kimi_http.jsonl` →
     `slow_model_http.jsonl`。
 27. 【重构】**开发机侧新增 `config_schema.py`**：config 的校验与 API 选取独立成模块

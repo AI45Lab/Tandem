@@ -69,7 +69,7 @@ def test_rank_two_stage_with_probabilities(tmp_path):
     assert ranking.winner.id == second_id
     assert ranking.target_margin == pytest.approx(0.8 - 0.2)
     assert ranking.used_image is False
-    assert ranking_dict(ranking)["score_type"] == "jev_omni_choice_softmax"
+    assert ranking_dict(ranking)["score_type"] == "fast_model_choice_softmax"
     # 请求体符合 System One：state 为对象、criteria 为选项→描述
     first = opener.requests[0]
     assert first["model"] == "kev-latest"

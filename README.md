@@ -12,7 +12,7 @@
         │
         ▼
 ┌─────────────────────────────────────────────┐
-│慢模型 planner（Kimi）    ← 理解与规划       │
+│慢模型 planner（大脑）    ← 理解与规划       │
 │  current_goal / expected_observation        │
 │  route / action_proposals / done            │
 └─────────────────────────────────────────────┘
@@ -39,7 +39,7 @@
         │  Receipt：returncode / stdout / stderr
         ▼
 ┌─────────────────────────────────────────────┐
-│慢模型 verifier（Kimi）    ← 独立验证        │
+│慢模型 verifier（大脑）    ← 独立验证        │
 │  outcome · state_changed · evidence         │
 │  逐条需求核验 requirement_checks            │
 └─────────────────────────────────────────────┘
@@ -55,7 +55,7 @@
 |  | 慢模型（大脑） | 快模型（小脑） |
 |---|---|---|
 | 角色 | 需求抽取 / 一步规划 / 独立验证 | 在候选空间里排序选择 |
-| 实现 | `planner.py`、`verifier.py`、`providers.py`（`KimiClient`，OpenAI 兼容方言） | `selector.py`（JEV）、`selector_kev.py`（Kev） |
+| 实现 | `planner.py`、`verifier.py`、`providers.py`（`SlowModelClient`，OpenAI 兼容方言） | `selector.py`（JEV）、`selector_kev.py`（Kev） |
 | 当前默认 | `minimax-m3.1-flash`（可切 `kimi-k3`） | `jev`（可切 `kev`） |
 | 输入 | 指令 + 截图 + a11y 树 + 历史动作 + 需求清单 | 当前目标 + 候选动作（自带上下文描述）+ 截图（仅 JEV 需要） |
 | 输出 | 结构化 plan：当前目标 / 预期观察 / 路由 / 动作提案 | 排序结果：winner + operation/action 两级分数 + margin + 延迟 |
@@ -178,7 +178,7 @@ from tandem.config import SessionConfig
 from tandem.session import TandemSession
 
 components = build_default(
-    client=slow_client,                       # providers.KimiClient（慢模型客户端）
+    client=slow_client,                       # providers.SlowModelClient（慢模型客户端）
     endpoint="http://<排序服务>/rank",
     config=SessionConfig(fast_backend="jev"),
 )
@@ -279,7 +279,7 @@ python demo/build_site.py --runs-root rjob_logs --out demo/site --benchmark oswo
 python -m http.server 8899 --directory demo/site    # 本地预览
 ```
 
-披露口径：未出分如实标注、不折算 0 分、不计入均分；JEV 分数标注 softmax 非校准概率；
+披露口径：未出分如实标注、不折算 0 分、不计入均分；排序分数标注 softmax 非校准概率；
 成本只用 token 与调用次数表达，不臆造货币单价；截图标明是离散帧非录屏。
 
 详见 [demo/README.md](demo/README.md)。

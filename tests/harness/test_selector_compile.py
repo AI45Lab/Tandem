@@ -67,7 +67,7 @@ def test_rank_picks_highest_scored_candidate(tmp_path):
     assert ranking.action_ranked[0]["score"] == 0.8
     assert ranking.target_margin == pytest.approx(0.8 - 0.2)
     assert ranking.used_image is True
-    assert ranking_dict(ranking)["score_type"] == "jev_omni_choice_softmax"
+    assert ranking_dict(ranking)["score_type"] == "fast_model_choice_softmax"
 
 
 def test_rank_single_candidate_skips_action_request(tmp_path):
