@@ -129,6 +129,8 @@ def _readout(task: dict[str, Any]) -> str:
         score_big = "未出分"
         score_cls = "na"
         score_sub = f"{task['exception_type'] or task['stop_reason'] or '异常'} · 如实标注，不计 0 分"
+        if task.get("error"):
+            score_sub += f" · {str(task['error'])[:200]}"
     total = task["cost"]["total"]
     cost_big = f"{total['prompt_tokens'] + total['completion_tokens']:,}"
     cost_sub = (

@@ -96,3 +96,34 @@ def test_run_spec_masks_credentials_but_keeps_model_identity():
     assert masked["secrets"]["fast_model"]["endpoint"] == "***"
     assert masked["secrets"]["registry"]["auths"] == "***"
     assert masked["harness"]["models"] == {"slow": "kimi-k3", "fast": "jev"}
+
+
+def test_episode_records_error_message_and_traceback(tmp_path):
+    """异常题必须记下消息与栈尾：只记 exception_type 的话，事后无法判断炸在哪一步。"""
+    from tandem_eval.recorder import EpisodeRecorder
+
+    recorder = EpisodeRecorder(tmp_path / "ep", {"id": "016"})
+    try:
+        raise ValueError("asset() requires a non-empty relative path")
+    except ValueError as exc:
+        episode = recorder.finalize(
+            stop_reason="exception", outputs=[], raw_score=None, score=None,
+            status="failed_unscored", exception=exc,
+        )
+    assert episode["exception_type"] == "ValueError"
+    assert "non-empty relative path" in episode["error"]
+    assert any("ValueError" in line for line in episode["error_traceback"])
+    stored = json.loads((tmp_path / "ep" / "episode.json").read_text())
+    assert stored["error"].startswith("asset()")
+
+
+def test_episode_error_redacts_secrets(tmp_path):
+    from tandem_eval.recorder import EpisodeRecorder
+
+    recorder = EpisodeRecorder(tmp_path / "ep", {"id": "x"})
+    episode = recorder.finalize(
+        stop_reason="exception", outputs=[], raw_score=None, score=None,
+        status="failed_unscored", exception=RuntimeError("boom sk-secretkey123456"),
+    )
+    assert "sk-secretkey" not in episode["error"]
+    assert "[REDACTED]" in episode["error"]

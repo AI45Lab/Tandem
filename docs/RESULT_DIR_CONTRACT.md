@@ -32,7 +32,7 @@
 | `artifacts.json` | deliverables 导出记录（`[{vm_path, exported, local_path, bytes}]`） | episode 终态 |
 | `evaluation.json` | 官方评分（`{source: "official_benchmark_evaluator", raw, score}`） | episode 终态（评分成功时） |
 | `result.txt` | 分数（`score\n`） | 同上 |
-| `episode.json` | `{task_id, harness, stop_reason, steps, status(scored\|failed_unscored), score, exception_type}` | episode 终态（必写） |
+| `episode.json` | `{task_id, harness, stop_reason, steps, status(scored\|failed_unscored), score, exception_type, error?, error_traceback?}` | episode 终态（必写）。`error`/`error_traceback` 仅异常题有：异常消息与栈尾几行（脱敏）——只记类型事后没法定位 |
 | `timing.json` | `{wall_seconds, status}` | episode 终态 |
 
 ## 步号语义（demo 侧对齐依据）

@@ -207,6 +207,7 @@ def load_episode(run_dir: Path, entry: dict[str, Any]) -> dict[str, Any]:
             "score": score if isinstance(score, (int, float)) else None,
             "stop_reason": episode.get("stop_reason"),
             "exception_type": episode.get("exception_type"),
+            "error": episode.get("error"),
             "steps_reported": episode.get("steps"),
             "wall_seconds": timing.get("wall_seconds"),
             "evaluation": evaluation,
