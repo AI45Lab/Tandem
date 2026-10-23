@@ -50,6 +50,31 @@ def test_osworld21_missing_private_configuration_does_not_copy_planner_key(tmp_p
     assert spec["code"]["resources"] == {}
 
 
+@pytest.mark.parametrize("inline_token", ["", "inline-test-token"])
+def test_osworld21_shared_gitlab_token_file(tmp_path, inline_token):
+    token_path = tmp_path / "gitlab.token"
+    token_path.write_text("shared-test-token\n", encoding="utf-8")
+    config = with_paths(CONFIG, deploy_root=str(tmp_path / "deploy"))
+    config["eval"]["benchmarks"]["osworld21"]["gitlab"] = {
+        "private_token": inline_token, "private_token_file": str(token_path),
+    }
+    spec = build_job_spec(config=config, run_id="shared-token", repo_root=tmp_path,
+                          spec_overrides={"benchmark": "osworld21"})
+    assert spec["secrets"]["environment"]["GITLAB_PRIVATE_TOKEN"] == (inline_token or "shared-test-token")
+    recorded = json.dumps(_mask_secrets(spec))
+    assert "shared-test-token" not in recorded
+    assert "inline-test-token" not in recorded
+    path = tmp_path / "deploy/job_specs/shared-token.json"
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+
+
+def test_shared_gitlab_token_file_requires_absolute_path():
+    path = Path(__file__).resolve().parents[2] / "infra/config.example.json"
+    config = json.loads(path.read_text())
+    config["eval"]["benchmarks"]["osworld21"]["gitlab"]["private_token_file"] = "relative.token"
+    assert "eval.benchmarks.osworld21.gitlab.private_token_file（必须是绝对路径）" in validate(config)
+
+
 def test_osworld21_direct_api_hosts_do_not_change_older_benchmarks(tmp_path):
     config = with_paths(CONFIG, deploy_root=str(tmp_path / "deploy"))
     config["eval"]["benchmarks"]["osworld21"]["no_proxy"] = "api.example.invalid"

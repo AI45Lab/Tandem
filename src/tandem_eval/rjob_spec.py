@@ -77,7 +77,11 @@ def _secrets_section(benchmark: str, config: dict, slow_api: dict, fast_api: dic
     if benchmark == "osworld21":
         section = config["eval"]["benchmarks"][benchmark]
         environment = {}
-        if token := section.get("gitlab", {}).get("private_token"):
+        gitlab = section.get("gitlab", {})
+        token = gitlab.get("private_token")
+        if not token and gitlab.get("private_token_file"):
+            token = Path(gitlab["private_token_file"]).read_text(encoding="utf-8").strip()
+        if token:
             environment["GITLAB_PRIVATE_TOKEN"] = token
         for role, prefix, model_key in (("judge", "OSWORLD_EVAL_MODEL_", "NAME"),
                                          ("user_simulator", "OSWORLD_USER_SIM_", "MODEL")):

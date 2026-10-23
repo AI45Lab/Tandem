@@ -63,6 +63,7 @@ ABSOLUTE_PATH_PATHS = (
     "eval.benchmarks.osworld21.vm",
     "eval.benchmarks.osworld21.asset_root",
     "eval.benchmarks.osworld21.shared_env",
+    "eval.benchmarks.osworld21.gitlab.private_token_file",
     "harness.fast_model.image_stage.write",
     "harness.fast_model.image_stage.read",
 )

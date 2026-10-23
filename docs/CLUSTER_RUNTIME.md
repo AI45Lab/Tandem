@@ -66,7 +66,8 @@ worker 入口、共享资源与已知坑。
 | `eval.benchmarks.osworld21.proxy` | OSW2.1 用的代理（覆盖 worker.sh 的默认代理） |
 | `eval.benchmarks.osworld21.volume_size` | 传给官方接口的**卷参数**，不等于根盘容量（实测根盘约 49GB、可用约 21GB） |
 | `eval.benchmarks.osworld21.no_proxy` | 可选，逗号分隔的直连API主机；只追加到OSW2.1 worker的代理绕过列表 |
-| `eval.benchmarks.osworld21.gitlab.private_token` | 可选，受信任的setup使用的管理token；公共网站配置不自动读取私有凭据 |
+| `eval.benchmarks.osworld21.gitlab.private_token` | 可选，内联GitLab token；非空时优先于 `private_token_file` |
+| `eval.benchmarks.osworld21.gitlab.private_token_file` | 可选，共享测试token文件的绝对路径；提交任务时读取，经私有job spec传给setup/evaluator |
 | `eval.benchmarks.osworld21.judge` / `.user_simulator` | 可选，各自配置 `provider` / `base_url` / `api_key` / `model`；judge还可指定 `reasoning_effort` / `max_tokens`，任务内显式参数优先 |
 | `eval.registry` | docker registry auth（内联传给 worker 写 `~/.docker/config.json`） |
 
@@ -229,8 +230,11 @@ OSW2.1 走**独立环境**（独立 runtime / VM / 资产 / venv / env.sh），�
   不改变Tandem规划、候选、验证或评分逻辑。worker只读基盘与冻结venv，每题使用隔离VM。
 - **网站与权限**：从环境侧 `services/web/endpoint.json` 与 `services/gitlab/endpoint.json`
   发现内网地址，不依赖开发机的localhost。使用者需有共享盘、内网和镜像仓库权限；
-  026、041另需获授权的GitLab管理token，模型API使用各自获授权的凭据。
-  凭据仅置于已gitignore的 `infra/config.json` 和权限600的私有job spec，不提交Git。
+  026、041通过配置模板中的 `gitlab.private_token_file` 读取共享测试管理员token。
+  该文件位于共享环境 `shared_credentials/gitlab-test-admin.token`，按所有者授权以644权限供集群用户读取；
+  仅用于这套独立测试GitLab，不包含GitHub、模型API或镜像仓库凭据。token轮换时由环境维护者更新该文件。
+  模型API及其他凭据仍使用各自获授权的配置，置于已gitignore的 `infra/config.json`；
+  传给worker的job spec保持600权限，所有token均不提交Git或写入公开结果。
   替代judge/模拟器的身份另记于 `code_version.json.resources`，不混作原生GPT配置。
 - **卷参数**：`volume_size` 只是传给官方接口的卷参数，**不代表根盘真有这么大**
   （实测根盘约 49GB、可用约 21GB）。

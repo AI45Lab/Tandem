@@ -96,7 +96,10 @@
         "proxy": "http://100.100.135.73:3128",
         "no_proxy": "",
         "volume_size": 64,
-        "gitlab": {"private_token": ""},
+        "gitlab": {
+          "private_token": "",
+          "private_token_file": "/mnt/shared-storage-gpfs2/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/osworld21/shared_credentials/gitlab-test-admin.token"
+        },
         "judge": {"provider": "openai_compatible", "base_url": "", "api_key": "", "model": ""},
         "user_simulator": {"provider": "openai_compatible", "base_url": "", "api_key": "", "model": ""}
       }
