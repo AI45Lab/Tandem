@@ -12,7 +12,7 @@
         │
         ▼
 ┌─────────────────────────────────────────────┐
-│慢模型 planner（Kimi）    ← 理解与规划       │
+│慢模型 planner（大脑）    ← 理解与规划       │
 │  current_goal / expected_observation        │
 │  route / action_proposals / done            │
 └─────────────────────────────────────────────┘
@@ -39,7 +39,7 @@
         │  Receipt：returncode / stdout / stderr
         ▼
 ┌─────────────────────────────────────────────┐
-│慢模型 verifier（Kimi）    ← 独立验证        │
+│慢模型 verifier（大脑）    ← 独立验证        │
 │  outcome · state_changed · evidence         │
 │  逐条需求核验 requirement_checks            │
 └─────────────────────────────────────────────┘
@@ -52,10 +52,11 @@
 
 ## 快慢双模：分工与边界
 
-|  | 慢模型（Kimi） | 快模型（System One） |
+|  | 慢模型（大脑） | 快模型（小脑） |
 |---|---|---|
 | 角色 | 需求抽取 / 一步规划 / 独立验证 | 在候选空间里排序选择 |
-| 实现 | `planner.py`、`verifier.py`、`providers.py`（KimiClient） | `selector.py`（JEV）、`selector_kev.py`（Kev） |
+| 实现 | `planner.py`、`verifier.py`、`providers.py`（`SlowModelClient`，OpenAI 兼容方言） | `selector.py`（JEV）、`selector_kev.py`（Kev） |
+| 当前默认 | `minimax-m3.1-flash`（可切 `kimi-k3`） | `jev`（可切 `kev`） |
 | 输入 | 指令 + 截图 + a11y 树 + 历史动作 + 需求清单 | 当前目标 + 候选动作（自带上下文描述）+ 截图（仅 JEV 需要） |
 | 输出 | 结构化 plan：当前目标 / 预期观察 / 路由 / 动作提案 | 排序结果：winner + operation/action 两级分数 + margin + 延迟 |
 | 代价 | 每步一次 LLM 调用，慢且贵 | 单次 HTTP 前向，快且便宜 |
@@ -177,9 +178,9 @@ from tandem.config import SessionConfig
 from tandem.session import TandemSession
 
 components = build_default(
-    client=kimi_client,                       # providers.KimiClient
+    client=slow_client,                       # providers.SlowModelClient（慢模型客户端）
     endpoint="http://<排序服务>/rank",
-    config=SessionConfig(selector_backend="jev"),
+    config=SessionConfig(fast_backend="jev"),
 )
 session = TandemSession(components)
 session.begin("把 FYP 答辩安排逐条加进日历", None)   # None → 慢模型抽取需求
@@ -192,6 +193,10 @@ action = session.act(observation)                     # Observation → Action
 tandem-eval rjob run --run-id <name> --benchmark osworld2 --tasks <task-id> \
   --repo . --config infra/config.json --poll 60 --timeout 3600
 ```
+
+换大脑 / 换小脑只改启动参数：`infra/config.json` 里登记多套 API（`harness.slow_model.apis` /
+`harness.fast_model.apis`），运行时用 `--slow-model <名字> --fast-model <名字>` 挑，
+用来比较"不同大脑 × 不同小脑"的性能差距。
 
 跑完**自动删除 rjob**——无论成功、失败、超时还是中途异常，都不在集群上留残留；
 要保留现场（事后查 `rjob logs`）加 `--keep`。
@@ -207,19 +212,26 @@ tandem-eval rjob run --run-id <name> --benchmark osworld2 --tasks <task-id> \
 | `allow_cli` | `True` | 是否允许 planner 走 CLI 路由 |
 | `route_policy` | `"auto"` | `auto` / `gui` / `cli` |
 | `cli_timeout_seconds` | `90` | CLI 超时（协议上限 120） |
-| `jev_timeout_seconds` | `300` | 排序服务超时（jev 与 kev 共用） |
-| `kimi_max_tokens` | `16384` | 慢模型单次响应上限 |
-| `kimi_timeout_seconds` | `120` | 慢模型超时 |
-| `kimi_direct_api` | `False` | 直连 API（不经代理） |
-| `kimi_reasoning_effort` | `"low"` | `off`（归零思考）/ `low` / `medium` / `high` |
-| `selector_backend` | `"jev"` | `jev`（`/rank`，需截图）/ `kev`（System One，纯文本） |
+| `fast_timeout_seconds` | `300` | 快模型排序服务超时（jev 与 kev 共用） |
+| `slow_max_tokens` | `16384` | 慢模型单次响应上限 |
+| `slow_timeout_seconds` | `120` | 慢模型超时 |
+| `slow_direct_api` | `False` | 直连 API（不经代理） |
+| `slow_reasoning_effort` | `"low"` | `off`（归零思考）/ `low` / `medium` / `high` |
+| `fast_backend` | `"jev"` | `jev`（`/rank`，需截图）/ `kev`（System One，纯文本） |
+
+**换慢模型厂商**：在 `infra/config.json` 的 `harness.slow_model.apis` 里登记多套 API，
+启动时用 `--slow-model <名字>` 挑（缺省取 `default`），不改代码。
+
+> 厂商方言有差异（2026-10-23 实测）：Kimi 认 `enable_thinking=false` 关思考；
+> **MiniMax 忽略该字段**（仍返回 `reasoning_content`），只有 `reasoning_effort` 生效
+> （`low`/`medium`/`high`）——想少思考就把 `reasoning_effort` 调低，别指望 `off`。
 
 慢模型的调用纪律（`providers.py`）：
 
 - 思考强度默认 `low`（实测 97 → 22 token）；空正文（全留在思考通道）→ 下一次重试自动升档；
 - 叙述文字包裹 JSON → 自动剥围栏取首个平衡 `{…}` 抢救；
 - 403（TPM 配额限流）→ 指数退避 60/120/240/480s，总计 5 次尝试；
-- `finish_reason=length` → 明确报错，提示调大 `kimi_max_tokens`。
+- `finish_reason=length` → 明确报错，提示调大 `slow_max_tokens`。
 
 ## 排序后端
 
@@ -267,7 +279,7 @@ python demo/build_site.py --runs-root rjob_logs --out demo/site --benchmark oswo
 python -m http.server 8899 --directory demo/site    # 本地预览
 ```
 
-披露口径：未出分如实标注、不折算 0 分、不计入均分；JEV 分数标注 softmax 非校准概率；
+披露口径：未出分如实标注、不折算 0 分、不计入均分；排序分数标注 softmax 非校准概率；
 成本只用 token 与调用次数表达，不臆造货币单价；截图标明是离散帧非录屏。
 
 详见 [demo/README.md](demo/README.md)。

@@ -18,7 +18,7 @@ DESC_LIMIT = 240
 
 DISCLOSURE = (
     "未出分（failed_unscored）如实标注，不折算 0 分、不计入均分；"
-    "JEV /rank 分数为 softmax 输出，非校准正确率；成本以 token 用量与调用次数表达，"
+    "快模型排序分数为 softmax 输出，非校准正确率；成本以 token 用量与调用次数表达，"
     "未换算货币单价；截图为逐步离散帧，非连续录屏；"
     "时间轴为实测时刻重建（不估算未记录的时间）。"
 )
@@ -77,7 +77,7 @@ def display_payload(run: dict[str, Any], task: dict[str, Any], frames: dict[str,
             "run_id": run["run_id"],
             "benchmark": run["benchmark"],
             "git_describe": run["git_describe"],
-            "selector_backend": run["selector_backend"],
+            "fast_model": run["fast_model"],
         },
         "task": {
             "task_id": task["task_id"],
@@ -91,8 +91,8 @@ def display_payload(run: dict[str, Any], task: dict[str, Any], frames: dict[str,
             "exception_type": task["exception_type"],
             "wall_seconds": task["wall_seconds"],
             "cost": task["cost"],
-            "jev_calls": task["jev_calls"],
-            "jev_latency_ms_total": task["jev_latency_ms_total"],
+            "fast_calls": task["fast_calls"],
+            "fast_latency_ms_total": task["fast_latency_ms_total"],
             "evaluation": task["evaluation"],
             "steps": steps,
             "llm_calls": llm_calls,
@@ -129,6 +129,8 @@ def _readout(task: dict[str, Any]) -> str:
         score_big = "未出分"
         score_cls = "na"
         score_sub = f"{task['exception_type'] or task['stop_reason'] or '异常'} · 如实标注，不计 0 分"
+        if task.get("error"):
+            score_sub += f" · {str(task['error'])[:200]}"
     total = task["cost"]["total"]
     cost_big = f"{total['prompt_tokens'] + total['completion_tokens']:,}"
     cost_sub = (
@@ -144,7 +146,7 @@ def _readout(task: dict[str, Any]) -> str:
   <div class="meter {score_cls}"><small>官方评分 · 准确率</small><b>{html.escape(score_big)}</b><span class="sub">{html.escape(score_sub)}</span></div>
   <div class="meter"><small>token 用量 · 执行成本</small><b>{html.escape(cost_big)}</b><span class="sub">{html.escape(cost_sub)}</span></div>
   <div class="meter"><small>真实用时 · wall-clock</small><b>{html.escape(time_big)}</b><span class="sub">{html.escape(time_sub)}</span></div>
-  <div class="rail"><span><b>{len(task['steps'])}</b> 决策步</span><span>JEV 排序 <b>{task['jev_calls']}</b> 次</span></div>
+  <div class="rail"><span><b>{len(task['steps'])}</b> 决策步</span><span>快模型排序 <b>{task['fast_calls']}</b> 次</span></div>
 </section>"""
 
 
@@ -165,7 +167,7 @@ def render_task_page(run: dict[str, Any], task: dict[str, Any], frames: dict[str
   <a class="back" href="../../index.html">← 总览</a>
   <div class="titles">
     <h1>OSW2 任务 {html.escape(task['task_id'])}</h1>
-    <p class="sub">{html.escape(run['run_id'])} · selector={html.escape(run['selector_backend'])} · git {html.escape(str(run['git_describe']))}</p>
+    <p class="sub">{html.escape(run['run_id'])} · 大脑={html.escape(str(run.get('slow_model', '')))} · 小脑={html.escape(run['fast_model'])} · git {html.escape(str(run['git_describe']))}</p>
   </div>
   <div class="badges">
     <span class="badge">契约 {CONTRACT_VERSION}</span>

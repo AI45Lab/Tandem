@@ -122,7 +122,7 @@ def test_build_chapters_maps_requirements_to_steps_without_duplicates():
     assert first["requirement"] == "做 A"
 
 
-def _cell(score, wall, tokens, steps, calls, jev):
+def _cell(score, wall, tokens, steps, calls, fast):
     return {
         "status": "scored",
         "score": score,
@@ -133,7 +133,7 @@ def _cell(score, wall, tokens, steps, calls, jev):
         "steps": steps,
         "tokens": tokens,
         "llm_calls": calls,
-        "jev_calls": jev,
+        "fast_calls": fast,
     }
 
 
@@ -144,7 +144,7 @@ def test_render_index_and_compare_contain_expected_blocks():
                 "run_id": "run-a",
                 "benchmark": "osworld2",
                 "git_describe": "abc",
-                "selector_backend": "jev",
+                "fast_model": "jev",
                 "budget": {},
                 "totals": {},
             },
@@ -152,7 +152,7 @@ def test_render_index_and_compare_contain_expected_blocks():
                 "run_id": "run-b",
                 "benchmark": "osworld2",
                 "git_describe": "def",
-                "selector_backend": "kev",
+                "fast_model": "kev",
                 "budget": {},
                 "totals": {},
             },

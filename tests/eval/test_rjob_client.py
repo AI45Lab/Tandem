@@ -21,7 +21,7 @@ from tandem_eval.rjob import (
     watch,
 )
 
-from .rjob_fakes import CONFIG, REAL_RUNNING, REAL_SUCCEEDED, FakeRunner
+from .rjob_fakes import CONFIG, REAL_RUNNING, REAL_SUCCEEDED, FakeRunner, with_paths
 
 
 def test_parse_status_variants():
@@ -55,19 +55,95 @@ def test_submit_args_include_mount_and_worker_entrypoint():
 
 
 def test_build_job_spec_uses_config_paths(tmp_path):
-    config = dict(CONFIG, deploy_root=str(tmp_path / "deploy"),
-                  results_root=str(tmp_path / "results"))
+    config = with_paths(CONFIG, deploy_root=str(tmp_path / "deploy"),
+                        results_root=str(tmp_path / "results"))
     spec = build_job_spec(config=config, run_id="r1",
                           repo_root=tmp_path, spec_overrides={"benchmark": "osworld1"})
     assert spec["output_root"] == str(tmp_path / "results" / "r1")
     assert spec["repo_root"] == str(tmp_path / "deploy")
     assert spec["benchmark"] == "osworld1"
-    assert spec["env"]["root"] == CONFIG["osw1_root"]
-    assert spec["secrets"]["jev_endpoint"] == CONFIG["jev_endpoint"]
-    assert spec["secrets"]["kimi"]["api_key"] == "sk-x"
+    assert spec["env"]["root"] == CONFIG["eval"]["benchmarks"]["osworld1"]["root"]
+    assert spec["secrets"]["fast_model"]["endpoint"] == "http://10.1.1.1:8891"
+    assert spec["secrets"]["slow_model"]["api_key"] == "sk-x"
     assert spec["secrets"]["registry"]["auths"]
+    # 角色与厂商解耦：spec 里记的是"谁在跑"，不是"哪家的模型"
+    assert spec["harness"]["models"] == {"slow": "kimi-k3", "fast": "jev"}
+    assert spec["env"]["shared_env"] == CONFIG["eval"]["shared_env"]
+    assert spec["harness_config"]["fast_backend"] == "jev"
+    assert spec["harness_config"]["slow_max_tokens"] == 4096
+    assert spec["budget"] == {"max_steps": 5, "max_wall_seconds": 60.0}
     written = json.loads((tmp_path / "deploy" / "job_specs" / "r1.json").read_text())
     assert written == spec
+
+
+def test_build_job_spec_selects_models_by_name(tmp_path):
+    """换大脑/小脑只改名字：地址与协议跟着选中的 API 条目走。"""
+    config = with_paths(CONFIG, deploy_root=str(tmp_path / "deploy"))
+    spec = build_job_spec(config=config, run_id="r1", repo_root=tmp_path,
+                          spec_overrides={"benchmark": "osworld2",
+                                          "models": {"slow": "kimi-k3", "fast": "kev"}})
+    assert spec["harness"]["models"] == {"slow": "kimi-k3", "fast": "kev"}
+    assert spec["harness_config"]["fast_backend"] == "kev"
+    assert spec["secrets"]["fast_model"]["endpoint"] == ""  # kev 留空 = 走发现文件
+    assert spec["secrets"]["fast_model"]["endpoint_file"].endswith("kev.json")
+    assert spec["secrets"]["slow_model"]["api_key"] == "sk-x"
+
+
+def test_build_job_spec_rejects_unknown_model_name(tmp_path):
+    from tandem_eval.config_schema import ConfigError
+
+    config = with_paths(CONFIG, deploy_root=str(tmp_path / "deploy"))
+    with pytest.raises(ConfigError, match="可选"):
+        build_job_spec(config=config, run_id="r1", repo_root=tmp_path,
+                       spec_overrides={"benchmark": "mock", "models": {"fast": "nope"}})
+
+
+@pytest.mark.parametrize("benchmark", ["osworld1", "osworld2", "osworld21"])
+def test_real_benchmarks_carry_credentials(tmp_path, benchmark):
+    """每个真实基准的 spec 都必须带凭据段。
+
+    基准名在白名单里漏一个，secrets 就会是空的——worker 在拉 inner 镜像前
+    因没有 registry 凭据直接退出（2026-10-22 跑 osworld21 时踩过）。
+    """
+    config = with_paths(CONFIG, deploy_root=str(tmp_path / "deploy"))
+    spec = build_job_spec(config=config, run_id="r1", repo_root=tmp_path,
+                          spec_overrides={"benchmark": benchmark})
+    secrets = spec["secrets"]
+    assert secrets["slow_model"]["api_key"]
+    assert secrets["fast_model"]["endpoint_file"]
+    assert secrets["registry"]["auths"]
+
+
+def test_build_job_spec_for_osworld21(tmp_path):
+    """OSW2.1 用自己的 runtime/env/镜像，不复用 OSW2 的。"""
+    config = with_paths(CONFIG, deploy_root=str(tmp_path / "deploy"))
+    spec = build_job_spec(config=config, run_id="r1", repo_root=tmp_path,
+                          spec_overrides={"benchmark": "osworld21"})
+    section = CONFIG["eval"]["benchmarks"]["osworld21"]
+    assert spec["env"]["shared_env"] == section["shared_env"]
+    assert spec["env"]["proxy"] == section["proxy"]
+    assert spec["env"]["volume_size"] == section["volume_size"]
+    assert spec["code"]["images"]["inner"] == section["inner_image"]
+    old = build_job_spec(config=config, run_id="r2", repo_root=tmp_path,
+                         spec_overrides={"benchmark": "osworld2"})
+    assert old["code"]["images"]["inner"] == CONFIG["eval"]["inner_image"]
+
+
+def test_build_job_spec_rejects_missing_osworld21_inner_image(tmp_path):
+    config = with_paths(CONFIG, deploy_root=str(tmp_path / "deploy"))
+    config["eval"]["benchmarks"]["osworld21"]["inner_image"] = ""
+    with pytest.raises(ValueError, match="inner_image"):
+        build_job_spec(config=config, run_id="r1", repo_root=tmp_path,
+                       spec_overrides={"benchmark": "osworld21"})
+
+
+def test_cli_budget_override_merges_with_config(tmp_path):
+    """预算来自 config，命令行只覆盖给定的那一项。"""
+    config = with_paths(CONFIG, deploy_root=str(tmp_path / "deploy"))
+    spec = build_job_spec(config=config, run_id="r1", repo_root=tmp_path,
+                          spec_overrides={"benchmark": "mock",
+                                          "budget": {"max_steps": 3}})
+    assert spec["budget"] == {"max_steps": 3, "max_wall_seconds": 60.0}
 
 
 def test_watch_until_terminal_and_timeout():
@@ -82,8 +158,8 @@ def test_watch_until_terminal_and_timeout():
 
 def test_run_job_full_lifecycle_submits_watches_fetches_cleans(tmp_path):
     run_root = tmp_path / "rjob_logs" / "r1"  # 唯一落盘位置
-    config = dict(CONFIG, results_root=str(tmp_path / "rjob_logs"),
-                       deploy_root=str(tmp_path / "deploy"))
+    config = with_paths(CONFIG, results_root=str(tmp_path / "rjob_logs"),
+                        deploy_root=str(tmp_path / "deploy"))
     script = {
         "submit": ["submitted"],
         "get": ["running", "succeeded"],
@@ -110,8 +186,8 @@ def test_run_job_full_lifecycle_submits_watches_fetches_cleans(tmp_path):
 
 
 def test_run_job_timeout_still_fetches_and_cleans(tmp_path):
-    config = dict(CONFIG, results_root=str(tmp_path / "rjob_logs"),
-                       deploy_root=str(tmp_path / "deploy"))
+    config = with_paths(CONFIG, results_root=str(tmp_path / "rjob_logs"),
+                        deploy_root=str(tmp_path / "deploy"))
     runner = FakeRunner({"get": ["running"], "stop": ["stopped"],
                          "submit": ["ok"], "logs": ["log"]})
     result = run_job(config=config,
@@ -160,8 +236,8 @@ def test_fetch_artifacts_tolerates_cli_crash(tmp_path):
 
 def test_run_job_fetch_failure_never_skips_cleanup(tmp_path, monkeypatch):
     """平台日志补写失败不得跳过 cleanup（资源泄漏）；错误记入 result。"""
-    config = dict(CONFIG, results_root=str(tmp_path / "rjob_logs"),
-                       deploy_root=str(tmp_path / "deploy"))
+    config = with_paths(CONFIG, results_root=str(tmp_path / "rjob_logs"),
+                        deploy_root=str(tmp_path / "deploy"))
     runner = FakeRunner({"get": [REAL_SUCCEEDED], "submit": ["ok"],
                          "logs": ["log"], "stop": ["stopped"]})
 

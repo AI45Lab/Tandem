@@ -1,7 +1,7 @@
 """entry：job spec → 环境/harness/runner 组装（worker 侧唯一入口，infra/worker.sh 调用）。
 
 benchmark=mock：MockEnv + 确定性脚本组件（全链路自检）。
-真实基准：环境适配器（共享目录 runtime/VM）+ KimiClient + build_default 组件，
+真实基准：环境适配器（共享目录 runtime/VM）+ SlowModelClient + build_default 组件，
 凭据与端点路径由提交侧从 infra/config.json 注入 spec（secrets 段）。
 """
 
@@ -67,16 +67,20 @@ def read_endpoint_file(path: str) -> str:
     )
 
 
-def resolve_selector_endpoint(secrets: dict, backend: str) -> str:
-    """显式 endpoint 优先；为空则从对应发现文件读取（JEV 闲时部署，地址常变）。"""
-    explicit = secrets.get(backend_key := ("kev_endpoint" if backend == "kev" else "jev_endpoint"))
+def resolve_fast_model_endpoint(fast: dict) -> str:
+    """快模型地址：显式 endpoint 优先；为空则从发现文件读取（闲时部署，地址常变）。
+
+    fast 段来自 job spec 的 secrets.fast_model（已由提交侧按选中的 API 条目填好）。
+    """
+    explicit = fast.get("endpoint")
     if explicit:
-        return explicit
-    file_path = secrets.get(f"{backend_key}_file")
+        return str(explicit).rstrip("/")
+    file_path = fast.get("endpoint_file")
     if file_path:
         return read_endpoint_file(file_path)
     raise ValueError(
-        f"selector_backend={backend}：config.json 的 {backend_key} 为空且未配置 {backend_key}_file"
+        "快模型地址为空且未配置 endpoint_file"
+        "（infra/config.json → harness.fast_model.apis.<名字>）"
     )
 
 
@@ -157,20 +161,19 @@ def build_session(spec: dict, *, llm_tap: LlmTap | None = None) -> TandemSession
         return TandemSession(mock_components(), config=config)
     if benchmark in {"osworld1", "osworld2", "osworld21"}:
         from tandem.components import build_default
-        from tandem.providers import KimiClient
+        from tandem.providers import SlowModelClient
 
         secrets = spec["secrets"]
-        credentials = dict(secrets["kimi"])
-        credentials.setdefault("model", "kimi-k3")
-        backend = getattr(config, "selector_backend", "jev")
-        endpoint = resolve_selector_endpoint(secrets, backend)
+        credentials = dict(secrets["slow_model"])
+        endpoint = resolve_fast_model_endpoint(secrets.get("fast_model") or {})
         run_root = Path(spec["output_root"])
         run_root.mkdir(parents=True, exist_ok=True)
-        client = KimiClient(credentials, config, run_root / "kimi_http.jsonl", llm_sink=llm_tap)
-        jev = spec.get("jev") or {}
+        client = SlowModelClient(credentials, config, run_root / "slow_model_http.jsonl",
+                            llm_sink=llm_tap)
+        stage = spec.get("image_stage") or {}
         image_stage = None
-        if jev.get("image_stage_write") and jev.get("image_stage_read"):
-            image_stage = (jev["image_stage_write"], jev["image_stage_read"])
+        if stage.get("write") and stage.get("read"):
+            image_stage = (stage["write"], stage["read"])
         components = build_default(
             client=client, endpoint=endpoint, config=config,
             image_stage=image_stage,

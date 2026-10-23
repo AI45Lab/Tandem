@@ -6,6 +6,13 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+#: OSW2.1 子集题号（56 题）。
+#:
+#: 出处：共享环境 `osworld21/validation/coverage.json` 中 `official_vm.status == "passed"`
+#: 的题（2026-10-22 快照）。该覆盖表由 `osworld21/setup/summarize_environment.py` 持续
+#: 重生成，本清单是它的一次快照——覆盖表更新后必须重新核对，否则会与真实环境脱节。
+#: 快照时官方 passed 共 86 道，其余 30 道的排除口径尚未记录（待补）；本清单当前是
+#: "已验证通过"的保守子集，不含 failed / not_tested 的题。
 OSWORLD21_TASK_IDS = tuple((
     "001 002 003 004 006 009 010 011 012 014 017 022 023 024 "
     "025 027 029 030 032 034 037 040 042 044 045 049 051 053 "

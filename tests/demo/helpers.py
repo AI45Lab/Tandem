@@ -50,7 +50,9 @@ def make_run(root: Path, run_id: str, tasks: list[dict]) -> Path:
             "images": {"inner": "img:inner"},
             "run_spec": {
                 "budget": {"max_steps": 30, "max_wall_seconds": 1800.0},
-                "harness_config": {"selector_backend": "kev"},
+                "harness": {"name": "tandem", "mode": "planner_led",
+                            "models": {"slow": "kimi-k3", "fast": "kev"}},
+                "harness_config": {"fast_backend": "kev"},
             },
         },
     )
@@ -105,7 +107,7 @@ def make_run(root: Path, run_id: str, tasks: list[dict]) -> Path:
                         "action_ranked": [{"id": "click:a11y:t0:0", "score": 0.8}],
                         "operation_margin": 0.5,
                         "latency_ms": 120.0,
-                        "score_type": "jev_omni_choice_softmax",
+                        "score_type": "fast_model_choice_softmax",
                         "score_is_calibrated_correctness_probability": False,
                     },
                     "action": {"kind": "gui", "action_type": "click", "parameters": {"x": 1, "y": 2}},

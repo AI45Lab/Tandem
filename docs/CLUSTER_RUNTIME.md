@@ -13,7 +13,7 @@ worker 入口、共享资源与已知坑。
 | 组件 | 位置 | 职责 |
 |---|---|---|
 | `src/tandem/` | 仓库主体 | harness 本体，与集群无关（见 README） |
-| `src/tandem_eval/` | 薄适配层 | worker 侧 6 文件（entry/env/runner/recorder/scoring/manifest）+ 开发机侧 `rjob.py` 生命周期客户端 |
+| `src/tandem_eval/` | 薄适配层 | worker 侧 6 文件（entry/env/runner/recorder/scoring/manifest）+ 开发机侧 `rjob.py` / `rjob_spec.py` / `rjob_status.py` / `config_schema.py` |
 | `infra/config.json` | 唯一配置 | 全绝对路径、含密钥 → **已 gitignore**，模板 `infra/config.example.json` 提交 |
 | `infra/worker.sh` | worker 入口 | rjob worker 内被调用，按 benchmark 分 mock / 真机两条路 |
 | `scripts/` | 批量脚本 | `run_osw2_20x5.sh` 等批量运行 |
@@ -28,29 +28,54 @@ worker 入口、共享资源与已知坑。
 
 ## 2. 配置文件
 
-必填键（`rjob.REQUIRED_CONFIG_KEYS`，缺一个直接报错）：
+`infra/config.json` 分三段：**harness**（大脑/小脑/路由/预算）、**eval**（集群与基准）、
+**log**（结果落盘）。模板见 `infra/config.example.json`（真实文件含密钥，已 gitignore）。
+
+### harness —— 快慢双模与运行旋钮
 
 | 键 | 说明 |
 |---|---|
-| `repo_root` | 本仓库路径（开发机） |
-| `deploy_root` | rsync 部署副本路径（worker 读代码；两侧挂载点一致） |
-| `results_root` | 唯一落盘位置，run 目录 = `<results_root>/<run_id>/` |
-| `mounts` | rjob `--mount` 参数（gpfs 源 → 容器内挂载点） |
-| `rjob` | `charged_group` / `private_machine` / `cpu` / `memory` / `gpu` / `image` |
-| `inner_image` | OSWorld VM 用的 inner 镜像（worker 内 dockerd 拉取） |
-| `osw1_root` / `osw1_vm` | OSWorld1 基准根与 qcow2 |
-| `osw2_root` / `osw2_vm` | OSWorld2 基准根与 qcow2 |
-| `asset_root` | OSW2 任务资产根（`OSWORLD_FILE_BASE_URL` 指向它，避免外网下载） |
-| `kimi` | LLM 凭据三件套：`base_url` / `api_key` / `model` |
-| `jev_endpoint` | 排序服务地址；**留空 = 自动从发现文件读取**（见 §6） |
-| `registry` | docker registry auth（内联传给 worker 写 `~/.docker/config.json`） |
+| `harness.slow_model.default` | 默认慢模型（大脑）API 名 |
+| `harness.slow_model.apis.<名字>` | 慢模型 API 条目：`base_url` / `api_key` / `model` + `max_tokens` / `timeout_seconds` / `reasoning_effort` / `direct_api`。当前登记 `minimax-m3.1-flash`（默认）与 `kimi-k3`（备选） |
+| `harness.fast_model.default` | 默认快模型（小脑）API 名 |
+| `harness.fast_model.apis.<名字>` | 快模型 API 条目：`backend`（`jev` / `kev`）+ `endpoint` / `endpoint_file` + `timeout_seconds` |
+| `harness.fast_model.image_stage.write` / `.read` | 截图中转目录的**两侧视角**：写入侧在 adpc，读取侧在 evobox（服务端宿主机要能读到） |
+| `harness.route.policy` / `.allow_cli` / `.cli_timeout_seconds` | 路由策略与 CLI 开关 |
+| `harness.budget.max_steps` / `.max_wall_seconds` | 单题预算默认值（命令行可覆盖） |
 
-可选但常用：
+**慢模型与快模型都是命名 API 登记表**：登记多套大脑/小脑，启动命令用 `--slow-model` /
+`--fast-model` 按名字挑（缺省取各自的 `default`），用于横向比较"不同大脑 × 不同小脑"的
+性能差距。名字写错时错误信息会列出全部可选名。
+
+### eval —— 集群与基准
 
 | 键 | 说明 |
 |---|---|
-| `jev_endpoint_file` / `kev_endpoint_file` | 排序服务活地址发现文件（部署侧维护） |
-| `jev_image_stage_write` / `jev_image_stage_read` | JEV 截图中转目录的**两侧视角**：写入侧在 adpc，读取侧在 evobox（服务端宿主机要能读到） |
+| `eval.repo_root` | 本仓库路径（开发机） |
+| `eval.deploy_root` | rsync 部署副本路径（worker 读代码；两侧挂载点一致） |
+| `eval.mounts` | rjob `--mount` 参数（gpfs 源 → 容器内挂载点）。**同一 source 不能挂两次**（平台报 `the value of source path repeats`），所以 evobox 卷只挂一次 |
+| `eval.rjob` | `charged_group` / `private_machine` / `cpu` / `memory` / `gpu` / `image` |
+| `eval.inner_image` | OSWorld VM 用的 inner 镜像（worker 内 dockerd 拉取） |
+| `eval.benchmarks.osworld1.root` / `.vm` | OSWorld1 基准根与 qcow2 |
+| `eval.benchmarks.osworld2.root` / `.vm` | OSWorld2 基准根与 qcow2 |
+| `eval.benchmarks.osworld2.asset_root` | OSW2 任务资产根（`OSWORLD_FILE_BASE_URL` 指向它，避免外网下载） |
+| `eval.shared_env` | 旧环境（OSW1/OSW2）的 `env.sh`（脚本自相对，两种视角都行） |
+| `eval.benchmarks.osworld21.root` / `.vm` / `.asset_root` | OSW2.1 的 runtime（prepared 软链层）、qcow2 与资产根 |
+| `eval.benchmarks.osworld21.shared_env` | OSW2.1 独立 `env.sh`（**不与旧环境 env.sh 混用**） |
+| `eval.benchmarks.osworld21.inner_image` | OSW2.1 运行镜像，必须发布固定（`<repo>@sha256:…`，禁 `latest`）；留空时跑 osworld21 会明确报错 |
+| `eval.benchmarks.osworld21.proxy` | OSW2.1 用的代理（覆盖 worker.sh 的默认代理） |
+| `eval.benchmarks.osworld21.volume_size` | 传给官方接口的**卷参数**，不等于根盘容量（实测根盘约 49GB、可用约 21GB） |
+| `eval.registry` | docker registry auth（内联传给 worker 写 `~/.docker/config.json`） |
+
+### log —— 结果落盘
+
+| 键 | 说明 |
+|---|---|
+| `log.results_root` | 唯一落盘位置，run 目录 = `<results_root>/<run_id>/` |
+| `log.record.a11y_full` | 是否落每步完整 a11y XML（默认只落摘要） |
+
+缺项/非法值由 `tandem_eval.config_schema` 统一校验（一次列出全部问题）；
+必填路径清单见 `config_schema.REQUIRED_PATHS`。
 
 ## 3. 一次 run 的生命周期
 
@@ -62,9 +87,10 @@ sync     rsync -a --delete 仓库 → deploy_root
          排除 .git/ .venv/ __pycache__/ .pytest_cache/ .ruff_cache/ rjob_logs/ job_specs/
          （job_specs 排除是必须的：否则并发 run 会删掉在跑任务的 spec）
 spec     组装 job spec → deploy_root/job_specs/<run_id>.json
-         spec 段：env（基准根 / VM / 资产 / 启动等待）/ secrets（kimi / registry /
-         排序服务地址）/ jev（截图中转目录）/ harness / budget / record / code
-         （git describe + 内外镜像）
+         spec 段：env（基准根 / VM / 资产 / 启动等待）/ secrets（slow_model 凭据 /
+         fast_model 地址 / registry）/ image_stage（截图中转目录）/ harness（含本次用的
+         models：慢模型名 + 快模型名）/ harness_config（行为旋钮）/ budget / record /
+         code（git describe + 内外镜像）
 submit   rjob submit（先 delete 同名残留做防御性清理）
 watch    轮询至终态（--poll 间隔，--timeout 上限）
 fetch    取平台日志补写进同一 run 目录（尽力而为，失败不阻断 cleanup）
@@ -102,11 +128,12 @@ cleanup  stop（释放资源）+ delete（永久删除 rjob 记录）——默�
 | `--tasks` | 逗号分隔 task id（覆盖 manifest） |
 | `--limit N` | 取清单前 N 题 |
 | `--shard I/N` | 把（limit 后的）清单**交错**切成 N 片，本 run 跑第 I 片（并发用） |
-| `--selector jev/kev` | 排序后端（默认 jev；kev 走 System One API） |
+| `--slow-model NAME` | 慢模型（大脑）API 名，取自 `harness.slow_model.apis`；缺省用 `default` |
+| `--fast-model NAME` | 快模型（小脑）API 名，取自 `harness.fast_model.apis`；缺省用 `default` |
 | `--route-policy` / `--allow-cli` | 路由策略与 CLI 开关 |
 | `--max-steps` / `--max-wall` | 单题预算（步数 / 墙钟秒） |
-| `--kimi-reasoning` | `off` / `low`（默认）/ `medium` / `high` |
-| `--kimi-max-tokens` | 慢模型单次响应上限 |
+| `--slow-reasoning` | `off` / `low`（默认）/ `medium` / `high` |
+| `--slow-max-tokens` | 慢模型单次响应上限 |
 | `--export-paths` | 逗号分隔的 VM 内交付物路径（finish 时导出） |
 | `--poll` / `--timeout` | 轮询间隔与总超时 |
 | `--keep` | 结束后**保留** rjob（不 stop 不 delete），供事后排查；默认跑完即删 |
@@ -133,9 +160,6 @@ tandem-eval rjob watch tandem-<run-id> --run-id <run-id> --config infra/config.j
      打 tag 为 `happysixd/osworld-docker:latest`；
   5. 用 `$OSWORLD_PYTHON` 跑 `tandem_eval entry`（Pillow / easyocr 已在冻结 venv 内），
      跑前先做一次依赖自检。
-
-OSW2.1 使用 `osw21_shared_env`、`osw21_proxy` 和 `osw21_inner_image`，
-直接拉取固定版本镜像，不覆盖 `latest`；冻结 venv 只检查 Pillow，不要求 easyocr。
 
 worker 侧 `tandem_eval entry --spec <spec>` 是实际执行体：起 VM → 跑任务 → 录事件 → 评分 →
 写 run 目录。环境生命周期、预算强制、落盘都在这一层，harness 只管决策。
@@ -165,14 +189,41 @@ worker 侧 `tandem_eval entry --spec <spec>` 是实际执行体：起 VM → 跑
 
 JEV / Kev 部署在闲时 GPU，**地址随重新部署变化**。因此：
 
-- 配置里 `jev_endpoint` / `kev_endpoint` **留空** = worker 侧建 session 时从发现文件
-  （`services/qwen_jev.json` / `services/kev.json`）读取最新地址；
+- 配置里快模型条目的 `endpoint` **留空** = worker 侧建 session 时从同条目的
+  `endpoint_file`（`services/qwen_jev.json` / `services/kev.json`）读取最新地址；
 - 发现文件带 `ready` / `status` 就绪位检查，并有双视角符号链接兜底；
 - 固定地址时直接写配置值，不走发现。
 
 JEV 的 `/rank` 要求 `image_path` 是**服务宿主机可读的文件路径**。截图本体在 adpc，
-因此由 harness 暂存到 evobox 中转目录（`jev_image_stage_write` → `jev_image_stage_read`），
-payload 带 JEV 宿主机视角路径。暂存按内容哈希命名去重（`step_00_<sha16>.png`），断点无害。
+因此由 harness 暂存到 evobox 中转目录（`harness.fast_model.image_stage.write` → `.read`），
+payload 带排序服务宿主机视角路径。暂存按内容哈希命名去重（`step_00_<sha16>.png`），断点无害。
+
+## 6.5 OSWorld 2.1 的特别约定
+
+OSW2.1 走**独立环境**（独立 runtime / VM / 资产 / venv / env.sh），与 OSW1、OSW2 不共用：
+
+- **共享资源**：`<sa_cua>/osworld21/`（`README_CN.md` 是环境侧的权威说明）。
+- **挂载视角只有一个**：平台不允许同一 source 挂两次，而 OSW2.1 的 `env.sh` 与
+  `prepared/runtime/` 软链层写的是 **canonical 路径** `/mnt/shared-storage-gpfs2/...`，
+  所以 evobox 卷在 worker 里统一挂 canonical 视角，配置里所有 evobox 路径也随之统一
+  （旧环境的 `env.sh` 是自相对的，两种视角都行，不受影响）。
+  - worker：`gpfs://gpfs2/evobox-share-gpfs2` → `/mnt/shared-storage-gpfs2/evobox-share-gpfs2`
+  - 开发机：默认只有 user 视角 `/mnt/shared-storage-user/evobox-share-gpfs2`，
+    想在开发机直接读配置里的路径，建一个软链即可（只影响开发机）：
+    `ln -s /mnt/shared-storage-user/evobox-share-gpfs2 /mnt/shared-storage-gpfs2/evobox-share-gpfs2`
+- **env.sh**：worker 用 `eval.benchmarks.osworld21.shared_env` 指定的独立 env.sh
+  （它再 source canonical 的 `osworld21/env.sh`），**不与旧环境 env.sh 混用**。
+- **镜像**：直接拉发布清单固定的运行镜像（digest），**不覆盖 `latest`**，
+  也不复用 `eval.inner_image`；OSW2.1 的 runtime 自己按固定版本引用。
+  固定版本见 `osworld21/runtime/benchmark_releases/osworld-v2.1.json` 与
+  `desktop_env/providers/docker/provider.py`。
+- **依赖自检**：OSW2.1 的独立 venv 按官方 `uv.lock` 安装，**没有 easyocr**，
+  worker 只检查 Pillow；旧环境仍检查 `easyocr + PIL`。
+- **题目子集**：`tandem_eval/manifest.py` 的 `OSWORLD21_TASK_IDS`（56 题）取自
+  `osworld21/validation/coverage.json` 中 `official_vm.status == "passed"` 的题；
+  该覆盖表由环境侧持续重生成，**子集要定期重新核对**。
+- **卷参数**：`volume_size` 只是传给官方接口的卷参数，**不代表根盘真有这么大**
+  （实测根盘约 49GB、可用约 21GB）。
 
 ## 7. 批量运行
 
@@ -224,5 +275,3 @@ worker 侧各段日志：
 
 - `--benchmark mock` 走 mock 链路（不起 VM、不碰共享资源），可本地跑；
 - 真实基准走 OSW1 / OSW2 / OSW2.1，按本文 §3–§7。
-
-上游重构总计划：`../../TANDEM_REFACTOR_PLAN_CN.md`（在仓库外，与本仓库同级目录的上级）。

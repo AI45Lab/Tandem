@@ -69,7 +69,7 @@ def test_rank_two_stage_with_probabilities(tmp_path):
     assert ranking.winner.id == second_id
     assert ranking.target_margin == pytest.approx(0.8 - 0.2)
     assert ranking.used_image is False
-    assert ranking_dict(ranking)["score_type"] == "jev_omni_choice_softmax"
+    assert ranking_dict(ranking)["score_type"] == "fast_model_choice_softmax"
     # 请求体符合 System One：state 为对象、criteria 为选项→描述
     first = opener.requests[0]
     assert first["model"] == "kev-latest"
@@ -116,13 +116,13 @@ def test_malformed_response_raises(tmp_path):
 
 
 def test_config_and_build_default_backend_switch(tmp_path):
-    with pytest.raises(ValueError, match="selector_backend"):
-        SessionConfig(selector_backend="omni")
+    with pytest.raises(ValueError, match="fast_backend"):
+        SessionConfig(fast_backend="omni")
     class NullClient:
         pass
 
     kev_components = build_default(client=NullClient(), endpoint="http://kev:8008",
-                                   config=SessionConfig(selector_backend="kev"))
+                                   config=SessionConfig(fast_backend="kev"))
     assert isinstance(kev_components.selector, KevPolicy)
     jev_components = build_default(client=NullClient(), endpoint="http://jev:8891",
                                    config=SessionConfig())

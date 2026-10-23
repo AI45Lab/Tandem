@@ -11,6 +11,7 @@ import hashlib
 import json
 import re
 import time
+import traceback
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +30,20 @@ def _redact(value: Any) -> Any:
     if isinstance(value, dict):
         return {key: _redact(item) for key, item in value.items()}
     return value
+
+
+_SECRET_PATTERN = re.compile(r"sk-[A-Za-z0-9._-]{6,}")
+
+
+def _redact_text(text: str, limit: int = 500) -> str:
+    """异常消息可能带出凭据，落盘前脱敏并截断。"""
+    return _SECRET_PATTERN.sub("[REDACTED]", text)[:limit]
+
+
+def _traceback_tail(exception: BaseException, limit: int = 8) -> list[str]:
+    """异常栈尾几行——只记类型不够，事后没法判断是哪一步炸的。"""
+    lines = traceback.format_exception(type(exception), exception, exception.__traceback__)
+    return [_redact_text(line.rstrip(), 300) for line in lines[-limit:]]
 
 
 def _write_json(path: Path, payload: Any) -> None:
@@ -69,7 +84,7 @@ class EpisodeRecorder:
         self._events.flush()
 
     def record_llm_call(self, *, role: str, request: Any, response: Any, **meta: Any) -> None:
-        """KimiClient 的 llm_sink；全量请求/响应落盘，密钥脱敏。"""
+        """慢模型客户端的 llm_sink；全量请求/响应落盘，密钥脱敏。"""
         self._llm.write(
             json.dumps(
                 _redact(
@@ -131,6 +146,9 @@ class EpisodeRecorder:
             "score": score,
             "exception_type": type(exception).__name__ if exception else None,
         }
+        if exception is not None:
+            episode["error"] = _redact_text(str(exception))
+            episode["error_traceback"] = _traceback_tail(exception)
         _write_json(self.dir / "episode.json", episode)
         _write_json(
             self.dir / "timing.json",

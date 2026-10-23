@@ -43,11 +43,11 @@ def aggregate(tasks: list[dict[str, Any]]) -> dict[str, Any]:
     scored = [t for t in tasks if t["scored"] and t["score"] is not None]
     walls = [t["wall_seconds"] for t in tasks if isinstance(t["wall_seconds"], (int, float))]
     cost_total = {key: 0 for key in COST_KEYS}
-    jev_calls = 0
+    fast_calls = 0
     for task in tasks:
         for key in COST_KEYS:
             cost_total[key] += task["cost"]["total"].get(key, 0)
-        jev_calls += task.get("jev_calls", 0)
+        fast_calls += task.get("fast_calls", 0)
     failures: dict[str, int] = {}
     for task in tasks:
         if not task["scored"]:
@@ -65,7 +65,7 @@ def aggregate(tasks: list[dict[str, Any]]) -> dict[str, Any]:
             round(sum(t["wall_seconds"] for t in scored) / len(scored), 2) if scored else None
         ),
         "cost": cost_total,
-        "jev_calls": jev_calls,
+        "fast_calls": fast_calls,
         "failures": failures,
     }
 
@@ -88,7 +88,7 @@ def build_comparison(runs: list[dict[str, Any]]) -> dict[str, Any]:
                     task["cost"]["total"]["prompt_tokens"] + task["cost"]["total"]["completion_tokens"]
                 ),
                 "llm_calls": task["cost"]["total"]["calls"],
-                "jev_calls": task["jev_calls"],
+                "fast_calls": task["fast_calls"],
             }
     return {
         "runs": [
@@ -96,7 +96,7 @@ def build_comparison(runs: list[dict[str, Any]]) -> dict[str, Any]:
                 "run_id": run["run_id"],
                 "benchmark": run["benchmark"],
                 "git_describe": run["git_describe"],
-                "selector_backend": run["selector_backend"],
+                "fast_model": run["fast_model"],
                 "budget": run["budget"],
                 "totals": run["totals"],
             }

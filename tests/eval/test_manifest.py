@@ -3,10 +3,21 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
 from tandem_eval.manifest import OSWORLD21_TASK_IDS, TaskRef, load_index, resolve_manifest, write_resolved
+
+# OSW2.1 的 prepared/runtime 是指向 canonical 路径的软链层：worker 内可见（canonical 视角），
+# 开发机只有 user 视角的同一份 runtime。两处都没有时跳过该检查（例如 CI）。
+_OSW21_TASK_CLASS_CANDIDATES = (
+    Path("/mnt/shared-storage-gpfs2/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua"
+         "/osworld21/prepared/runtime/evaluation_examples/task_class"),
+    Path("/mnt/shared-storage-user/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua"
+         "/osworld21/runtime/evaluation_examples/task_class"),
+)
+_OSW21_TASK_CLASS = next((p for p in _OSW21_TASK_CLASS_CANDIDATES if p.is_dir()), None)
 
 
 def test_load_index_domain_dict_format():
@@ -114,3 +125,15 @@ def test_index_root_derived_from_env_section(tmp_path):
         spec = {"benchmark": "osworld2", "env": {"root": str(root)}, "manifest": {}}
         refs = resolve_manifest(spec)
     assert [r.task_id for r in refs] == ["001", "002", "003"]
+
+
+@pytest.mark.skipif(_OSW21_TASK_CLASS is None, reason="OSW2.1 runtime 未挂载（worker 内才有 canonical 视角）")
+def test_osworld21_subset_tasks_exist_in_runtime():
+    """子集里的每个题号都必须在 runtime 的 task_class 里有对应任务文件。
+
+    子集来自环境侧持续重生成的覆盖表快照（见 manifest.OSWORLD21_TASK_IDS 的说明），
+    环境更新后这道题会第一时间报出"清单里有 runtime 没有的题"。
+    """
+    missing = [tid for tid in OSWORLD21_TASK_IDS
+               if not (_OSW21_TASK_CLASS / f"task_{tid}.py").is_file()]
+    assert missing == [], f"子集里的题号在 runtime 中不存在: {missing}"

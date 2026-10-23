@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from tandem_eval.rjob import RjobClient, cleanup, run_job
 
-from .rjob_fakes import CONFIG, REAL_SUCCEEDED, FakeRunner
+from .rjob_fakes import CONFIG, REAL_SUCCEEDED, FakeRunner, with_paths
 
 
 def _delete_calls(runner: FakeRunner) -> list[int]:
@@ -23,8 +23,8 @@ def _submit_index(runner: FakeRunner) -> int:
 
 
 def _run_config(tmp_path) -> dict:
-    return dict(CONFIG, results_root=str(tmp_path / "rjob_logs"),
-                deploy_root=str(tmp_path / "deploy"))
+    return with_paths(CONFIG, results_root=str(tmp_path / "rjob_logs"),
+                      deploy_root=str(tmp_path / "deploy"))
 
 
 def test_cleanup_deletes_rjob_by_default():

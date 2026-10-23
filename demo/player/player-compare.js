@@ -65,7 +65,7 @@
         "<td>" + delta(ca.wall_seconds, cb.wall_seconds, "s", true) + "</td>" +
         "<td>" + ca.steps + " / " + cb.steps + "</td>" +
         "<td>" + ca.llm_calls + " / " + cb.llm_calls + "</td>" +
-        "<td>" + ca.jev_calls + " / " + cb.jev_calls + "</td>" +
+        "<td>" + ca.fast_calls + " / " + cb.fast_calls + "</td>" +
         "</tr>";
     });
 
@@ -73,13 +73,13 @@
     var tb = runB.totals;
     function card(run, totals) {
       return "<article class='card'><h3>" + esc(run.run_id) + "</h3>" +
-        "<p class='sub'>selector=" + esc(run.selector_backend) +
+        "<p class='sub'>大脑=" + esc(run.slow_model) + " · 小脑=" + esc(run.fast_model) +
         " · git " + esc(run.git_describe) + "</p><dl>" +
         "<div><dt>已出分</dt><dd>" + totals.scored + " / " + totals.total + "</dd></div>" +
         "<div><dt>均分</dt><dd>" + (totals.average_score === null ? "—" : totals.average_score) + "</dd></div>" +
         "<div><dt>token</dt><dd>" + num(totals.cost.prompt_tokens + totals.cost.completion_tokens) + "</dd></div>" +
         "<div><dt>LLM 调用</dt><dd>" + totals.cost.calls + "</dd></div>" +
-        "<div><dt>JEV 排序</dt><dd>" + totals.jev_calls + "</dd></div>" +
+        "<div><dt>快模型排序</dt><dd>" + totals.fast_calls + "</dd></div>" +
         "<div><dt>总耗时</dt><dd>" + totals.wall_seconds_total + "s</dd></div>" +
         "</dl></article>";
     }
@@ -90,7 +90,7 @@
       "<th>任务</th><th>A 分数</th><th>B 分数</th><th>Δ分数</th>" +
       "<th>A token</th><th>B token</th><th>Δtoken</th>" +
       "<th>A 耗时</th><th>B 耗时</th><th>Δ耗时</th>" +
-      "<th>步数 A/B</th><th>LLM A/B</th><th>JEV A/B</th>" +
+      "<th>步数 A/B</th><th>LLM A/B</th><th>小脑排序 A/B</th>" +
       "</tr></thead><tbody>" + rows + "</tbody></table>";
   }
 

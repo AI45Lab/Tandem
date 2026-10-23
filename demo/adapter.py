@@ -7,9 +7,9 @@
 
 1. 只搬运**模型公开输出**，不生成任何虚构的"思考字幕"；
 2. `failed_unscored` 永远显示为"未出分"，不折算成 0 分、不进均分；
-3. JEV `/rank` 分数一律标注 "softmax，非校准概率"。
+3. 快模型排序分数一律标注 "softmax，非校准概率"。
 
-成本一律用 **token 用量 + 调用次数** 表达（成本代理指标）——本仓库没有 Kimi
+成本一律用 **token 用量 + 调用次数** 表达（成本代理指标）——本仓库没有慢模型的
 计价信息，demo 不臆造货币单价。
 
 聚合口径在 `metrics.py`，HTML 渲染在 `render.py`。
@@ -207,12 +207,13 @@ def load_episode(run_dir: Path, entry: dict[str, Any]) -> dict[str, Any]:
             "score": score if isinstance(score, (int, float)) else None,
             "stop_reason": episode.get("stop_reason"),
             "exception_type": episode.get("exception_type"),
+            "error": episode.get("error"),
             "steps_reported": episode.get("steps"),
             "wall_seconds": timing.get("wall_seconds"),
             "evaluation": evaluation,
             "cost": cost,
-            "jev_calls": len(ranking_latency),
-            "jev_latency_ms_total": round(sum(ranking_latency), 2),
+            "fast_calls": len(ranking_latency),
+            "fast_latency_ms_total": round(sum(ranking_latency), 2),
             "steps": steps,
             "requirements": requirements,
             "timeline": timeline,
@@ -242,6 +243,7 @@ def load_run(run_dir: Path) -> dict[str, Any]:
     manifest = read_json(run_dir / "episodes" / "manifest.resolved.json") or {}
     run_spec = code_version.get("run_spec") or {}
     harness_config = run_spec.get("harness_config") or {}
+    models = (run_spec.get("harness") or {}).get("models") or {}
 
     entries = manifest.get("tasks")
     if not isinstance(entries, list):
@@ -259,7 +261,8 @@ def load_run(run_dir: Path) -> dict[str, Any]:
         "protocol_version": code_version.get("protocol_version"),
         "git_describe": code_version.get("git_describe"),
         "images": code_version.get("images") or {},
-        "selector_backend": harness_config.get("selector_backend", "jev"),
+        "fast_model": models.get("fast") or harness_config.get("fast_backend", "jev"),
+        "slow_model": models.get("slow", ""),
         "budget": run_spec.get("budget") or {},
         "summary": {
             "total": summary.get("total", len(tasks)),

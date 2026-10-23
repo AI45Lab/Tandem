@@ -27,7 +27,7 @@ def run_episode(env, session: TandemSession, recorder: EpisodeRecorder, task: di
     stop_reason = "max_steps"
     observation: Observation = env.reset(task)
     outputs: list[dict] = []
-    events_start = len(session.events)  # 本题事件起点：act 后增量落盘（planner/JEV/验证）
+    events_start = len(session.events)  # 本题事件起点：act 后增量落盘（planner/快模型/验证）
 
     def drain_events() -> None:
         nonlocal events_start

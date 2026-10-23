@@ -8,7 +8,7 @@
 
 | 泳道 | 区间 | 数据来源 |
 |------|------|----------|
-| `plan` | 上一步结束 → Kimi 规划调用结束 | `llm_calls[].time`（响应落盘时刻） |
+| `plan` | 上一步结束 → 慢模型规划调用结束 | `llm_calls[].time`（响应落盘时刻） |
 | `rank` | 规划结束 → 规划结束 + 排序延迟 | `ranking.latency_ms`（服务端实测） |
 | `act` | 排序结束 → 本步观察采集时刻 | `traj[].wall_time` |
 | `verify` | 观察时刻 → 验证调用结束 | `llm_calls[].time` |
@@ -28,10 +28,10 @@ LANE_ACT = "act"
 LANE_VERIFY = "verify"
 
 LANES = (
-    (LANE_PLAN, "KIMI 规划"),
+    (LANE_PLAN, "慢模型 规划"),
     (LANE_RANK, "排序服务"),
     (LANE_ACT, "动作与观察"),
-    (LANE_VERIFY, "KIMI 验证"),
+    (LANE_VERIFY, "慢模型 验证"),
 )
 
 

@@ -158,3 +158,47 @@ def test_task_requirements_output_path_sanitization(instruction, raw_path, expec
     )
     result = task_requirements(client, instruction)
     assert result[0]["output_path"] == expected
+
+
+@pytest.mark.parametrize("evidence", [
+    ["要点一", "要点二"],                                  # MiniMax 2026-10-23 实测形状
+    {"可见现象": "工具栏没有变化", "结论": "未完成"},
+])
+def test_verify_observation_accepts_list_and_dict_evidence(tmp_path, evidence):
+    """evidence 的形状不该成为失败原因：不同厂商给字符串/列表/字典都出现过。
+
+    2026-10-23 实跑：MiniMax 给的是列表（偶尔字典），Kimi 给的是字符串；
+    原来的校验只认字符串 → 整题被判 ValueError 失败。
+    """
+    screenshot = tmp_path / "s.png"
+    screenshot.write_bytes(b"img")
+    value = {
+        "outcome": "not_achieved",
+        "evidence": evidence,
+        "task_status": "incomplete",
+        "path_input_focused": False,
+        "state_changed": False,
+    }
+    client = FakeClient(value)
+    result = verify_observation(client, "改一下样式", screenshot)
+    assert isinstance(result["evidence"], str) and result["evidence"].strip()
+
+
+def test_verify_observation_normalizes_requirement_check_evidence(tmp_path):
+    screenshot = tmp_path / "s.png"
+    screenshot.write_bytes(b"img")
+    value = {
+        "outcome": "not_achieved",
+        "evidence": "未达成",
+        "task_status": "incomplete",
+        "path_input_focused": False,
+        "state_changed": False,
+        "requirement_checks": [{"id": "R1", "status": "not_met", "evidence": ["只列了文件"]}],
+    }
+    client = FakeClient(value)
+    result = verify_observation(
+        client, "改一下样式", screenshot,
+        terminal_claim=True, requirements=[{"id": "R1", "requirement": "改样式"}],
+    )
+    check = result["requirement_checks"][0]
+    assert isinstance(check["evidence"], str) and "只列了文件" in check["evidence"]

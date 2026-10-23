@@ -1,4 +1,6 @@
-"""Kimi JSON 传输客户端（含脱敏审计）。从旧仓库 providers.py 按契约移植。
+"""慢模型（大脑）的 JSON 传输客户端——OpenAI 兼容 /chat/completions 口径，
+当前实现用 OpenAI 兼容方言（reasoning_effort / enable_thinking）——Kimi 与 MiniMax 都吃这套。含脱敏审计。
+从旧仓库 providers.py 按契约移植。
 全量请求/响应落盘（llm_calls.jsonl）属于 M2 的 recorder，此处保持审计日志。"""
 
 from __future__ import annotations
@@ -48,7 +50,7 @@ def extract_json_object(text: str):
     return None
 
 
-class KimiClient:
+class SlowModelClient:
     def __init__(self, credential_file, config, audit_path: Path, llm_sink=None):
         if isinstance(credential_file, dict):
             self.credentials = dict(credential_file)
@@ -63,12 +65,12 @@ class KimiClient:
     def json_request(self, messages, validate, *, role):
         credentials = self.credentials
         payload = {
-            "model": credentials.get("model", "kimi-k3"),
+            "model": credentials.get("model") or "unknown",
             "messages": messages,
             "stream": False,
-            "max_tokens": self.config.kimi_max_tokens,
+            "max_tokens": self.config.slow_max_tokens,
         }
-        effort = getattr(self.config, "kimi_reasoning_effort", "low")
+        effort = getattr(self.config, "slow_reasoning_effort", "low")
         if effort == "off":
             payload["enable_thinking"] = False
         else:
@@ -89,14 +91,14 @@ class KimiClient:
 
         opener = (
             urllib.request.build_opener(urllib.request.ProxyHandler({})).open
-            if self.config.kimi_direct_api
+            if self.config.slow_direct_api
             else urllib.request.urlopen
         )
 
         def audit(event, started, attempt, **details):
             record = {
                 "event": event,
-                "provider": "kimi",
+                "provider": "slow_model",
                 "role": role,
                 "attempt": attempt + 1,
                 "time": time.time(),
@@ -133,7 +135,7 @@ class KimiClient:
             request = build_request()  # 每次重试重建：升档思考强度需重新序列化
             audit("request_start", started, attempt)
             try:
-                with opener(request, timeout=self.config.kimi_timeout_seconds) as response:
+                with opener(request, timeout=self.config.slow_timeout_seconds) as response:
                     raw = json.load(response)
                     if self.llm_sink is not None:
                         self.llm_sink(
@@ -156,19 +158,19 @@ class KimiClient:
                 if finish_reason == "length":
                     completion_tokens = (raw.get("usage") or {}).get("completion_tokens")
                     raise ValueError(
-                        f"Kimi response truncated by max_tokens (finish_reason=length, "
-                        f"completion_tokens={completion_tokens}); raise kimi_max_tokens"
+                        f"slow model response truncated by max_tokens (finish_reason=length, "
+                        f"completion_tokens={completion_tokens}); raise slow_max_tokens"
                     )
                 if not content and raw["choices"][0]["message"].get("reasoning_content"):
                     raise ValueError(
-                        "Kimi returned empty content (all completion tokens stayed in the "
+                        "slow model returned empty content (all completion tokens stayed in the "
                         "reasoning channel); escalating reasoning_effort for the next attempt"
                     )
                 value = extract_json_object(content)
                 if value is None:
-                    raise ValueError("Kimi response contains no JSON object")
+                    raise ValueError("slow model response contains no JSON object")
                 if not validate(value):
-                    raise ValueError("Kimi response is missing required fields")
+                    raise ValueError("slow model response is missing required fields")
                 return value
             except urllib.error.HTTPError as error:
                 body = redact(error.read().decode("utf-8", errors="replace"))

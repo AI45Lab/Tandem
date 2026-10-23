@@ -33,12 +33,12 @@ class Components:
 
 def build_default(*, client, endpoint: str, config: SessionConfig,
                   image_stage: tuple[str, str] | None = None) -> Components:
-    if getattr(config, "selector_backend", "jev") == "kev":
+    if config.fast_backend == "kev":
         from .selector_kev import KevPolicy
 
-        selector = KevPolicy(endpoint, timeout_seconds=config.jev_timeout_seconds)
+        selector = KevPolicy(endpoint, timeout_seconds=config.fast_timeout_seconds)
     else:
-        selector = JevOmniPolicy(endpoint, timeout_seconds=config.jev_timeout_seconds,
+        selector = JevOmniPolicy(endpoint, timeout_seconds=config.fast_timeout_seconds,
                                  image_stage=image_stage)
     return Components(
         planner=partial(
