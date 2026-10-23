@@ -52,10 +52,11 @@
 
 ## 快慢双模：分工与边界
 
-|  | 慢模型（Kimi） | 快模型（System One） |
+|  | 慢模型（大脑） | 快模型（小脑） |
 |---|---|---|
 | 角色 | 需求抽取 / 一步规划 / 独立验证 | 在候选空间里排序选择 |
-| 实现 | `planner.py`、`verifier.py`、`providers.py`（KimiClient） | `selector.py`（JEV）、`selector_kev.py`（Kev） |
+| 实现 | `planner.py`、`verifier.py`、`providers.py`（`KimiClient`，OpenAI 兼容方言） | `selector.py`（JEV）、`selector_kev.py`（Kev） |
+| 当前默认 | `minimax-m3.1-flash`（可切 `kimi-k3`） | `jev`（可切 `kev`） |
 | 输入 | 指令 + 截图 + a11y 树 + 历史动作 + 需求清单 | 当前目标 + 候选动作（自带上下文描述）+ 截图（仅 JEV 需要） |
 | 输出 | 结构化 plan：当前目标 / 预期观察 / 路由 / 动作提案 | 排序结果：winner + operation/action 两级分数 + margin + 延迟 |
 | 代价 | 每步一次 LLM 调用，慢且贵 | 单次 HTTP 前向，快且便宜 |
@@ -177,7 +178,7 @@ from tandem.config import SessionConfig
 from tandem.session import TandemSession
 
 components = build_default(
-    client=kimi_client,                       # providers.KimiClient
+    client=slow_client,                       # providers.KimiClient（慢模型客户端）
     endpoint="http://<排序服务>/rank",
     config=SessionConfig(fast_backend="jev"),
 )
@@ -217,6 +218,13 @@ tandem-eval rjob run --run-id <name> --benchmark osworld2 --tasks <task-id> \
 | `slow_direct_api` | `False` | 直连 API（不经代理） |
 | `slow_reasoning_effort` | `"low"` | `off`（归零思考）/ `low` / `medium` / `high` |
 | `fast_backend` | `"jev"` | `jev`（`/rank`，需截图）/ `kev`（System One，纯文本） |
+
+**换慢模型厂商**：在 `infra/config.json` 的 `harness.slow_model.apis` 里登记多套 API，
+启动时用 `--slow-model <名字>` 挑（缺省取 `default`），不改代码。
+
+> 厂商方言有差异（2026-10-23 实测）：Kimi 认 `enable_thinking=false` 关思考；
+> **MiniMax 忽略该字段**（仍返回 `reasoning_content`），只有 `reasoning_effort` 生效
+> （`low`/`medium`/`high`）——想少思考就把 `reasoning_effort` 调低，别指望 `off`。
 
 慢模型的调用纪律（`providers.py`）：
 

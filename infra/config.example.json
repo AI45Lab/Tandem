@@ -1,10 +1,19 @@
 {
   "harness": {
     "slow_model": {
-      "default": "kimi-k3",
+      "default": "minimax-m3.1-flash",
       "apis": {
+        "minimax-m3.1-flash": {
+          "base_url": "https://api.minimaxi.com/v1",
+          "api_key": "sk-xxx",
+          "model": "MiniMax-M3.1-Flash",
+          "max_tokens": 16384,
+          "timeout_seconds": 180,
+          "reasoning_effort": "low",
+          "direct_api": false
+        },
         "kimi-k3": {
-          "base_url": "https://your-slow-model-endpoint/v1",
+          "base_url": "https://your-kimi-endpoint/v1",
           "api_key": "sk-xxx",
           "model": "kimi-k3",
           "max_tokens": 16384,

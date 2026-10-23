@@ -36,7 +36,7 @@ worker 入口、共享资源与已知坑。
 | 键 | 说明 |
 |---|---|
 | `harness.slow_model.default` | 默认慢模型（大脑）API 名 |
-| `harness.slow_model.apis.<名字>` | 慢模型 API 条目：`base_url` / `api_key` / `model` + `max_tokens` / `timeout_seconds` / `reasoning_effort` / `direct_api` |
+| `harness.slow_model.apis.<名字>` | 慢模型 API 条目：`base_url` / `api_key` / `model` + `max_tokens` / `timeout_seconds` / `reasoning_effort` / `direct_api`。当前登记 `minimax-m3.1-flash`（默认）与 `kimi-k3`（备选） |
 | `harness.fast_model.default` | 默认快模型（小脑）API 名 |
 | `harness.fast_model.apis.<名字>` | 快模型 API 条目：`backend`（`jev` / `kev`）+ `endpoint` / `endpoint_file` + `timeout_seconds` |
 | `harness.fast_model.image_stage.write` / `.read` | 截图中转目录的**两侧视角**：写入侧在 adpc，读取侧在 evobox（服务端宿主机要能读到） |

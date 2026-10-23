@@ -73,6 +73,9 @@ FAST_BACKENDS = ("jev", "kev")
 #: 慢模型每个 API 条目必填的键
 SLOW_API_KEYS = ("base_url", "api_key", "model")
 
+#: 思考强度档位（与 harness 侧 SessionConfig.slow_reasoning_effort 保持一致）
+REASONING_EFFORTS = ("off", "low", "medium", "high")
+
 
 class ConfigError(ValueError):
     """配置缺项或取值非法（配置问题，不是运行问题）。"""
@@ -112,6 +115,18 @@ def _validate_slow_models(config: dict) -> list[str]:
             value = api.get(key) if isinstance(api, dict) else None
             if _is_missing(value):
                 problems.append(f"harness.slow_model.apis.{name}.{key}")
+        if not isinstance(api, dict):
+            continue
+        base_url = api.get("base_url")
+        if isinstance(base_url, str) and base_url.strip() and not base_url.startswith("http"):
+            problems.append(f"harness.slow_model.apis.{name}.base_url（应为 http(s) 地址）")
+        # 思考强度必须落在 harness 认识的档位里，否则 SessionConfig 会在运行期才报错
+        effort = api.get("reasoning_effort")
+        if effort is not None and effort not in REASONING_EFFORTS:
+            problems.append(
+                f"harness.slow_model.apis.{name}.reasoning_effort"
+                f"（应为 {' / '.join(REASONING_EFFORTS)}）"
+            )
     default = get_path(config, "harness.slow_model.default")
     if default not in apis:
         problems.append(f"harness.slow_model.default={default!r}（必须在 apis 里）")

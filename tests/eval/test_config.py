@@ -35,6 +35,25 @@ def test_example_config_has_three_sections_and_no_comment_fields():
     assert [key for key in _walk_keys(config) if key.startswith("_")] == []
 
 
+def test_slow_model_entries_use_known_knobs():
+    """配置里的旋钮必须落在 harness 认识的档位内，否则运行期才炸。"""
+    config = load_config(CONFIG_PATH)
+    for name, api in config["harness"]["slow_model"]["apis"].items():
+        assert api["base_url"].startswith("http"), f"{name}: base_url"
+        assert api["reasoning_effort"] in {"off", "low", "medium", "high"}, f"{name}: reasoning_effort"
+        assert api["max_tokens"] > 0 and api["timeout_seconds"] > 0, f"{name}: 旋钮必须为正"
+
+
+def test_slow_model_rejects_unknown_reasoning_effort(tmp_path):
+    config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+    name = next(iter(config["harness"]["slow_model"]["apis"]))
+    config["harness"]["slow_model"]["apis"][name]["reasoning_effort"] = "xhigh"
+    bad = tmp_path / "bad.json"
+    bad.write_text(json.dumps(config), encoding="utf-8")
+    with pytest.raises(ConfigError, match="reasoning_effort"):
+        load_config(bad)
+
+
 def test_models_are_named_api_registries():
     config = load_config(CONFIG_PATH)
     slow = config["harness"]["slow_model"]
