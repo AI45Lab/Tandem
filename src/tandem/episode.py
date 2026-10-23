@@ -117,12 +117,10 @@ def verify_pending(session, observation: Observation, tree: str | None) -> None:
     receipt = observation.last_receipt
     if receipt is None:
         raise RuntimeError("环境未返回上一步执行回执（协议违例）")
-    screenshot_after = Path(observation.screenshot.path)
     screenshot_before = Path(pending["before_screenshot"])
     if pending["kind"] == "cli":
-        verification = session.components.verifier(
-            session.instruction,
-            screenshot_after,
+        verification = _verify_action(
+            session, observation, tree, pending,
             previous=screenshot_before,
             expected=pending["plan"]["expected_observation"],
             action=pending["action"],
@@ -166,9 +164,8 @@ def verify_pending(session, observation: Observation, tree: str | None) -> None:
         and tree is not None
         else None
     )
-    verification = session.components.verifier(
-        session.instruction,
-        screenshot_after,
+    verification = _verify_action(
+        session, observation, tree, pending,
         previous=screenshot_before,
         expected=pending["plan"]["expected_observation"],
         action=winner.compact(),
@@ -216,4 +213,12 @@ def verify_pending(session, observation: Observation, tree: str | None) -> None:
             "verification": verification,
             "control_state_check": control_check,
         }
+    )
+
+
+def _verify_action(session, observation, tree, pending, **kwargs):
+    if session.stage is not None:
+        return session.stage.verify(session, observation, tree, pending, **kwargs)
+    return session.components.verifier(
+        session.instruction, Path(observation.screenshot.path), **kwargs,
     )

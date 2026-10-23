@@ -83,3 +83,13 @@
     `demo/` 同步角色化：run 文档 `selector_backend` → `fast_model`（新增 `slow_model` 名），
     排序调用计数 `jev_calls` → `fast_calls`、`jev_latency_ms_total` → `fast_latency_ms_total`
     （这两个是 demo 层自算字段，不在结果目录契约里）。
+
+## 可选阶段执行（2026-10-24）
+
+28. 【行为，可选】`execution_mode=stage` 时，慢模型一次规划当前阶段的多个里程碑，
+    快模型依据每帧新观察重新选择动作；规则后置条件优先，证据不足才调用模型 Verify。
+    阶段完成、目标无法绑定、执行失败或阶段动作上限触发后返回慢模型。
+    不采用严格只规划一次的模式；阶段完成不等于任务完成，原有独立终态检查保留。
+    默认 `step` 路径不变，动作/观察/回执协议不变。
+    此为旧阶段执行实验的组件化移植，不包含其传输重试、部署或环境准备逻辑。
+    详细实现边界见 [STAGE_EXECUTION.md](docs/STAGE_EXECUTION.md)。

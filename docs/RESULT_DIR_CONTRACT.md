@@ -58,6 +58,7 @@
 |------|--------|---------|
 | `task_requirements` | verifier.task_requirements | episode 开始时抽取任务需求（1-12 条） |
 | `plan_step` | planner.plan_step | 每步规划（截图+可见控件+需求+近期动作→下一步决策） |
+| `plan_stage` | stage_planner.plan_stage | 仅 stage 模式：初始阶段、阶段完成或请求修复时生成阶段计划 |
 | `verify_observation` | verifier.verify_observation | 每步动作执行后独立验证（BEFORE/AFTER 截图→achieved/not_achieved/uncertain）|
 
 `verify_observation` 不信任 planner 的自我宣称：它拿前后截图+预期变化独立裁决，驱动 recent 历史、no_action 连击计数、toggle 检查、以及终态双确认（terminal_claim 模式下逐条核验 requirements + 输出文件存在性）。
@@ -71,7 +72,16 @@
 | `cli` | planner 的 route=cli 决策 + 命令 |
 | `gui_verified` / `cli_verified` | 验证裁决（outcome/task_status/evidence/state_changed）+ 回执 |
 | `terminal` | 终态裁决（planner 声称完成后的 verifier 双确认全文） |
+| `stage_local` | 消费已生成的阶段计划；含 stage_goal、milestone 和当帧重绑定后的 plan，不代表新的模型调用 |
+| `stage_progress` | 里程碑推进，含 stage_goal、milestone、验证 source |
+| `stage_replan` | 阶段修复请求，含原因及当前里程碑；不等于调用已经完成 |
 | `action`（kind 字段） | runner 写的执行记录 `{step, kind: "action", action: {…协议动作…}}` |
+
+stage 模式的 planner 事件只在真实规划调用时写入，增加 mode、reason、seconds；
+gui/cli 中的 plan 带 planner_called，表示本轮是否刚调用规划模型。
+gui_verified/cli_verified 的 verification 增加 source（rule_receipt / rule_a11y / model）
+与 seconds。规则检查不写 llm_calls，不能计为一次慢模型 Verify。
+其他文件和动作/观察/回执协议不变；详细触发规则见 [STAGE_EXECUTION.md](STAGE_EXECUTION.md)。
 
 ## failed_unscored 纪律
 

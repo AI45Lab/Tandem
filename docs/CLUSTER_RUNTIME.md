@@ -41,6 +41,7 @@ worker 入口、共享资源与已知坑。
 | `harness.fast_model.apis.<名字>` | 快模型 API 条目：`backend`（`jev` / `kev`）+ `endpoint` / `endpoint_file` + `timeout_seconds` |
 | `harness.fast_model.image_stage.write` / `.read` | 截图中转目录的**两侧视角**：写入侧在 adpc，读取侧在 evobox（服务端宿主机要能读到） |
 | `harness.route.policy` / `.allow_cli` / `.cli_timeout_seconds` | 路由策略与 CLI 开关 |
+| `harness.execution.mode` / `.stage_max_actions` | 可选：step（默认）或 stage；阶段内动作上限默认 24。见 [阶段执行说明](STAGE_EXECUTION.md) |
 | `harness.budget.max_steps` / `.max_wall_seconds` | 单题预算默认值（命令行可覆盖） |
 
 **慢模型与快模型都是命名 API 登记表**：登记多套大脑/小脑，启动命令用 `--slow-model` /
@@ -131,6 +132,7 @@ cleanup  stop（释放资源）+ delete（永久删除 rjob 记录）——默�
 | `--slow-model NAME` | 慢模型（大脑）API 名，取自 `harness.slow_model.apis`；缺省用 `default` |
 | `--fast-model NAME` | 快模型（小脑）API 名，取自 `harness.fast_model.apis`；缺省用 `default` |
 | `--route-policy` / `--allow-cli` | 路由策略与 CLI 开关 |
+| `--execution-mode` / `--stage-max-actions` | step/stage 模式与阶段动作上限 |
 | `--max-steps` / `--max-wall` | 单题预算（步数 / 墙钟秒） |
 | `--slow-reasoning` | `off` / `low`（默认）/ `medium` / `high` |
 | `--slow-max-tokens` | 慢模型单次响应上限 |

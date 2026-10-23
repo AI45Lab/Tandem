@@ -77,7 +77,10 @@ def _secrets_section(benchmark: str, config: dict, slow_api: dict, fast_api: dic
 def _harness_config_section(config: dict, slow_api: dict, fast_api: dict) -> dict:
     """行为旋钮段：SessionConfig 的字段（与 harness 侧 dataclass 一一对应）。"""
     route = config["harness"]["route"]
+    execution = config["harness"].get("execution", {})
     return {
+        "execution_mode": execution.get("mode", "step"),
+        "stage_max_actions": execution.get("stage_max_actions", 24),
         "route_policy": route.get("policy", "auto"),
         "allow_cli": bool(route.get("allow_cli", True)),
         "cli_timeout_seconds": int(route.get("cli_timeout_seconds", 90)),
@@ -151,7 +154,7 @@ def build_job_spec(*, config: dict, run_id: str, repo_root: Path,
         "image_stage": _image_stage_section(config),
         "harness": {
             "name": "tandem",
-            "mode": "planner_led",
+            "mode": "stage" if harness_config["execution_mode"] == "stage" else "planner_led",
             "models": {"slow": slow_name, "fast": fast_name},
         },
         "harness_config": harness_config,

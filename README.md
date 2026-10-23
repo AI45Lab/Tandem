@@ -293,3 +293,9 @@ python -m http.server 8899 --directory demo/site    # 本地预览
 | [DEVIATIONS.md](DEVIATIONS.md) | 与旧仓库 SA-CUAharness 的已知行为差异清单 |
 | [AGENTS.md](AGENTS.md) | 开发纪律与目录地图 |
 | [demo/README.md](demo/README.md) | demo 站点说明 |
+
+## 阶段执行（可选）
+
+默认保持逐步规划；启用 `--execution-mode stage` 后，由慢模型规划阶段、快模型连续选择动作，
+规则验证优先，仅在必要时调用模型验证或重规划。
+配置、执行边界、开发入口和验收方法见 [阶段执行说明](docs/STAGE_EXECUTION.md)。

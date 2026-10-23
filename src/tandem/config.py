@@ -15,6 +15,8 @@ class SessionConfig:
     allow_cli: bool = True
     route_policy: str = "auto"
     cli_timeout_seconds: int = 90
+    execution_mode: str = "step"
+    stage_max_actions: int = 24
     slow_max_tokens: int = 16384
     slow_timeout_seconds: float = 120
     slow_direct_api: bool = False
@@ -23,6 +25,10 @@ class SessionConfig:
     fast_timeout_seconds: float = 300
 
     def __post_init__(self):
+        if self.execution_mode not in {"step", "stage"}:
+            raise ValueError("execution_mode must be step or stage")
+        if type(self.stage_max_actions) is not int or self.stage_max_actions < 1:
+            raise ValueError("stage_max_actions must be a positive integer")
         if self.route_policy not in {"auto", "gui", "cli"}:
             raise ValueError("route_policy must be auto, gui or cli")
         if not 1 <= self.cli_timeout_seconds <= 120:
