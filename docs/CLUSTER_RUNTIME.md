@@ -65,6 +65,9 @@ worker 入口、共享资源与已知坑。
 | `eval.benchmarks.osworld21.inner_image` | OSW2.1 运行镜像，必须发布固定（`<repo>@sha256:…`，禁 `latest`）；留空时跑 osworld21 会明确报错 |
 | `eval.benchmarks.osworld21.proxy` | OSW2.1 用的代理（覆盖 worker.sh 的默认代理） |
 | `eval.benchmarks.osworld21.volume_size` | 传给官方接口的**卷参数**，不等于根盘容量（实测根盘约 49GB、可用约 21GB） |
+| `eval.benchmarks.osworld21.no_proxy` | 可选，逗号分隔的直连API主机；只追加到OSW2.1 worker的代理绕过列表 |
+| `eval.benchmarks.osworld21.gitlab.private_token` | 可选，受信任的setup使用的管理token；公共网站配置不自动读取私有凭据 |
+| `eval.benchmarks.osworld21.judge` / `.user_simulator` | 可选，各自配置 `provider` / `base_url` / `api_key` / `model`；judge还可指定 `reasoning_effort` / `max_tokens`，任务内显式参数优先 |
 | `eval.registry` | docker registry auth（内联传给 worker 写 `~/.docker/config.json`） |
 
 ### log —— 结果落盘
@@ -219,9 +222,16 @@ OSW2.1 走**独立环境**（独立 runtime / VM / 资产 / venv / env.sh），�
   `desktop_env/providers/docker/provider.py`。
 - **依赖自检**：OSW2.1 的独立 venv 按官方 `uv.lock` 安装，**没有 easyocr**，
   worker 只检查 Pillow；旧环境仍检查 `easyocr + PIL`。
-- **题目子集**：`tandem_eval/manifest.py` 的 `OSWORLD21_TASK_IDS`（56 题）取自
-  `osworld21/validation/coverage.json` 中 `official_vm.status == "passed"` 的题；
-  该覆盖表由环境侧持续重生成，**子集要定期重新核对**。
+- **题目清单**：`tandem_eval/manifest.py` 的 `OSWORLD21_TASK_IDS` 覆盖官方001–108题。
+  清单不等于环境验收报告；API、VM或评分异常仍记为 `failed_unscored`。
+- **共享环境**：通用VM为 `vm/unified-20261022-complete.qcow2`，经 `prepared/runtime`
+  接入环境准备适配。依赖缓存、网站DNS/证书和控制器传输适配在共享环境侧维护，
+  不改变Tandem规划、候选、验证或评分逻辑。worker只读基盘与冻结venv，每题使用隔离VM。
+- **网站与权限**：从环境侧 `services/web/endpoint.json` 与 `services/gitlab/endpoint.json`
+  发现内网地址，不依赖开发机的localhost。使用者需有共享盘、内网和镜像仓库权限；
+  026、041另需获授权的GitLab管理token，模型API使用各自获授权的凭据。
+  凭据仅置于已gitignore的 `infra/config.json` 和权限600的私有job spec，不提交Git。
+  替代judge/模拟器的身份另记于 `code_version.json.resources`，不混作原生GPT配置。
 - **卷参数**：`volume_size` 只是传给官方接口的卷参数，**不代表根盘真有这么大**
   （实测根盘约 49GB、可用约 21GB）。
 

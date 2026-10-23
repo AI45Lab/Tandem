@@ -54,22 +54,22 @@ def test_resolve_manifest_mock_default():
     assert len(refs) == 1 and refs[0].task_id == "mock-000"
 
 
-def test_osworld21_subset_and_sharding():
+def test_osworld21_full_list_and_sharding():
     refs = resolve_manifest({"benchmark": "osworld21"})
     assert tuple(ref.task_id for ref in refs) == OSWORLD21_TASK_IDS
-    assert len(OSWORLD21_TASK_IDS) == len(set(OSWORLD21_TASK_IDS)) == 56
+    assert len(OSWORLD21_TASK_IDS) == len(set(OSWORLD21_TASK_IDS)) == 108
     assert all(not ref.domain for ref in refs)
-    assert not set(OSWORLD21_TASK_IDS) & {"026", "035", "041", "069", "087", "095"}
+    assert {"026", "035", "041", "069", "087", "095"} <= set(OSWORLD21_TASK_IDS)
     shards = [resolve_manifest({"benchmark": "osworld21", "manifest": {
         "shard": {"index": index, "total": 4}}}) for index in range(1, 5)]
     assert sorted(ref.task_id for shard in shards for ref in shard) == sorted(OSWORLD21_TASK_IDS)
 
 
-def test_osworld21_explicit_subset_limit_and_unsupported_task():
+def test_osworld21_explicit_tasks_limit_and_unsupported_task():
     spec = {"benchmark": "osworld21", "manifest": {"tasks": ["054", "003"], "limit": 1}}
     assert [ref.task_id for ref in resolve_manifest(spec)] == ["054"]
-    with pytest.raises(ValueError, match="outside the supported subset"):
-        resolve_manifest({"benchmark": "osworld21", "manifest": {"tasks": ["069"]}})
+    with pytest.raises(ValueError, match="outside 001–108"):
+        resolve_manifest({"benchmark": "osworld21", "manifest": {"tasks": ["109"]}})
 
 
 def test_resolve_manifest_from_index_root():
@@ -128,12 +128,8 @@ def test_index_root_derived_from_env_section(tmp_path):
 
 
 @pytest.mark.skipif(_OSW21_TASK_CLASS is None, reason="OSW2.1 runtime 未挂载（worker 内才有 canonical 视角）")
-def test_osworld21_subset_tasks_exist_in_runtime():
-    """子集里的每个题号都必须在 runtime 的 task_class 里有对应任务文件。
-
-    子集来自环境侧持续重生成的覆盖表快照（见 manifest.OSWORLD21_TASK_IDS 的说明），
-    环境更新后这道题会第一时间报出"清单里有 runtime 没有的题"。
-    """
+def test_osworld21_tasks_exist_in_runtime():
+    """完整清单里的每个题号都必须在 runtime 的 task_class 里有任务文件。"""
     missing = [tid for tid in OSWORLD21_TASK_IDS
                if not (_OSW21_TASK_CLASS / f"task_{tid}.py").is_file()]
     assert missing == [], f"子集里的题号在 runtime 中不存在: {missing}"
