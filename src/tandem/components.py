@@ -14,6 +14,7 @@ from .config import SessionConfig
 from .planner import plan_step
 from .proposals import focused_candidates
 from .selector import JevOmniPolicy
+from .stage_planner import plan_stage
 from .targets import A11yTargetBuilder
 from .verifier import task_requirements, verify_observation
 
@@ -42,7 +43,7 @@ def build_default(*, client, endpoint: str, config: SessionConfig,
                                  image_stage=image_stage)
     return Components(
         planner=partial(
-            plan_step,
+            plan_stage if config.execution_mode == "stage" else plan_step,
             client,
             allow_cli=config.allow_cli and config.route_policy != "gui",
             route_policy=config.route_policy,

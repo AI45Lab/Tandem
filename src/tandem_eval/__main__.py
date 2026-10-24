@@ -36,6 +36,9 @@ def main(argv: list[str] | None = None) -> int:
     run_cmd.add_argument("--allow-cli", choices=["true", "false"], default=None,
                          help="harness 是否允许 CLI 路由")
     run_cmd.add_argument("--route-policy", choices=["auto", "gui", "cli"], default=None)
+    run_cmd.add_argument("--execution-mode", choices=["step", "stage"], default=None)
+    run_cmd.add_argument("--stage-max-actions", type=int, default=None,
+                         help="阶段内动作数上限，达到后请求剩余工作的重规划")
     run_cmd.add_argument("--slow-model", default=None, metavar="NAME",
                          help="慢模型（大脑）API 名：config 的 harness.slow_model.apis 里选；默认取 default")
     run_cmd.add_argument("--fast-model", default=None, metavar="NAME",
@@ -91,6 +94,10 @@ def main(argv: list[str] | None = None) -> int:
         if models:
             overrides["models"] = models
         harness_config: dict = {}
+        if args.execution_mode is not None:
+            harness_config["execution_mode"] = args.execution_mode
+        if args.stage_max_actions is not None:
+            harness_config["stage_max_actions"] = args.stage_max_actions
         if args.allow_cli is not None:
             harness_config["allow_cli"] = args.allow_cli == "true"
         if args.route_policy:

@@ -49,6 +49,10 @@
       "allow_cli": true,
       "cli_timeout_seconds": 90
     },
+    "execution": {
+      "mode": "step",
+      "stage_max_actions": 24
+    },
     "budget": {
       "max_steps": 30,
       "max_wall_seconds": 1800

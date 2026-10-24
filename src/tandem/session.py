@@ -17,6 +17,7 @@ from .episode import handle_done, resolve_done_probe, verify_pending
 from .focus import prune_stalled
 from .protocol.models import Action, CliAction, FailAction, GuiAction, Observation, WaitAction
 from .selector import ranking_dict
+from .stages import StageExecution
 from .stopping import NO_ACTION_LIMIT, budget_exhausted
 
 
@@ -40,6 +41,9 @@ class TandemSession:
         self.failed_toggles: dict[str, tuple[str, object]] = {}
         self.pending: dict | None = None
         self.done_probe: dict | None = None
+        self.stage = (
+            StageExecution(self.config.stage_max_actions) if self.config.execution_mode == "stage" else None
+        )
 
     # ------------------------------------------------------------------ 主入口
     def act(self, observation: Observation) -> Action:
@@ -64,17 +68,20 @@ class TandemSession:
         # 同一观察内最多重规划 NO_ACTION_LIMIT+3 次：完成被拒/无候选会递增 no_action 并重规划，
         # 与旧循环 continue 语义一致（旧版重取 obs，本帧无动作时内容等价）。
         for _ in range(NO_ACTION_LIMIT + 3):
-            plan = self.components.planner(
-                self.instruction,
-                screenshot,
-                targets,
-                self.recent,
-                tree if tree is not None else "<empty/>",
-                self.verified_focus,
-                self.requirements,
-                observation.budget.steps_remaining,
-            )
-            self.events.append({"step": observation.step_idx, "route": "planner", "plan": plan})
+            if self.stage is not None:
+                plan = self.stage.plan(self, observation, targets, tree, screenshot)
+                if plan is None:
+                    self.consecutive_no_action += 1
+                    if self.consecutive_no_action >= NO_ACTION_LIMIT:
+                        return FailAction(reason="no_action_limit")
+                    continue
+            else:
+                plan = self.components.planner(
+                    self.instruction, screenshot, targets, self.recent,
+                    tree if tree is not None else "<empty/>", self.verified_focus,
+                    self.requirements, observation.budget.steps_remaining,
+                )
+                self.events.append({"step": observation.step_idx, "route": "planner", "plan": plan})
             if plan["done"]:
                 terminal = handle_done(self, plan, observation, tree)
                 if terminal is not None:
@@ -99,6 +106,7 @@ class TandemSession:
             "action": action.to_dict(),
             "plan": plan,
             "before_screenshot": observation.screenshot.path,
+            "before_tree": self._read_tree(observation),
         }
         self.consecutive_no_action = 0
         self.events.append(
@@ -146,7 +154,7 @@ class TandemSession:
         for service_retry in range(3):
             try:
                 ranking = self.components.selector.rank(
-                    stage_goal=self.instruction,
+                    stage_goal=plan.get("stage_goal", self.instruction),
                     intent=local_goal,
                     active_window="",
                     targets=targets,
@@ -175,6 +183,8 @@ class TandemSession:
             }
         )
         if compiled is None:
+            if self.stage is not None:
+                self.stage.invalidate(self, "no_executable_candidate", observation.step_idx)
             self.consecutive_no_action += 1
             self.recent.append(
                 {

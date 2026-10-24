@@ -98,15 +98,16 @@ def git_describe(repo_root: Path) -> str:
 class _ScriptedPlanner:
     """mock 模式的确定性 planner：先点第一个目标，再声称完成。"""
 
-    def __init__(self):
+    def __init__(self, *, stage_mode=False):
         self.calls = 0
+        self.stage_mode = stage_mode
 
     def __call__(self, instruction, screenshot, targets, recent, tree,
                  verified_focus, requirements, remaining_steps):
         self.calls += 1
         if self.calls == 1 and targets:
             target = targets[0]
-            return {
+            plan = {
                 "done": False, "task_status": "running",
                 "current_goal": "操作第一个控件", "expected_observation": "界面变化",
                 "action_proposals": [{
@@ -114,6 +115,10 @@ class _ScriptedPlanner:
                     "target_name": target.name, "target_role": target.role,
                 }],
             }
+            if self.stage_mode:
+                plan.update(route="gui", checks=[])
+                return {"done": False, "stage_goal": "mock stage", "milestones": [plan]}
+            return plan
         return {"done": True, "task_status": "completed", "current_goal": "完成",
                 "expected_observation": ""}
 
@@ -141,14 +146,14 @@ class _FirstCandidateSelector:
         )
 
 
-def mock_components() -> Components:
+def mock_components(*, stage_mode=False) -> Components:
     from tandem.candidates import ActionCandidateBuilder
     from tandem.compile import gui_action
     from tandem.proposals import focused_candidates
     from tandem.targets import A11yTargetBuilder
 
     return Components(
-        planner=_ScriptedPlanner(), verifier=_ScriptedVerifier(),
+        planner=_ScriptedPlanner(stage_mode=stage_mode), verifier=_ScriptedVerifier(),
         requirements=lambda instruction: [], selector=_FirstCandidateSelector(),
         target_builder=A11yTargetBuilder(), candidate_builder=ActionCandidateBuilder(),
         focus_candidates=focused_candidates, grounder=None, compile_gui=gui_action,
@@ -159,7 +164,7 @@ def build_session(spec: dict, *, llm_tap: LlmTap | None = None) -> TandemSession
     config = SessionConfig(**spec.get("harness_config", {}))
     benchmark = spec.get("benchmark")
     if benchmark == "mock":
-        return TandemSession(mock_components(), config=config)
+        return TandemSession(mock_components(stage_mode=config.execution_mode == "stage"), config=config)
     if benchmark in {"osworld1", "osworld2", "osworld21"}:
         from tandem.components import build_default
         from tandem.providers import SlowModelClient

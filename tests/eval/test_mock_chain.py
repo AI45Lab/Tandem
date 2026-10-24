@@ -7,6 +7,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from tandem_eval.entry import entry_main, run_from_spec
 from tandem_eval.env import MockEnv
 from tandem_eval.manifest import TaskRef
@@ -39,8 +41,9 @@ def _spec(tmp_path: Path, **overrides) -> dict:
     return base
 
 
-def test_full_mock_chain_produces_renderable_result_dir(tmp_path):
-    episodes = run_from_spec(_spec(tmp_path))
+@pytest.mark.parametrize("mode", ["step", "stage"])
+def test_full_mock_chain_produces_renderable_result_dir(tmp_path, mode):
+    episodes = run_from_spec(_spec(tmp_path, harness_config={"execution_mode": mode}))
     assert episodes and episodes[0]["status"] == "scored"
     run_root = tmp_path / "run"
     episode_dir = run_root / "episodes" / "mock-mock-000"
