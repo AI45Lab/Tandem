@@ -8,6 +8,7 @@ benchmark=mock：MockEnv + 确定性脚本组件（全链路自检）。
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from pathlib import Path
 
@@ -217,6 +218,7 @@ def _mask_secrets(spec: dict) -> dict:
 
 
 def run_from_spec(spec: dict) -> list[dict]:
+    os.environ.update(spec.get("secrets", {}).get("environment", {}))
     run_root = Path(spec["output_root"])
     run_root.mkdir(parents=True, exist_ok=True)
     repo_root = Path(spec.get("repo_root", "."))

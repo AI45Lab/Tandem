@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from pathlib import Path
 
@@ -53,7 +54,8 @@ def _env_section(benchmark: str, config: dict) -> dict:
         section = benchmarks["osworld21"]
         return {"root": section["root"], "vm": section["vm"],
                 "asset_root": section["asset_root"], "shared_env": section["shared_env"],
-                "proxy": section.get("proxy", ""), "volume_size": section.get("volume_size"),
+                "proxy": section.get("proxy", ""), "no_proxy": section.get("no_proxy", ""),
+                "volume_size": section.get("volume_size"),
                 "startup_wait_seconds": 30}
     return {}
 
@@ -62,7 +64,7 @@ def _secrets_section(benchmark: str, config: dict, slow_api: dict, fast_api: dic
     """凭据段：慢模型三件套 + 快模型地址 + registry auth（落盘时整体脱敏）。"""
     if benchmark not in {"osworld1", "osworld2", "osworld21"}:
         return {}
-    return {
+    secrets = {
         "slow_model": {key: slow_api[key] for key in ("base_url", "api_key", "model")},
         # 快模型部署在闲时 GPU，ip/端口随重新部署变化：endpoint 为空时由 worker
         # 从 endpoint_file（部署后写入的 {"base_url": ...}）自动发现
@@ -72,6 +74,29 @@ def _secrets_section(benchmark: str, config: dict, slow_api: dict, fast_api: dic
         },
         "registry": config["eval"].get("registry"),
     }
+    if benchmark == "osworld21":
+        section = config["eval"]["benchmarks"][benchmark]
+        environment = {}
+        gitlab = section.get("gitlab", {})
+        token = gitlab.get("private_token")
+        if not token and gitlab.get("private_token_file"):
+            token = Path(gitlab["private_token_file"]).read_text(encoding="utf-8").strip()
+        if token:
+            environment["GITLAB_PRIVATE_TOKEN"] = token
+        for role, prefix, model_key in (("judge", "OSWORLD_EVAL_MODEL_", "NAME"),
+                                         ("user_simulator", "OSWORLD_USER_SIM_", "MODEL")):
+            api = section.get(role, {})
+            if api.get("api_key"):
+                environment.update({prefix + suffix: api[key] for key, suffix in (
+                    ("provider", "PROVIDER"), ("base_url", "BASE_URL"),
+                    ("api_key", "API_KEY"), ("model", model_key))})
+                if role == "judge":
+                    for key, suffix in (("reasoning_effort", "REASONING_EFFORT"),
+                                        ("max_tokens", "MAX_OUTPUT_TOKENS")):
+                        if key in api:
+                            environment[prefix + suffix] = str(api[key])
+        secrets["environment"] = environment
+    return secrets
 
 
 def _harness_config_section(config: dict, slow_api: dict, fast_api: dict) -> dict:
@@ -166,11 +191,18 @@ def build_job_spec(*, config: dict, run_id: str, repo_root: Path,
         },
         **overrides,
     }
+    if benchmark == "osworld21":
+        section = config["eval"]["benchmarks"][benchmark]
+        spec["code"]["resources"] = {role: {
+            "provider": section[role]["provider"], "model": section[role]["model"],
+            "configuration": "alternative"} for role in ("judge", "user_simulator")
+            if section.get(role, {}).get("api_key")}
     spec_dir = Path(config["eval"]["deploy_root"]) / "job_specs"
-    spec_dir.mkdir(parents=True, exist_ok=True)
-    (spec_dir / f"{run_id}.json").write_text(
-        json.dumps(spec, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    spec_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    descriptor = os.open(spec_dir / f"{run_id}.json", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+        os.fchmod(handle.fileno(), 0o600)
+        json.dump(spec, handle, ensure_ascii=False, indent=2)
     return spec
 
 

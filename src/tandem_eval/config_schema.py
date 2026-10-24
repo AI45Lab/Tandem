@@ -63,6 +63,7 @@ ABSOLUTE_PATH_PATHS = (
     "eval.benchmarks.osworld21.vm",
     "eval.benchmarks.osworld21.asset_root",
     "eval.benchmarks.osworld21.shared_env",
+    "eval.benchmarks.osworld21.gitlab.private_token_file",
     "harness.fast_model.image_stage.write",
     "harness.fast_model.image_stage.read",
 )
@@ -194,6 +195,12 @@ def _validate_osworld21(config: dict) -> list[str]:
     volume_size = section.get("volume_size")
     if volume_size is not None and (not isinstance(volume_size, int) or volume_size <= 0):
         problems.append("eval.benchmarks.osworld21.volume_size（应为正整数）")
+    for role in ("judge", "user_simulator"):
+        api = section.get(role, {})
+        if api.get("api_key"):
+            for key in ("provider", "base_url", "model"):
+                if _is_missing(api.get(key)):
+                    problems.append(f"eval.benchmarks.osworld21.{role}.{key}")
     return problems
 
 

@@ -89,12 +89,19 @@
       },
       "osworld21": {
         "root": "/mnt/shared-storage-gpfs2/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/osworld21/prepared/runtime",
-        "vm": "/mnt/shared-storage-gpfs2/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/osworld21/vm/osworld-v2-ubuntu-x86.qcow2",
+        "vm": "/mnt/shared-storage-gpfs2/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/osworld21/vm/unified-20261022-complete.qcow2",
         "asset_root": "/mnt/shared-storage-gpfs2/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/osworld21/assets",
         "shared_env": "/mnt/shared-storage-gpfs2/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/osworld21/prepared/env.sh",
         "inner_image": "",
         "proxy": "http://100.100.135.73:3128",
-        "volume_size": 64
+        "no_proxy": "",
+        "volume_size": 64,
+        "gitlab": {
+          "private_token": "",
+          "private_token_file": "/mnt/shared-storage-gpfs2/evobox-share-gpfs2/xuyuanxun/shared_resources/sa_cua/osworld21/shared_credentials/gitlab-test-admin.token"
+        },
+        "judge": {"provider": "openai_compatible", "base_url": "", "api_key": "", "model": ""},
+        "user_simulator": {"provider": "openai_compatible", "base_url": "", "api_key": "", "model": ""}
       }
     },
     "registry": {

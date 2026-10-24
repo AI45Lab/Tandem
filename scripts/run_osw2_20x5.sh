@@ -9,7 +9,7 @@
 #   BENCHMARK（基准，默认 osworld2）/ TASKS（逗号分隔题号，空 = 走清单）/ ROUTE_POLICY（路由，空 = 用 config）
 #   SLOW_MODEL（慢模型 API 名，默认用 config 的 default）/ FAST_MODEL（快模型 API 名）
 #   PREFIX 建议带上模型组合（如 osw2-kimi-kev），demo 按 run 对比时一眼能看出谁在跑
-# OSW2.1：BENCHMARK=osworld21 LIMIT=56 SHARDS=4 PREFIX=osw21-56 bash scripts/run_osw2_20x5.sh
+# OSW2.1：BENCHMARK=osworld21 LIMIT=108 SHARDS=4 PREFIX=osw21-108 bash scripts/run_osw2_20x5.sh
 # 单题：再设置 TASKS=004 LIMIT=1 SHARDS=1；ROUTE_POLICY=gui 可限定 GUI 路由。
 set -u
 
