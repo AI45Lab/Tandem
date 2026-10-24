@@ -18,6 +18,10 @@
     └── <task_id>/               # episode 目录（有 domain 时为 <domain>-<task_id>）
 ```
 
+OSWorld 2.1 显式配置替代 judge/用户模拟器时，`code_version.json.resources`
+分别记录 `judge` / `user_simulator` 的 `{provider, model, configuration: "alternative"}`。
+凭据仅存在私有 job spec；结果中的 `run_spec.secrets` 保持全部脱敏。
+
 ## episode 目录（自包含：不依赖共享目录与旧仓库即可复盘）
 
 | 文件 | 内容 | 写入时机 |

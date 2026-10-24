@@ -48,6 +48,9 @@ if [ ! -f "$SHARED_ENV" ]; then
 fi
 # shellcheck disable=SC1090
 source "$SHARED_ENV"
+if [ "$BENCHMARK" = "osworld21" ]; then
+  python3 "$OSWORLD21_ROOT/setup/shared_services.py" hosts
+fi
 
 mkdir -p "$HOME/.docker"
 python3 -c '
@@ -66,7 +69,12 @@ INNER_IMAGE="$(spec_get code.images.inner)"
 PROXY="$(spec_get env.proxy)"
 PROXY="${PROXY:-http://httpproxy-headless.kubebrain.svc.pjlab.local:3128}"
 export HTTP_PROXY="$PROXY" HTTPS_PROXY="$PROXY" http_proxy="$PROXY" https_proxy="$PROXY"
-export NO_PROXY='10.0.0.0/8,100.96.0.0/12,localhost,127.0.0.1,.pjlab.org.cn'
+if [ "$BENCHMARK" = "osworld21" ]; then
+  OSWORLD21_NO_PROXY="$(spec_get env.no_proxy)"
+  export NO_PROXY="10.0.0.0/8,100.96.0.0/12,localhost,127.0.0.1,.pjlab.org.cn${NO_PROXY:+,$NO_PROXY}${OSWORLD21_NO_PROXY:+,$OSWORLD21_NO_PROXY}"
+else
+  export NO_PROXY='10.0.0.0/8,100.96.0.0/12,localhost,127.0.0.1,.pjlab.org.cn'
+fi
 export no_proxy="$NO_PROXY"
 
 DOCKER_ROOT="$(mktemp -d /tmp/tandem-docker.XXXXXX)"

@@ -1,4 +1,4 @@
-"""任务清单：OSW1/OSW2 使用共享索引，OSW2.1 使用 56 题清单，也支持显式题号或清单文件。"""
+"""任务清单：OSW1/OSW2 使用共享索引，OSW2.1 包含 108 题，支持显式题号与分片。"""
 
 from __future__ import annotations
 
@@ -6,19 +6,8 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-#: OSW2.1 子集题号（56 题）。
-#:
-#: 出处：共享环境 `osworld21/validation/coverage.json` 中 `official_vm.status == "passed"`
-#: 的题（2026-10-22 快照）。该覆盖表由 `osworld21/setup/summarize_environment.py` 持续
-#: 重生成，本清单是它的一次快照——覆盖表更新后必须重新核对，否则会与真实环境脱节。
-#: 快照时官方 passed 共 86 道，其余 30 道的排除口径尚未记录（待补）；本清单当前是
-#: "已验证通过"的保守子集，不含 failed / not_tested 的题。
-OSWORLD21_TASK_IDS = tuple((
-    "001 002 003 004 006 009 010 011 012 014 017 022 023 024 "
-    "025 027 029 030 032 034 037 040 042 044 045 049 051 053 "
-    "054 055 059 061 062 063 066 067 071 074 075 076 078 080 "
-    "083 084 085 086 088 089 090 092 093 094 096 097 099 108"
-).split())
+#: 官方完整清单；列入清单不等于已通过环境验收或完成解题。
+OSWORLD21_TASK_IDS = tuple(f"{number:03d}" for number in range(1, 109))
 
 
 @dataclass(frozen=True)
@@ -83,7 +72,7 @@ def resolve_manifest(spec: dict) -> list[TaskRef]:
     if benchmark == "osworld21":
         unsupported = [ref.task_id for ref in refs if ref.task_id not in OSWORLD21_TASK_IDS]
         if unsupported:
-            raise ValueError(f"OSWorld 2.1 tasks outside the supported subset: {unsupported}")
+            raise ValueError(f"OSWorld 2.1 task IDs outside 001–108: {unsupported}")
     limit = manifest.get("limit")
     if isinstance(limit, int) and limit > 0:
         refs = refs[:limit]
