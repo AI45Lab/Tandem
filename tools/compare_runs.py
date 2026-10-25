@@ -24,35 +24,47 @@ batch_summary = importlib.util.module_from_spec(_spec)
 assert _spec.loader is not None
 _spec.loader.exec_module(batch_summary)
 
-#: 不产生 UI 动作的赢家（`return_to_planner` 无法编译成动作；`visual_fallback` 会走 grounder 产坐标点击）
-NOOP_OPERATIONS = ("return_to_planner",)
+#: 不产生 UI 动作的赢家。真机路径下 grounder 是关闭的
+#: （`tandem_eval/entry.py` 显式传 `grounder=None`），因此 `visual_fallback`
+#: 与 `return_to_planner` **都**编译不出动作，两者都是真空转。
+#: （2026-10-25 修正：旧口径只数 `return_to_planner`，把真实空转率低估了一半。）
+NOOP_OPERATIONS = ("return_to_planner", "visual_fallback")
 
-#: 快路径：直接从原始行里抠出 winner 的 operation（整批事件流上 GB 级，逐行 json.loads 太慢）
+#: 快路径：从原始行里抠出 winner 的 operation（整批事件流上 GB 级，逐行 json.loads 太慢）
 _WINNER_RE = re.compile(r'"winner":\s*\{[^{}]*?"operation":\s*"([^"]+)"')
+#: gui 事件里"没有可执行动作"的标志（json.dumps 的默认分隔符是 ": "）
+_NULL_ACTION = '"action": null'
 
 
 def winner_stats(episode_dir: Path) -> dict[str, Any]:
-    """统计一个 episode 的排序赢家分布与空转率。"""
+    """统计一个 episode 的排序赢家分布与空转率。
+
+    空转口径 = "排序后没有编译出任何动作"的决策占比（gui 事件里 `action` 为 null），
+    而不是"winner 是不是某个回退 operation"——两者在真机路径下等价，
+    但前者对将来打开 grounder 的情形仍然正确。
+    """
     winners = Counter()
+    noop = 0
     events = episode_dir / "events.jsonl"
     if events.is_file():
         for line in events.open(encoding="utf-8"):
+            if '"winner"' not in line:
+                continue
             match = _WINNER_RE.search(line)
             if match:
                 winners[match.group(1)] += 1
-                continue
-            if '"winner"' not in line:
-                continue
-            try:
-                record = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            payload = record.get("payload") or record
-            winner = payload.get("winner")
-            if isinstance(winner, dict):
-                winners[str(winner.get("operation"))] += 1
+            else:
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                payload = record.get("payload") or record
+                winner = payload.get("winner")
+                if isinstance(winner, dict):
+                    winners[str(winner.get("operation"))] += 1
+            if _NULL_ACTION in line:
+                noop += 1
     total = sum(winners.values())
-    noop = sum(count for op, count in winners.items() if op in NOOP_OPERATIONS)
     fallback = sum(count for op, count in winners.items() if op == "visual_fallback")
     return {
         "winners": total,
@@ -124,7 +136,7 @@ def render(result: dict[str, Any], label_a: str, label_b: str) -> str:
     )
     lines.append(f"- 平均分：{label_a} **{result['a_avg']:.4f}** → {label_b} **{result['b_avg']:.4f}**")
     lines.append(
-        f"- 平均空转率（return_to_planner 占排序决策）："
+        f"- 平均空转率（排序后没有编译出任何动作的决策占比）："
         f"{label_a} **{result['a_noop']:.0%}** → {label_b} **{result['b_noop']:.0%}**"
     )
     lines.append(f"- 平均步数：{label_a} {result['a_steps']:.1f} → {label_b} {result['b_steps']:.1f}")

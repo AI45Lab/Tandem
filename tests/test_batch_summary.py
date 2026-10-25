@@ -84,7 +84,7 @@ def test_render_markdown_lists_rerun_tasks(tmp_path):
     })
     rows = batch_summary.collect_rows(tmp_path, "batch")
     report = batch_summary.render_markdown(rows, batch_summary.summarize(rows), "T")
-    assert "需补跑" in report
+    assert "未出分的执行侧失败" in report
     assert "TASKS=003" in report
     assert "003" in report
 
@@ -189,3 +189,24 @@ def test_collect_rows_accepts_multiple_prefixes(tmp_path):
     rows = batch_summary.collect_rows(tmp_path, "batch-a,batch-b-retry")
     assert len(rows) == 1
     assert rows[0]["score"] == 1.0
+
+
+def test_noop_rate_counts_every_decision_without_an_executable_action(tmp_path):
+    """空转口径：看"动作有没有编译出来"，不是"winner 是不是 return_to_planner"。
+
+    真机路径下 grounder 是关的（`tandem_eval/entry.py` 显式传 `grounder=None`），
+    所以 visual_fallback 与 return_to_planner 一样编译不出动作，两者都算真空转。
+    """
+    episode_dir = tmp_path / "episodes" / "004"
+    episode_dir.mkdir(parents=True)
+    events = [
+        {"route": "gui", "winner": {"operation": "click"}, "action": {"kind": "gui"}},
+        {"route": "gui", "winner": {"operation": "visual_fallback"}, "action": None},
+        {"route": "gui", "winner": {"operation": "return_to_planner"}, "action": None},
+        {"route": "planner", "plan": {"done": False}},
+    ]
+    (episode_dir / "events.jsonl").write_text(
+        "\n".join(json.dumps(item, ensure_ascii=False) for item in events) + "\n",
+        encoding="utf-8",
+    )
+    assert batch_summary._noop_rate(episode_dir) == 2 / 3

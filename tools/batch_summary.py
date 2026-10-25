@@ -78,7 +78,6 @@ _DOMAIN_PATTERNS = (
     ("terminal_cli", r"\bterminal\b|bash script|shell command"),
 )
 
-_WINNER_RE = re.compile(r'"winner":\s*\{[^{}]*?"operation":\s*"([^"]+)"')
 
 
 def domain_of(instruction: str) -> str:
@@ -91,18 +90,29 @@ def domain_of(instruction: str) -> str:
 
 
 def _noop_rate(episode_dir: Path) -> float | None:
-    """该题的"真空转"占比：return_to_planner 占排序决策的比例。"""
+    """该题的"空转"占比：排序后**没有可执行动作**的决策比例。
+
+    口径说明：判空转看的是"动作有没有编译出来"（gui 事件里 `action` 为 null），
+    而不是"winner 是不是回退项"。真机路径下 grounder 是关的
+    （`tandem_eval/entry.py` 显式传 `grounder=None`），因此 `visual_fallback`
+    与 `return_to_planner` **同样编译不出动作**——两者都是真空转。
+    （2026-10-25 修正：旧口径只数 `return_to_planner`，把 44% 的真实空转
+    报成了 22%，低估了一倍。）
+    """
     events = episode_dir / "events.jsonl"
     if not events.is_file():
         return None
     total = noop = 0
     with events.open(encoding="utf-8") as handle:
         for line in handle:
-            match = _WINNER_RE.search(line)
-            if not match:
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if record.get("route") != "gui" or not record.get("winner"):
                 continue
             total += 1
-            if match.group(1) == "return_to_planner":
+            if record.get("action") is None:
                 noop += 1
     return (noop / total) if total else None
 
@@ -382,7 +392,7 @@ def render_markdown(rows: list[dict[str, Any]], stats: dict[str, Any], title: st
         )
     lines.append("")
     if stats["env_failed"]:
-        lines.append("## 需补跑（环境/配置失败，非模型能力）")
+        lines.append("## 未出分的执行侧失败（已定位并修复，修复后重跑见「优化后对照」）")
         lines.append("")
         lines.append("| 题 | 异常 | 错误 |")
         lines.append("|---|---|---|")
@@ -390,7 +400,10 @@ def render_markdown(rows: list[dict[str, Any]], stats: dict[str, Any], title: st
             lines.append(f"| {row['task']} | {row['exception']} | {row['error'][:90]} |")
         lines.append("")
         tasks = ",".join(row["task"] for row in stats["env_failed"])
-        lines.append("补跑命令：")
+        lines.append(
+            "这类失败已修（CLI 无回执不再判死整题），修复后用同预算重跑，"
+            "结果记为「优化后对照」，**不并入本基线均分**。复现命令："
+        )
         lines.append("")
         lines.append("```bash")
         lines.append(f"TASKS={tasks} MAX_STEPS=500 MAX_WALL=10800 \\")
@@ -399,7 +412,7 @@ def render_markdown(rows: list[dict[str, Any]], stats: dict[str, Any], title: st
         lines.append("```")
         lines.append("")
     if stats["judge_infra"]:
-        lines.append("## 评估侧基础设施失败（重跑无望，需换 judge 或绕过上限）")
+        lines.append("## 评估侧基础设施失败（已知限制：judge 媒体上限，需改共享 runtime）")
         lines.append("")
         lines.append("| 题 | 异常 | 错误 |")
         lines.append("|---|---|---|")

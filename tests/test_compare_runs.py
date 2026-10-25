@@ -36,23 +36,37 @@ def _make_run(root: Path, name: str, task: str, score: float | None, stop: str,
         encoding="utf-8")
     with (episode_dir / "events.jsonl").open("w", encoding="utf-8") as handle:
         for operation in winners:
-            handle.write(json.dumps({"payload": {"winner": {"operation": operation}}}) + "\n")
+            handle.write(json.dumps(_gui_event(operation)) + "\n")
     return root / name
 
 
-def test_winner_stats_separates_noop_from_fallback(tmp_path):
-    """只有 return_to_planner 是真空转；visual_fallback 走 grounder 产坐标点击。"""
+def _gui_event(operation: str) -> dict:
+    """造一条 gui 排序事件：回退类（visual_fallback / return_to_planner）没有可执行动作。"""
+    noop = operation in ("visual_fallback", "return_to_planner")
+    return {
+        "route": "gui",
+        "winner": {"operation": operation},
+        "action": None if noop else {"kind": "gui", "action_type": "click"},
+    }
+
+
+def test_winner_stats_counts_every_decision_without_an_executable_action(tmp_path):
+    """空转 = 排序后没有编译出任何动作。
+
+    真机路径下 grounder 关闭，所以 visual_fallback 与 return_to_planner
+    **都是**真空转（旧的"只有 return_to_planner 才算"口径会低估一半）。
+    """
     episode = tmp_path / "run" / "episodes" / "001"
     episode.mkdir(parents=True)
     (episode / "events.jsonl").write_text(
-        "\n".join(json.dumps({"payload": {"winner": {"operation": op}}}) for op in
+        "\n".join(json.dumps(_gui_event(op)) for op in
                  ["click", "visual_fallback", "return_to_planner", "click"]) + "\n",
         encoding="utf-8")
     stats = compare_runs.winner_stats(episode)
     assert stats["winners"] == 4
-    assert stats["noop"] == 1
+    assert stats["noop"] == 2
     assert stats["fallback"] == 1
-    assert stats["noop_rate"] == 0.25
+    assert stats["noop_rate"] == 0.5
 
 
 def test_compare_reports_per_task_deltas(tmp_path):
