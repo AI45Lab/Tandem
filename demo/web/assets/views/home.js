@@ -104,7 +104,9 @@
     var verified = null;
     var replanned = null;
     timeline.forEach(function (entry) {
-      if (!planner && entry.kind === "planner" && (entry.slow || {}).text) planner = entry;
+      // timeline 里的 kind 是「这一步执行了什么」（gui/cli），不是事件类型；
+      // 规划原文要看 slow.text（该步窗口里慢模型吐出来的内容）
+      if (!planner && (entry.slow || {}).text) planner = entry;
       if (!ranked && entry.fast && entry.fast.n_candidates) ranked = entry;
       if (!executed && entry.action && entry.kind === "gui") executed = entry;
       if (!verified && entry.outcome) verified = entry;

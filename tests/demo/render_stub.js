@@ -4,7 +4,10 @@ const path = require('path');
 
 function makeEl(tag) {
   const el = {
-    tagName: tag, className: '', textContent: '', innerHTML: '', value: '',
+    // nodeType 必须有：站点的 el() 用它判断「这是不是个节点」，没有的话
+    // 子节点会被当成普通对象渲染成 [object Object]
+    nodeType: 1,
+    tagName: tag, className: '', _text: '', innerHTML: '', value: '',
     style: {}, dataset: {}, children: [], attributes: {},
     classList: {
       _set: new Set(),
@@ -12,10 +15,16 @@ function makeEl(tag) {
       contains(c) { return this._set.has(c); },
       toggle(c, on) { if (on === undefined) { this._set.has(c) ? this._set.delete(c) : this._set.add(c); } else if (on) { this._set.add(c); } else { this._set.delete(c); } }
     },
-    appendChild(c) { this.children.push(c); return c; },
+    appendChild(c) { this.children.push(c); if (c) c.parentNode = this; return c; },
     // 真删：站点的 clear() 是 while(firstChild) removeChild(...)，不删就会死循环
-    removeChild(c) { this.children = this.children.filter((x) => x !== c); return c; },
-    replaceChild(n, o) { this.children = this.children.filter((x) => x !== o); this.children.push(n); return o; },
+    removeChild(c) { this.children = this.children.filter((x) => x !== c); if (c) c.parentNode = null; return c; },
+    replaceChild(n, o) {
+      this.children = this.children.filter((x) => x !== o);
+      this.children.push(n);
+      if (n) n.parentNode = this;
+      if (o) o.parentNode = null;
+      return o;
+    },
     replaceWith(n) { if (this.parentNode) this.parentNode.replaceChild(n, this); return n; },
     insertBefore(n) { this.children.push(n); return n; },
     addEventListener() {}, removeEventListener() {},
@@ -23,8 +32,13 @@ function makeEl(tag) {
     querySelectorAll() { return []; }, querySelector() { return null; },
     closest() { return null; }, getBoundingClientRect() { return { top: 0, left: 0 }; },
     scrollIntoView() {}, focus() {},
+    get textContent() {
+      if (this._ownText !== undefined) return this._ownText;
+      return this.children.map((c) => (c && c.textContent) || '').join('');
+    },
+    set textContent(v) { this._ownText = String(v); this.children = []; },
     get firstChild() { return this.children[0] || null; },
-    get parentNode() { return null; }
+    parentNode: null
   };
   return el;
 }
@@ -58,17 +72,17 @@ global.setInterval = () => 0;
 global.clearInterval = () => {};
 global.fetch = (url) => {
   const name = String(url);
-  if (name.includes('/assets/data/episode/')) {
+  if (name.includes('assets/data/episode/')) {
     return Promise.resolve({ ok: true, json: () => Promise.resolve(episode) });
   }
-  if (name.includes('/assets/data/sai_traj/')) {
+  if (name.includes('assets/data/sai_traj/')) {
     return Promise.resolve({ ok: true, json: () => Promise.resolve({ task: '004', run: 'r', score: 0.8, steps: [], frames: {} }) });
   }
   return Promise.reject(new Error('unexpected fetch ' + name));
 };
 
 const web = process.argv[5];
-for (const file of ['app.js', 'views/home.js', 'views/results.js', 'views/mechanism.js', 'views/browser.js']) {
+for (const file of ['app.js', 'views/home.js', 'views/results.js', 'views/mechanism.js', 'views/browser.js', 'boot.js']) {
   const code = fs.readFileSync(path.join(web, 'assets', file), 'utf8');
   // eslint-disable-next-line no-eval
   (0, eval)(code);

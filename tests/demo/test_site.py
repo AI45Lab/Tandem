@@ -191,3 +191,15 @@ def test_every_nav_view_is_registered():
     default = match.group(1)
     assert default in nav_views, f"默认视图 {default} 不在导航里"
     assert f"TD.views.{default}" in (views_dir / f"{default}.js").read_text(encoding="utf-8")
+
+
+def test_sticky_column_is_not_stretched_by_grid():
+    """吸顶列必须 align-items:start —— 否则 grid 默认 stretch 会把它拉成整行高，
+    sticky 失效：往下滚卡片就滚走了，左栏看起来是空的（踩过的坑）。
+    """
+    css = (REPO_ROOT / "demo" / "web" / "assets" / "app.css").read_text(encoding="utf-8")
+    match = re.search(r"\.mech-layout\s*\{([^}]*)\}", css, re.DOTALL)
+    assert match, "app.css 里找不到 .mech-layout"
+    assert "align-items: start" in match.group(1), (
+        ".mech-layout 必须 align-items: start，否则吸顶元素被拉伸成整行高、sticky 失效"
+    )

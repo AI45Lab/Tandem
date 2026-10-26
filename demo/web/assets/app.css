@@ -228,7 +228,12 @@ button.ghost:hover { color: var(--text-1); border-color: var(--accent); }
 .mech { padding: 60px 0 72px; border-top: 1px solid var(--line-soft); }
 .section-title { font-size: 42px; margin: 12px 0 14px; letter-spacing: -.02em; }
 .section-lede { font-size: 18px; color: var(--text-2); max-width: 76ch; line-height: 1.7; }
-.mech-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 44px; margin-top: 40px; }
+.mech-layout {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  gap: 44px; margin-top: 40px;
+  /* align-items:start 必需：默认 stretch 会把吸顶元素拉成整行高，sticky 就失效了 */
+  align-items: start;
+}
 @media (max-width: 1100px) { .mech-layout { grid-template-columns: 1fr; } .mech-sticky { position: static; } }
 .mech-sticky { position: sticky; top: 96px; }
 .mech-card { display: none; }
