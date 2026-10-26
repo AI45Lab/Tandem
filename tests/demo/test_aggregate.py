@@ -23,6 +23,7 @@ from demo.reader.aggregate import (  # noqa: E402
     build_overview,
     collect_rows,
     compare_rows,
+    compare_summary,
     load_official,
 )
 from tools.batch_summary import collect_rows as tools_collect_rows  # noqa: E402
@@ -131,3 +132,19 @@ def test_compare_rows_marks_tie_and_missing(tmp_path):
     assert compared[0]["delta"] == 0.0
     # Sai 没跑的题 → delta 为 None（不折算 0）
     assert compare_rows(rows, {})[0]["delta"] is None
+
+
+def test_unscored_sai_full_counts_float_tail_as_full(tmp_path):
+    """官方评测器是加权求和，会出现 0.9999999999999999 这种浮点尾差——它就是满分。
+
+    075 的 Sai 最佳分正是这个值；用严格 `>= 1.0` 会把一个满分漏掉，
+    低估"基础设施失败吃掉了多少分"。
+    """
+    run_dir = make_run(tmp_path)
+    make_episode(run_dir, task_dir="tasks-025", score=None, stop="exception", steps=0)
+    rows = collect_rows(tmp_path)
+    overview = build_overview(rows, data_dir=DATA_DIR)
+    sai_tasks = {"025": {"best": 0.9999999999999999, "mean": 1.0, "runs": 1}}
+    summary = compare_summary(rows, sai_tasks, overview)
+    assert summary["ours_unscored"] == 1
+    assert summary["unscored_sai_full"] == 1

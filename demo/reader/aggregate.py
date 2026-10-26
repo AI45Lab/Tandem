@@ -26,6 +26,9 @@ from tools.batch_summary import summarize as _summarize  # noqa: E402
 
 from .paths import normalize_task_id  # noqa: E402
 
+#: 满分判定容差（官方评测器加权求和的浮点尾差）
+FULL_SCORE_TOLERANCE = 1.0 - 1e-6
+
 #: 官方榜里作为背景展示的 e2e 行（v2.1，同步数预算）
 BACKGROUND_E2E = ("Claude Opus 5", "GPT-5.6 Sol", "MuseSpark 1.3")
 
@@ -218,3 +221,61 @@ def _group_of(groups: dict[str, Any], task: str) -> str:
         if task in (tasks or []):
             return name
     return ""
+
+
+def compare_summary(
+    rows: list[dict[str, Any]],
+    sai_tasks: dict[str, Any],
+    overview: dict[str, Any],
+    *,
+    subset: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """对照视图需要的汇总数字（逐题 Δ 的聚合）。
+
+    口径：
+    - `common_scored`：我们与 Sai 都有分的题（**只在这批题上比**，避免分母被稀释）；
+    - `we_lead` 如实计数（我们从未领先，页面要显示 0 而不是藏起来）；
+    - `unscored_sai_full`：我们未出分、但 Sai 拿满分的题数 —— 基础设施失败的代价。
+    """
+    compared = compare_rows(rows, sai_tasks, subset)
+    common = [
+        row for row in compared
+        if row["ours"] is not None and row["sai_best"] is not None
+    ]
+    ours_mean = sum(row["ours"] for row in common) / len(common) if common else None
+    sai_mean = sum(row["sai_best"] for row in common) / len(common) if common else None
+    ties = sum(1 for row in common if row["tie"])
+    we_lead = sum(1 for row in common if row["ours"] > row["sai_best"] + 0.01)
+    ours = overview.get("ours") or {}
+    harness = overview.get("official", {}).get("harness") or []
+    sai_row = next((row for row in harness if "Sai" in str(row.get("model"))), {})
+    sai_cost = sai_row.get("cost_per_task_usd")
+    ours_cost = ours.get("usd_per_task")
+    ratio = None
+    if ours_cost and sai_cost:
+        ratio = round(sai_cost / ours_cost, 1)
+    # 满分容差：官方评测器是加权求和，会出现 0.9999999999999999 这种浮点尾差，
+    # 与真正的 1.00 是同一件事（075 就是这种）。用容差判定，别让尾差吃掉一个满分。
+    unscored_sai_full = sum(
+        1 for row in compared
+        if row["ours"] is None and row["sai_best"] is not None
+        and row["sai_best"] >= FULL_SCORE_TOLERANCE
+    )
+    return {
+        "rows": compared,
+        "common_scored": len(common),
+        "ours_mean": round(ours_mean, 4) if ours_mean is not None else None,
+        "sai_mean_best": round(sai_mean, 4) if sai_mean is not None else None,
+        "ties": ties,
+        "we_lead": we_lead,
+        "ours_attempted": ours.get("attempted"),
+        "ours_unscored": ours.get("unscored"),
+        "unscored_sai_full": unscored_sai_full,
+        "ours_usd_per_task": ours_cost,
+        "sai_usd_per_task": sai_cost,
+        "cost_ratio": ratio,
+        "sai_meta": overview.get("sai"),
+        "official": overview.get("official"),
+        "groups": (subset or {}).get("groups") or {},
+        "groups_note": (subset or {}).get("groups_note") or {},
+    }
