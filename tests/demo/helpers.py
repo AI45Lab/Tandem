@@ -168,3 +168,123 @@ def make_run(root: Path, run_id: str, tasks: list[dict]) -> Path:
         {"run_id": run_id, "benchmark": "osworld2", "count": len(entries), "tasks": entries},
     )
     return run_dir
+
+
+# ---------------------------------------------------------------------------
+# 现行契约（episode.json / evaluation.json / events.jsonl / llm_calls.jsonl）
+# 的合成 run：给 `demo.reader` 用。旧契约的 `make_run` 保留给老测试。
+# ---------------------------------------------------------------------------
+
+
+def make_contract_episode(
+    run_dir: Path,
+    *,
+    task_dir: str = "tasks-004",
+    score: float | None = 0.6556,
+    stop: str = "done",
+    steps: int = 3,
+) -> Path:
+    """造一个符合现行结果目录契约的 episode 目录。"""
+    episode_dir = run_dir / "episodes" / task_dir
+    write_json(
+        episode_dir / "episode.json",
+        {
+            "task_id": "004",
+            "harness": "tandem 0.1.0",
+            "stop_reason": stop,
+            "steps": steps,
+            "status": "scored" if score is not None else "failed_unscored",
+            "score": score,
+            "exception_type": None if score is not None else "ValueError",
+        },
+    )
+    write_json(
+        episode_dir / "evaluation.json",
+        {"source": "official_benchmark_evaluator", "raw": score, "score": score},
+    )
+    write_json(episode_dir / "timing.json", {"wall_seconds": 2944.5, "status": "scored"})
+    write_json(
+        episode_dir / "task.json",
+        {"id": "004", "instruction": "Update only these new slides in the deck."},
+    )
+    write_jsonl(
+        episode_dir / "events.jsonl",
+        [
+            {"route": "planner", "step": 0,
+             "plan": {"stage_goal": "查样式", "current_goal": "看页脚"}},
+            {
+                "route": "gui",
+                "step": 1,
+                "candidates": [{"id": "click:a11y:t0:1", "operation": "click", "source": "a11y"}],
+                "ranking": {"operation_margin": 0.31, "target_margin": 0.12, "latency_ms": 42.0,
+                            "used_image": True,
+                            "operation_ranked": [{"operation": "click", "score": 0.7}]},
+                "winner": {"id": "click:a11y:t0:1", "operation": "click"},
+                "action": {"operation": "click"},
+            },
+            {"route": "gui", "step": 2, "candidates": [], "winner": {"id": "x"}, "action": None},
+            {
+                "route": "gui_verified",
+                "step": 3,
+                "verification": {
+                    "outcome": "not_achieved",
+                    "evidence": "没变化",
+                    "state_changed": False,
+                    "requirement_checks": [
+                        {"id": "font_name", "status": "failed", "evidence": "字体没改"}
+                    ],
+                },
+            },
+            {"route": "stage_replan", "step": 4, "reason": "execution_failed_or_unverified",
+             "stage_goal": "重查样式", "milestone": 0},
+            {"kind": "action", "step": 5, "action": {"operation": "click"}},
+        ],
+    )
+    write_jsonl(
+        episode_dir / "llm_calls.jsonl",
+        [
+            {"role": "plan_step", "attempt": 1, "time": 1.0,
+             "request": {"messages": [{"content": "x" * 5000}]},
+             "response": {"choices": [{"message": {"content": "{\"current_goal\": \"看页脚\"}"}}],
+                          "usage": {"prompt_tokens": 100, "completion_tokens": 50,
+                                    "completion_tokens_details": {"reasoning_tokens": 20},
+                                    "prompt_tokens_details": {"cached_tokens": 7}}}},
+            {"role": "plan_step", "attempt": 2, "time": 2.0,
+             "request": {"messages": []},
+             "response": {"choices": [{"message": {"content": "第二段原文"}}],
+                          "usage": {"prompt_tokens": 10, "completion_tokens": 5}}},
+        ],
+    )
+    write_jsonl(
+        episode_dir / "traj.jsonl",
+        [
+            {"step_idx": 1, "wall_time": 100.0,
+             "observation": {
+                 "screenshot": {"path": "/mnt/shared-storage-user/x/step_00.png",
+                                "sha256": "ab" * 32, "width": 1920, "height": 1080},
+                 "accessibility_tree": {"present": True, "node_count": 4948},
+                 "budget": {"steps_remaining": 10, "wall_seconds_remaining": 100.0}},
+             "action": {"operation": "click"}},
+        ],
+    )
+    write_jsonl(episode_dir / "a11y_digests.jsonl",
+                [{"step_idx": 1, "sha256": "cd" * 32, "node_count": 4948}])
+    return episode_dir
+
+
+def make_contract_run(root: Path, run_id: str = "osw21-run-1") -> Path:
+    """造一个符合现行契约的 run 目录（osworld21 基准、stage 模式）。"""
+    run_dir = root / run_id
+    write_json(
+        run_dir / "summary.json",
+        {"run_id": run_id, "benchmark": "osworld21",
+         "harness": {"name": "tandem", "mode": "stage",
+                     "models": {"slow": "m3.1-flash", "fast": "jev"}},
+         "total": 1, "scored": 1, "failed_unscored": 0, "average_score": 0.6556, "tasks": []},
+    )
+    write_json(
+        run_dir / "code_version.json",
+        {"git_describe": "unknown(experiment)", "images": {"inner": "weavebench@sha256:0e6497a9"}},
+    )
+    make_contract_episode(run_dir)
+    return run_dir
