@@ -62,7 +62,7 @@ window.TD = (function () {
   function parseHash() {
     var raw = (location.hash || "#/").replace(/^#\/?/, "");
     var parts = raw.split("/").filter(Boolean);
-    return { view: parts[0] || "overview", params: parts.slice(1) };
+    return { view: parts[0] || "home", params: parts.slice(1) };
   }
   function navigate(path) { location.hash = path; }
 
@@ -70,7 +70,14 @@ window.TD = (function () {
     current = parseHash();
     var app = document.getElementById("app");
     clear(app);
-    var view = views[current.view] || views.overview;
+    var view = views[current.view];
+    if (!view) {
+      // 未知路由：回退到首页，但留一条痕迹（别静默吞掉）
+      if (typeof console !== "undefined" && console.warn) {
+        console.warn("[tandem-demo] 未知视图：" + current.view + "，回退到首页");
+      }
+      view = views.home;
+    }
     try {
       view(app, current.params);
     } catch (error) {

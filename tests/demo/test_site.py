@@ -165,3 +165,29 @@ def test_built_site_ships_view_stylesheet_and_official_reference_data(tmp_path):
     payloads = [json.loads(path.read_text(encoding="utf-8")) for path in traj_dir.glob("*.json")]
     assert payloads, "官方参考轨迹没进站点"
     assert all("steps" in payload for payload in payloads)
+
+
+def test_every_nav_view_is_registered():
+    """导航里的每个视图都要有对应脚本并注册 TD.views.<name>。
+
+    踩过的坑：把 overview 改成 sections.results 后，路由的默认视图名没跟着改，
+    首页直接报「view is not a function」。这条测试就是防这个。
+    """
+    html = (REPO_ROOT / "demo" / "index.html").read_text(encoding="utf-8") if (
+        REPO_ROOT / "demo" / "index.html").is_file() else (
+        REPO_ROOT / "demo" / "web" / "index.html").read_text(encoding="utf-8")
+    views_dir = REPO_ROOT / "demo" / "web" / "assets" / "views"
+    nav_views = re.findall(r'data-view="([a-z]+)"', html)
+    scripts = set(re.findall(r"assets/views/([a-z]+)\.js", html))
+    assert nav_views, "导航里应当有视图入口"
+    for view in nav_views:
+        assert view in scripts, f"导航里的 {view} 没有对应的 views/{view}.js"
+        text = (views_dir / f"{view}.js").read_text(encoding="utf-8")
+        assert f"TD.views.{view}" in text, f"views/{view}.js 没有注册 TD.views.{view}"
+    # 路由的默认视图名必须是个已注册的视图
+    app_js = (REPO_ROOT / "demo" / "web" / "assets" / "app.js").read_text(encoding="utf-8")
+    match = re.search(r'parts\[0\] \|\| "([a-z]+)"', app_js)
+    assert match, "路由里找不到默认视图名"
+    default = match.group(1)
+    assert default in nav_views, f"默认视图 {default} 不在导航里"
+    assert f"TD.views.{default}" in (views_dir / f"{default}.js").read_text(encoding="utf-8")
