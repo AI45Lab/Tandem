@@ -28,6 +28,7 @@ demo/
 ├── web/             站点源码（构建时拷进 demo/site/）
 │   ├── index.html
 │   └── assets/{app.css,app.js,boot.js,views/*.js,player/*.js}
+├── fetch_sai_frames.py 抓官方参考 run 的帧（流式解 tar，跳过 mp4；缓存进 .cache/）
 ├── data/            vendored 官方数据
 │   ├── official/leaderboard.json    官方榜快照（带 source_url / fetched_at）
 │   ├── official/sai_tasks.json       Sai 逐题 mean/first/best（HF 134 次干净运行）
@@ -53,15 +54,21 @@ python3 -m http.server 8899 --directory demo/site
 # 刷新官方数据（联网）
 python3 demo/sync_official.py
 
+# 抓官方参考帧（联网，约 10 分钟；结果缓存进 demo/.cache/，不进 git）
+python3 demo/fetch_sai_frames.py
+
 # 发布到内网共享目录（红线不过就拒绝导出）
 python3 demo/export_share.py --site demo/site --out /path/to/shared/dir
 ```
 
 ## 页面能看什么
 
-- **总览 `#/`**：我们的成绩（85 题尝试 / 69 已出分 / Partial / Binary / token / 成本 / 墙钟）、
-  题矩阵、停止原因分布、成本×分数散点、官方 harness 对照表，**首屏红字披露条**。
-- **官方对照 `#/compare`**：对比子集 12 题的逐题 Δ、官方参考 run 的同题轨迹、三处口径声明。
+- **总览 `#/`**：Hero 大数字（结论先行，数字滚动动画）→ 按域分行的**战绩热力矩阵** →
+  **终态解剖**堆叠条 → **官方 harness 榜单条**（我们的行插在 harness 行里）→
+  成本×分数散点（带轴与网格，虚线只画官方已发布值）；**首屏可折叠披露条**。
+- **官方对照 `#/compare`**：对比子集 12 题的逐题 Δ、三处口径声明，
+  以及**双边轨迹播放器**——同一进度点上并排看我们的帧与官方 Sai 的帧、动作与 reward
+  （Sai 的帧来自其 HF 公开参考 run，流式解包只取 PNG）。
 - **机制 `#/mechanism`**：快慢双模各干什么 + 失败模式解剖（完成却零分 / 墙钟耗尽 / 空转 / 异常）。
 - **轨迹 `#/task/<run>/<task>`**：左任务轨、中间双轨播放器（上轨慢模型原文 + 下轨快模型排序 + 帧序列）、
   右机制面板（plan→act→verify→replan 闭环、需求逐条核验、成本流水）。
