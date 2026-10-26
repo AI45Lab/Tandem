@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tandem Harness · OSWorld 2.1 工作台</title>
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo" aria-hidden="true"></span>
+    <strong>Tandem</strong>
+    <span class="sub">快慢双模 CUA Harness · OSWorld 2.1</span>
+  </div>
+  <nav class="nav" id="nav">
+    <a href="#/" data-view="overview">总览</a>
+    <a href="#/compare" data-view="compare">官方对照</a>
+    <a href="#/mechanism" data-view="mechanism">机制</a>
+  </nav>
+  <div class="topbar-right">
+    <span class="snapshot" id="snapshot"></span>
+    <button id="theme-toggle" class="ghost" type="button" title="切换深浅主题">◐ 主题</button>
+  </div>
+</header>
+
+<div id="disclaimer" class="disclaimer" hidden></div>
+
+<main id="app" class="app">
+  <div class="loading">加载中…</div>
+</main>
+
+<!-- 总览与对照的数据内联进页面：file:// 直接打开也能用（fetch 读不到本地文件） -->
+<script type="application/json" id="data-overview"></script>
+<script type="application/json" id="data-compare"></script>
+
+<script src="assets/app.js"></script>
+<script src="assets/views/overview.js"></script>
+<script src="assets/boot.js"></script>
+</body>
+</html>
