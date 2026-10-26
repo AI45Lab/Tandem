@@ -21,6 +21,7 @@
 
 from __future__ import annotations
 
+from .aggregate import build_overview, collect_rows, compare_rows, load_official
 from .episodes import EpisodeRef, list_episodes, read_episode_meta
 from .events import build_steps, noop_stats, rank_stats, read_events
 from .llm import read_llm_texts, read_llm_usage
@@ -32,10 +33,14 @@ from .viewmodel import build_view_model
 __all__ = [
     "EpisodeRef",
     "RunInfo",
+    "build_overview",
     "build_steps",
     "build_view_model",
+    "collect_rows",
+    "compare_rows",
     "discover_runs",
     "list_episodes",
+    "load_official",
     "noop_stats",
     "normalize_task_id",
     "rank_stats",

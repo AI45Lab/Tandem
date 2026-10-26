@@ -135,12 +135,12 @@ def _steps_from_events(episode_dir: Path) -> int:
     return last
 
 
-def _episode_tokens(episode_dir: Path) -> tuple[int, int, int]:
-    """返回 (调用次数, prompt tokens, completion tokens)；只统计慢模型调用。"""
-    calls = prompt = completion = 0
+def _episode_tokens(episode_dir: Path) -> tuple[int, int, int, int]:
+    """返回 (调用次数, prompt tokens, completion tokens, cached tokens)；只统计慢模型调用。"""
+    calls = prompt = completion = cached = 0
     llm_calls = episode_dir / "llm_calls.jsonl"
     if not llm_calls.is_file():
-        return 0, 0, 0
+        return 0, 0, 0, 0
     for line in llm_calls.read_text(encoding="utf-8").splitlines():
         record = _read_json_line(line)
         if not record:
@@ -149,7 +149,9 @@ def _episode_tokens(episode_dir: Path) -> tuple[int, int, int]:
         calls += 1
         prompt += usage.get("prompt_tokens") or 0
         completion += usage.get("completion_tokens") or 0
-    return calls, prompt, completion
+        details = usage.get("prompt_tokens_details") or {}
+        cached += details.get("cached_tokens") or 0
+    return calls, prompt, completion, cached
 
 
 def _read_json_line(line: str) -> dict[str, Any]:
@@ -180,7 +182,7 @@ def collect_rows(runs_root: Path, prefix: str = "") -> list[dict[str, Any]]:
             if not episode:
                 continue
             timing = _read_json(episode_dir / "timing.json")
-            calls, prompt, completion = _episode_tokens(episode_dir)
+            calls, prompt, completion, cached = _episode_tokens(episode_dir)
             steps = episode.get("steps")
             if not isinstance(steps, int) or steps <= 0:
                 # 异常路径下 episode.json 的 steps 记成 0，用事件流回补
@@ -203,6 +205,7 @@ def collect_rows(runs_root: Path, prefix: str = "") -> list[dict[str, Any]]:
                 "calls": calls,
                 "prompt_tokens": prompt,
                 "completion_tokens": completion,
+                "cached_tokens": cached,
             })
     best: dict[str, dict[str, Any]] = {}
     for row in rows:
