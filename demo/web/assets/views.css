@@ -2,11 +2,11 @@
 
 /* ------------------------------------------------------- 战绩热力（按域分行） */
 .heat { display: grid; gap: 6px; }
-.heat-row { display: grid; grid-template-columns: 116px 1fr; gap: 12px; align-items: center; }
+.heat-row { display: grid; grid-template-columns: 150px 1fr 92px; gap: 16px; align-items: center; }
 .heat-row .domain { color: var(--text-2); font-size: 12.5px; text-align: right; font-family: var(--mono); }
 .heat-strip { display: flex; gap: 3px; flex-wrap: wrap; }
 .heat-cell {
-  width: 30px; height: 30px; border-radius: 6px;
+  width: 32px; height: 32px; border-radius: 6px;
   background: var(--surface-2); border: 1px solid transparent;
   display: flex; align-items: center; justify-content: center;
   font-size: 10px; font-family: var(--mono); color: var(--text-3);
@@ -22,6 +22,7 @@
 .heat-cell.in-subset { border-color: var(--accent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); }
 @keyframes cell-in { from { opacity: 0; transform: scale(.7); } to { opacity: 1; transform: scale(1); } }
 
+.heat-row .domain-avg { color: var(--text-2); font-family: var(--mono); font-size: 13px; text-align: right; }
 .heat-legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 16px; color: var(--text-2); font-size: 12.5px; }
 .heat-legend i { width: 11px; height: 11px; border-radius: 3px; display: inline-block; margin-right: 6px; vertical-align: -1px; }
 
