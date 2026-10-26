@@ -71,8 +71,8 @@ body {
     var(--bg);
   color: var(--text-1);
   font-family: var(--sans);
-  font-size: 15.5px;
-  line-height: 1.62;
+  font-size: 16.5px;
+  line-height: 1.64;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -117,7 +117,7 @@ button.ghost {
 button.ghost:hover { color: var(--text-1); border-color: var(--accent); }
 
 /* ------------------------------------------------------------------ 版心 */
-.app { padding: 34px 28px 60px; max-width: 1560px; margin: 0 auto; }
+.app { padding: 28px 22px 56px; max-width: none; margin: 0; }
 .loading { color: var(--text-3); padding: 120px 0; text-align: center; letter-spacing: .1em; }
 
 /* ------------------------------------------------------------------ Hero */
@@ -127,9 +127,9 @@ button.ghost:hover { color: var(--text-1); border-color: var(--accent); }
   text-transform: uppercase; font-family: var(--mono);
 }
 .hero h1 {
-  font-size: 40px; margin: 12px 0 10px; line-height: 1.2; letter-spacing: -.02em;
+  font-size: 44px; margin: 12px 0 10px; line-height: 1.2; letter-spacing: -.02em;
 }
-.hero .lede { color: var(--text-2); max-width: 64ch; font-size: 16.5px; line-height: 1.7; }
+.hero .lede { color: var(--text-2); max-width: 64ch; font-size: 18px; line-height: 1.7; }
 .hero .lede em { color: var(--text-1); font-style: normal; font-weight: 600; }
 
 .metrics {
@@ -140,12 +140,12 @@ button.ghost:hover { color: var(--text-1); border-color: var(--accent); }
 }
 .metric { background: var(--bg-elev); padding: 18px 20px 16px; }
 .metric .value {
-  font-family: var(--mono); font-size: 46px; font-weight: 600;
+  font-family: var(--mono); font-size: 50px; font-weight: 600;
   letter-spacing: -.03em; line-height: 1.1;
 }
 .metric .value small { font-size: 15px; color: var(--text-3); margin-left: 3px; }
-.metric .label { color: var(--text-2); font-size: 14px; margin-top: 8px; }
-.metric .foot { color: var(--text-3); font-size: 12.5px; margin-top: 6px; font-family: var(--mono); }
+.metric .label { color: var(--text-2); font-size: 15px; margin-top: 8px; }
+.metric .foot { color: var(--text-3); font-size: 13.5px; margin-top: 6px; font-family: var(--mono); }
 .metric.good .value { color: var(--good); }
 .metric.bad .value { color: var(--bad); }
 .metric.accent .value { color: var(--accent); }
@@ -177,9 +177,9 @@ button.ghost:hover { color: var(--text-1); border-color: var(--accent); }
   box-shadow: var(--shadow);
 }
 .panel-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
-.panel-head h2 { font-size: 18px; }
-.panel-head .hint { color: var(--text-3); font-size: 13px; margin-left: auto; text-align: right; }
-.panel .lede { color: var(--text-3); font-size: 14px; margin-bottom: 16px; }
+.panel-head h2 { font-size: 20px; }
+.panel-head .hint { color: var(--text-3); font-size: 14px; margin-left: auto; text-align: right; }
+.panel .lede { color: var(--text-3); font-size: 15px; margin-bottom: 16px; }
 
 .split { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .tag {
@@ -196,7 +196,7 @@ button.ghost:hover { color: var(--text-1); border-color: var(--accent); }
 
 .mono { font-family: var(--mono); }
 .dim { color: var(--text-3); }
-.small { font-size: 13.5px; }
+.small { font-size: 14.5px; }
 .right { text-align: right; }
 .nowrap { white-space: nowrap; }
 .grow { flex: 1; }
@@ -204,6 +204,6 @@ button.ghost:hover { color: var(--text-1); border-color: var(--accent); }
 .wrap { flex-wrap: wrap; }
 
 .footer-note {
-  color: var(--text-3); font-size: 12.5px; margin-top: 34px; padding-top: 16px;
+  color: var(--text-3); font-size: 13.5px; margin-top: 34px; padding-top: 16px;
   border-top: 1px solid var(--line-soft); font-family: var(--mono);
 }

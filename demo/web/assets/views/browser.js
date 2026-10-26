@@ -47,9 +47,14 @@
       TD.clear(readout);
       TD.clear(detail);
       if (!item) { position.textContent = "0 / 0"; return; }
-      var image = TD.el("img", { class: "shot", src: item.frame, alt: options.title + " 帧" });
-      box.replaceChild(image, shot);
-      shot = image;
+      if (item.frame) {
+        var image = TD.el("img", { class: "shot", src: item.frame, alt: options.title + " 帧" });
+        box.replaceChild(image, shot);
+        shot = image;
+      } else {
+        shot.className = "shot missing";
+        shot.textContent = "这一步没有落盘帧";
+      }
       TD.el("span", { class: "readout-item" }, [
         TD.el("b", { text: "累计花费 " }), document.createTextNode(item.cumulativeCost)
       ]);
@@ -114,8 +119,8 @@
       TD.el("span", { class: "who", text: options.score || "" })
     ]));
     box.appendChild(shot);
-    box.appendChild(readout);
     box.appendChild(TD.el("div", { class: "duo-ctrl" }, [playBtn, prev, next, slider, position, speed]));
+    box.appendChild(readout);
     box.appendChild(detail);
     paint();
     return box;
@@ -139,14 +144,15 @@
         body: (thinking ? thinking.slice(0, 220) + "\n" : "") + body,
         cumulativeCost: "$" + cost.toFixed(5),
         cumulativeElapsed: (elapsed / 1000).toFixed(1) + "s",
-        stepCost: "$" + (entry.cost_usd || 0).toFixed(5) + " · " + ((entry.elapsed_ms || 0) / 1000).toFixed(1) + "s"
+        stepCost: "本步 $" + (entry.cost_usd || 0).toFixed(5) + " · " + ((entry.elapsed_ms || 0) / 1000).toFixed(1) + "s"
       };
     });
   }
 
   /* Sai 那一侧：逐步累计用时；成本官方未发布逐步数据 */
-  function saiItems(sai) {
+  function saiItems(sai, costPerTask) {
     var steps = sai.steps || [];
+    var perStep = steps.length && costPerTask ? (costPerTask / steps.length) : null;
     var seconds = steps.map(function (step) { return saiSeconds(step.action_timestamp); });
     var elapsed = 0;
     return steps.map(function (step, index) {
@@ -157,7 +163,9 @@
       return {
         frame: fileName ? ("assets/sai_frames/" + sai.task + "/" + fileName) : null,
         body: String(step.action || step.osworld_action || step.response || "—").slice(0, 200),
-        cumulativeCost: "官方未发布逐步成本",
+        cumulativeCost: perStep === null
+          ? "官方未发布逐步成本"
+          : "约 $" + (perStep * (index + 1)).toFixed(2) + "（折算）",
         cumulativeElapsed: elapsed.toFixed(1) + "s",
         reward: step.reward === null || step.reward === undefined ? null : step.reward
       };
@@ -193,7 +201,7 @@
     function renderCard(row, episode) {
       var frame = episode && episode.frames && episode.frames[0] ? episode.frames[0].src : null;
       var raw = (episode && episode.instruction ? episode.instruction : "").trim();
-      var title = raw.length > 46 ? raw.slice(0, 46).replace(/\s+\S*$/, "") + "…" : raw;
+      var summary = raw.length > 110 ? raw.slice(0, 110).replace(/\s+\S*$/, "") + "…" : raw;
       var card = TD.el("div", {
         class: "task-card" + (active === row.task ? " active" : ""),
         onclick: function () { select(row.task); }
@@ -203,11 +211,7 @@
           : TD.el("div", { class: "thumb-missing", text: "无帧" }),
         TD.el("div", { class: "task-card-body" }, [
           TD.el("div", { class: "task-id", text: "Task " + row.task }),
-          TD.el("div", { class: "task-title", text: title || row.group }),
-          TD.el("div", { class: "task-tags" }, [
-            TD.el("span", { class: "tag group", text: domainLabel((episode && episode.domain) || "") }),
-            TD.el("span", { class: "tag", text: row.group })
-          ]),
+          TD.el("div", { class: "task-summary", text: summary || "—" }),
           TD.el("div", { class: "task-meta", text:
             (row.ours === null ? "未出分" : (row.ours * 100).toFixed(2) + "%") +
             " · " + ((episode && episode.steps) || 0) + " Steps" })
@@ -246,12 +250,10 @@
           who: "Claude Opus 5",
           score: saiData[taskId] && saiData[taskId].score !== null
             ? "得分 " + saiData[taskId].score.toFixed(4) : "",
-          items: saiData[taskId] ? saiItems(saiData[taskId]) : []
+          items: saiData[taskId] ? saiItems(saiData[taskId], compare.sai_usd_per_task) : []
         })
       ]);
       middle.appendChild(duo);
-      middle.appendChild(TD.el("div", { class: "small dim", style: "margin-top:12px", text:
-        "两边各自播放，不做进度对齐。左侧花费与用时按步骤累计；Sai 侧官方未发布逐步成本。" }));
     }
 
     function renderRight(taskId) {

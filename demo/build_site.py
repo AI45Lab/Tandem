@@ -147,12 +147,18 @@ def build_episodes(
         # 帧：缩放后写进站点，view model 里补站点内相对路径
         frames_dir = out_dir / "assets" / "frames" / run_id / task
         mapping = process_frames(ref.dir, frames_dir)
-        for frame in model.get("frames") or []:
+        # 帧的站点路径要同时写回 frames 与 timeline——播放器和任务卡缩略图
+        # 都从这两处取（timeline 是逐步泳道的帧来源）
+        timeline = model.get("timeline") or []
+        for frame_index, frame in enumerate(model.get("frames") or []):
             source = (frame.get("screenshot") or {}).get("path") or ""
             name = source.rsplit("/", 1)[-1]
             target_name = mapping.get(name)
-            if target_name:
-                frame["src"] = f"assets/frames/{run_id}/{task}/{target_name}"
+            if not target_name:
+                continue
+            frame["src"] = f"assets/frames/{run_id}/{task}/{target_name}"
+            if frame_index < len(timeline):
+                timeline[frame_index]["frame"] = frame["src"]
         write_json(out_dir / "assets" / "data" / "episode" / run_id / f"{task}.json", model)
         count += 1
     return count
