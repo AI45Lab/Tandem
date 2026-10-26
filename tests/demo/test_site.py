@@ -102,3 +102,51 @@ def test_demo_layer_does_not_import_harness():
         if re.search(r"^\s*(from|import)\s+tandem(_eval)?\b", text, re.MULTILINE):
             offenders.append(str(path.relative_to(REPO_ROOT)))
     assert offenders == []
+
+
+# ---------------------------------------------------------------- 发布闸门
+
+
+def test_red_line_checks_pass_on_built_site(tmp_path):
+    """发布前的诚实披露红线自检必须全绿。"""
+    from demo.export_share import check_no_secrets, check_red_lines
+
+    runs_root = _fixture(tmp_path)
+    out_dir = tmp_path / "site"
+    assert build_site(tmp_path, runs_root, out_dir).returncode == 0
+    checks = check_red_lines(out_dir)
+    failed = [(name, detail) for name, ok, detail in checks if not ok]
+    assert failed == [], failed
+    assert check_no_secrets(out_dir)[0][1] is True
+
+
+def test_export_refuses_when_red_line_fails(tmp_path):
+    """红线不过 → 拒绝导出（退出码非 0，且不产出目标目录）。"""
+    runs_root = _fixture(tmp_path)
+    out_dir = tmp_path / "site"
+    assert build_site(tmp_path, runs_root, out_dir).returncode == 0
+    # 人为把一个未出分的题折算成 0 分
+    path = out_dir / "assets" / "data" / "overview.json"
+    overview = json.loads(path.read_text(encoding="utf-8"))
+    for row in overview["rows"]:
+        if row.get("status") != "scored":
+            row["score"] = 0
+    path.write_text(json.dumps(overview, ensure_ascii=False), encoding="utf-8")
+    # index.html 里内联的是同一份数据，也要一起改
+    html_path = out_dir / "index.html"
+    html = html_path.read_text(encoding="utf-8")
+    marker = '<script type="application/json" id="data-overview">'
+    start = html.index(marker) + len(marker)
+    end = html.index("</script>", start)
+    blob = json.dumps(overview, ensure_ascii=False, separators=(",", ":"))
+    html_path.write_text(html[:start] + blob + html[end:], encoding="utf-8")
+
+    target = tmp_path / "shared"
+    result = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "demo" / "export_share.py"),
+         "--site", str(out_dir), "--out", str(target)],
+        capture_output=True, text=True, check=False,
+    )
+    assert result.returncode == 1
+    assert "拒绝导出" in result.stdout
+    assert not target.exists()
