@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tandem Harness · OSWorld 2.1 工作台</title>
 <link rel="stylesheet" href="assets/app.css">
+<link rel="stylesheet" href="assets/views.css">
 </head>
 <body>
 <header class="topbar">
@@ -24,7 +25,10 @@
   </div>
 </header>
 
-<div id="disclaimer" class="disclaimer" hidden></div>
+<details id="disclaimer" class="disclaimer" open hidden>
+  <summary id="disclaimer-summary"></summary>
+  <div id="disclaimer-body"></div>
+</details>
 
 <main id="app" class="app">
   <div class="loading">加载中…</div>

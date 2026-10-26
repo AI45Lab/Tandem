@@ -175,14 +175,17 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     out_dir = args.out
     out_dir.mkdir(parents=True, exist_ok=True)
-    # 清掉上一轮产物：只删我们自己生成的 index.html 与 assets/，
-    # 不动目标目录里的其它东西（--out 可能指向共享目录）
-    stale_assets = out_dir / "assets"
-    if stale_assets.is_dir():
-        shutil.rmtree(stale_assets)
-    stale_index = out_dir / "index.html"
-    if stale_index.is_file():
-        stale_index.unlink()
+    # 清掉上一轮产物（只删我们自己生成的那几个名字，不动目标目录里的其它东西：
+    # --out 可能指向共享目录）。旧版站点留下的 task/ 与 compare.html 也要清，
+    # 否则两代产物会混在一起。
+    for name in ("assets", "task"):
+        stale = out_dir / name
+        if stale.is_dir():
+            shutil.rmtree(stale)
+    for name in ("index.html", "compare.html"):
+        stale = out_dir / name
+        if stale.is_file():
+            stale.unlink()
 
     official = load_official(args.data_dir)
     rows = collect_rows(runs_root)
@@ -208,6 +211,17 @@ def main(argv: list[str] | None = None) -> int:
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(item, target)
 
+    # 官方参考帧：把缓存拷进站点（站点自包含，不依赖外部与缓存目录）
+    sai_frames_src = REPO_ROOT / "demo" / ".cache" / "sai_frames"
+    sai_frame_count = 0
+    if sai_frames_src.is_dir():
+        for task_dir in sorted(p for p in sai_frames_src.iterdir() if p.is_dir()):
+            target_dir = out_dir / "assets" / "sai_frames" / task_dir.name
+            target_dir.mkdir(parents=True, exist_ok=True)
+            for frame in task_dir.glob("*.jpg"):
+                shutil.copyfile(frame, target_dir / frame.name)
+                sai_frame_count += 1
+
     price = (overview["ours"] or {}).get("price")
     episodes = build_episodes(out_dir, runs_root, subset_tasks, price)
 
@@ -218,6 +232,7 @@ def main(argv: list[str] | None = None) -> int:
     size = sum(path.stat().st_size for path in out_dir.rglob("*") if path.is_file())
     print(f"[build] 站点：{out_dir}")
     print(f"[build] 逐题行 {len(rows)} 题 · 对比子集 {len(subset_tasks)} 题（逐题数据 {episodes} 份）")
+    print(f"[build] 官方参考帧 {sai_frame_count} 张")
     print(f"[build] 体积 {size / 1e6:.1f} MB")
     print(f"[build] 官方数据快照 {overview['official'].get('snapshot')} · "
           f"价格表 {(overview['ours'].get('price') or {}).get('snapshot')}")

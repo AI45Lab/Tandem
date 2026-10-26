@@ -38,6 +38,8 @@ def collect_rows(runs_root: Path, prefix: str = "") -> list[dict[str, Any]]:
     rows = _collect_rows(Path(runs_root), prefix)
     for row in rows:
         row["task"] = normalize_task_id(row.get("task") or "")
+        # tools 给的键是 "run"，站点要按 run 寻址逐题数据 → 补一个 run_id
+        row["run_id"] = row.get("run") or ""
     return rows
 
 

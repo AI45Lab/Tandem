@@ -15,3 +15,4 @@ results/
 demo/site/
 *.log
 infra/config.json
+demo/.cache/

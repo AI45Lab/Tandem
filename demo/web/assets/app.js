@@ -90,16 +90,17 @@ window.TD = (function () {
   /* ------------------------------------------------------------ 披露条 */
   function renderDisclaimer() {
     var node = document.getElementById("disclaimer");
+    var summary = document.getElementById("disclaimer-summary");
+    var body = document.getElementById("disclaimer-body");
     var overview = state.overview;
-    if (!node || !overview) return;
-    var ours = overview.ours || {};
+    if (!node || !summary || !body || !overview) return;
     var notes = (overview.disclaimer_notes) || [];
     if (!notes.length) { node.hidden = true; return; }
-    clear(node);
-    node.appendChild(el("strong", { text: "读数字前先看口径：" }));
-    node.appendChild(el("ul", {}, notes.map(function (note) { return el("li", { text: note }); })));
+    clear(summary);
+    clear(body);
+    summary.appendChild(el("strong", { text: "读数字前先看口径（" + notes.length + " 条）" }));
+    body.appendChild(el("ul", {}, notes.map(function (note) { return el("li", { text: note }); })));
     node.hidden = false;
-    node.dataset.attempted = ours.attempted;
   }
 
   /* ------------------------------------------------------------ 数据 */
