@@ -207,3 +207,45 @@ button.ghost:hover { color: var(--text-1); border-color: var(--accent); }
   color: var(--text-3); font-size: 13.5px; margin-top: 34px; padding-top: 16px;
   border-top: 1px solid var(--line-soft); font-family: var(--mono);
 }
+
+/* --------------------------------------------------------- 首页：简介段 */
+.intro { padding: 56px 0 64px; }
+.intro .eyebrow { color: var(--accent); font-size: 12px; letter-spacing: .24em; text-transform: uppercase; font-family: var(--mono); }
+.intro-title { font-size: 54px; line-height: 1.12; margin: 14px 0 18px; letter-spacing: -.03em; }
+.intro-lede { font-size: 19px; color: var(--text-2); max-width: 72ch; line-height: 1.75; }
+.intro-lede b { color: var(--text-1); font-weight: 600; }
+.intro-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 38px; }
+@media (max-width: 900px) { .intro-cards { grid-template-columns: 1fr; } .intro-title { font-size: 38px; } }
+.intro-card {
+  border: 1px solid var(--line-soft); border-radius: var(--radius);
+  padding: 24px 22px; background: var(--bg-elev);
+}
+.intro-card .card-num { font-family: var(--mono); color: var(--accent); font-size: 13px; letter-spacing: .1em; }
+.intro-card h3 { font-size: 20px; margin: 12px 0 10px; }
+.intro-card p { font-size: 15.5px; color: var(--text-2); line-height: 1.7; }
+
+/* ------------------------------------------------ 首页：机制段（滚动切换） */
+.mech { padding: 60px 0 72px; border-top: 1px solid var(--line-soft); }
+.section-title { font-size: 42px; margin: 12px 0 14px; letter-spacing: -.02em; }
+.section-lede { font-size: 18px; color: var(--text-2); max-width: 76ch; line-height: 1.7; }
+.mech-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 44px; margin-top: 40px; }
+@media (max-width: 1100px) { .mech-layout { grid-template-columns: 1fr; } .mech-sticky { position: static; } }
+.mech-sticky { position: sticky; top: 96px; }
+.mech-card { display: none; }
+.mech-card.active { display: block; animation: fade-up .45s ease both; }
+.mech-card-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.mech-card-head b { font-size: 22px; }
+.mech-role { margin-left: auto; font-family: var(--mono); font-size: 12px; color: var(--text-3); }
+.mech-steps { display: grid; }
+.mech-step {
+  min-height: 52vh; display: flex; flex-direction: column; justify-content: center;
+  opacity: .3; transition: opacity .4s ease; border-left: 2px solid transparent; padding-left: 20px;
+}
+.mech-step.active { opacity: 1; border-left-color: var(--accent); }
+.mech-step .mech-step-no { font-family: var(--mono); color: var(--accent); font-size: 13px; }
+.mech-step h3 { font-size: 27px; margin: 10px 0 12px; }
+.mech-step p { font-size: 16.5px; color: var(--text-2); max-width: 48ch; line-height: 1.75; }
+@keyframes fade-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+.swim-wrap { margin-top: 44px; }
+.swim-head-bar { display: flex; gap: 16px; align-items: baseline; margin-bottom: 12px; }
+.swim-head-bar b { font-size: 18px; }

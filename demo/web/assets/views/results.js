@@ -1,4 +1,4 @@
-/* 总览：Hero → 大数字 → OSW2.1 风格对比表 → 战绩热力 → 官方对标 → 成本散点
+/* 结果区：标题 → 大数字 → OSW2.1 风格对比表 → 战绩热力
  *
  * 版式原则：一屏一个论点；大字、少小字说明；口径差异写在对比表同一行里，
  * 不另开一块"注意事项"。
@@ -144,7 +144,9 @@
     ]);
   }
 
-  TD.views.overview = function (container) {
+  /* 结果区（首页的第三段）：OSWorld v2.1 测评结果 */
+  TD.sections = TD.sections || {};
+  TD.sections.results = function (container) {
     var overview = TD.state.overview;
     if (!overview) {
       container.appendChild(TD.el("div", { class: "callout bad", text: "没有内联的总览数据——请用构建脚本生成站点。" }));
