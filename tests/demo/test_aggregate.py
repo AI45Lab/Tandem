@@ -148,3 +148,13 @@ def test_unscored_sai_full_counts_float_tail_as_full(tmp_path):
     summary = compare_summary(rows, sai_tasks, overview)
     assert summary["ours_unscored"] == 1
     assert summary["unscored_sai_full"] == 1
+
+
+def test_compare_rows_carry_run_id(tmp_path):
+    """逐题行要带 run_id：站点按 run 寻址逐题数据，缺了就拼出 undefined 路径。"""
+    make_run(tmp_path)
+    rows = collect_rows(tmp_path)
+    sai_tasks = {"004": {"best": 0.8, "mean": 0.8, "runs": 1}}
+    compared = compare_summary(rows, sai_tasks, build_overview(rows, data_dir=DATA_DIR))
+    assert compared["rows"][0]["run_id"], "对照行必须带 run_id"
+    assert compared["rows"][0]["run_id"].startswith("osw21-run-")

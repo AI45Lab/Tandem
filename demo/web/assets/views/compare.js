@@ -205,9 +205,22 @@
     ]);
     var player = TD.el("div");
     gridPanel.appendChild(subsetGrid(rows, function (taskId) {
+      var row = rows.filter(function (item) { return item.task === taskId; })[0] || {};
       TD.clear(player);
-      player.appendChild(duoPlayer(container, taskId, null));
-      player.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      player.appendChild(TD.el("div", { class: "panel" }, [
+        TD.el("h2", { text: "载入我们的逐题数据…" })
+      ]));
+      TD.loadEpisode(row.run_id || "", taskId, function (episode, error) {
+        TD.clear(player);
+        if (!episode) {
+          player.appendChild(TD.el("div", { class: "callout bad", text:
+            "载入我们的逐题数据失败：" + (error || "未知错误") +
+            "（file:// 下浏览器会拦本地 fetch，请用 python3 -m http.server 打开）" }));
+          return;
+        }
+        player.appendChild(duoPlayer(container, taskId, episode));
+        player.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      });
     }));
     container.appendChild(gridPanel);
     container.appendChild(player);

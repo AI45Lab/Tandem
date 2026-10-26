@@ -150,3 +150,16 @@ def test_export_refuses_when_red_line_fails(tmp_path):
     assert result.returncode == 1
     assert "拒绝导出" in result.stdout
     assert not target.exists()
+
+
+def test_built_site_ships_view_stylesheet_and_official_reference_data(tmp_path):
+    """站点要带上视图样式与官方参考轨迹（含帧映射），否则对照页是对不上的。"""
+    runs_root = _fixture(tmp_path)
+    out_dir = tmp_path / "site"
+    assert build_site(tmp_path, runs_root, out_dir).returncode == 0
+    assert (out_dir / "assets" / "views.css").is_file()
+    traj_dir = out_dir / "assets" / "data" / "sai_traj"
+    assert traj_dir.is_dir()
+    payloads = [json.loads(path.read_text(encoding="utf-8")) for path in traj_dir.glob("*.json")]
+    assert payloads, "官方参考轨迹没进站点"
+    assert all("steps" in payload for payload in payloads)

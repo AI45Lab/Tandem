@@ -199,6 +199,7 @@ def compare_rows(
         out.append(
             {
                 "task": task,
+                "run_id": row.get("run_id") or "",
                 "ours": score,
                 "ours_status": row.get("status"),
                 "ours_stop": row.get("stop"),
