@@ -1,33 +1,39 @@
 """把事件流 + 慢模型调用 + 轨迹合成**逐步泳道数据**。
 
-每一步要给三样东西（机制视图与轨迹对照都靠它）：
+**一行 = 一次观察（= 一帧 = 一次动作）**，而不是一个事件。口径来自
+`docs/RESULT_DIR_CONTRACT.md`：
 
-- **慢模型这一趟**：原文摘要 + token + 花费 + 耗时（plan/verify 的角色与原文）；
+- 事件流按 `step` 分桶：桶 s 里有 planner / stage_local / gui|cli / action；
+- **核验落在下一步骤桶**（动作步 s 的裁决取自 s+1 桶）；
+- 截图索引 0 基 = **动作执行后**，与 `traj.step_idx = 截图索引 + 1` 对应；
+- `traj.wall_time` 是这次观察的时刻 → 第 i 步的耗时 = `t[i] - t[i-1]`，
+  第 i 步期间发生的慢模型调用 = 落在 `(t[i-1], t[i]]` 窗口里的调用。
+
+每行给三样东西（机制泳道与轨迹对照都靠它）：
+
+- **慢模型这一趟**：原文摘要 + token + 花费 + 耗时；
 - **快模型这一趟**：候选数、赢家、两阶段 margin、排序延迟；
-- **实际发生的动作**：编译出来的可执行动作 + 本步墙钟。
-
-**成本怎么归到步上**：`llm_calls.jsonl` 的每次调用都带 `time`，
-`traj.jsonl` 的每条观察都带 `wall_time`（观察发生在动作执行之后）。
-于是「一次调用属于哪一步」= 找到第一个 `wall_time >= 调用时刻` 的观察；
-早于第一条观察的调用归到第 0 步，晚于全部观察的归到最后一步。
+- **实际发生的动作**：编译出来的可执行动作 + 本步核验结论。
 
 只统计慢模型调用（快模型是本地 GPU，不折美元）。
 """
 
 from __future__ import annotations
 
+from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
 #: 慢模型原文在泳道里显示的长度上限
 TEXT_LIMIT = 700
 
-#: 单步慢模型调用数上限（异常题可能一轮里多次重试）
-MAX_CALLS_PER_STEP = 12
+#: 判定"这一步执行了什么"的路由
+_ACTION_KINDS = {"gui", "cli"}
+_VERIFY_KINDS = {"gui_verified", "cli_verified"}
 
 
-def _calls_by_step(episode_dir: Path, step_times: list[float]) -> list[list[dict[str, Any]]]:
-    """把慢模型调用按时间窗分到各步。"""
+def _calls_by_window(episode_dir: Path, times: list[float]) -> list[list[dict[str, Any]]]:
+    """把慢模型调用按观察窗归位：第 i 窗 = (t[i-1], t[i]]。"""
     from .llm import iter_llm_calls
 
     calls: list[dict[str, Any]] = []
@@ -53,28 +59,26 @@ def _calls_by_step(episode_dir: Path, step_times: list[float]) -> list[list[dict
         )
     calls.sort(key=lambda item: item["time"])
 
-    buckets: list[list[dict[str, Any]]] = [[] for _ in step_times]
-    if not step_times:
-        return buckets
+    windows: list[list[dict[str, Any]]] = [[] for _ in times]
+    if not times:
+        return windows
     for call in calls:
-        index = len(step_times) - 1
-        for position, moment in enumerate(step_times):
+        index = 0
+        for position, moment in enumerate(times):
             if call["time"] <= moment:
                 index = position
                 break
-        buckets[index].append(call)
-    return buckets
+        else:
+            index = len(times) - 1
+        windows[index].append(call)
+    return windows
 
 
-def _elapsed(times: list[float], index: int) -> float:
-    """本步墙钟：与上一次观察的差。"""
-    if index >= len(times):
-        return 0.0
-    current = times[index]
-    previous = times[index - 1] if index > 0 else None
-    if previous is None:
-        return max(current - (current - 60.0), 0.0)  # 第一步没有参照，给个量级
-    return max(current - previous, 0.0)
+def _pick(bucket: list[dict[str, Any]], kinds: set[str]) -> dict[str, Any] | None:
+    for item in bucket:
+        if item.get("kind") in kinds:
+            return item
+    return None
 
 
 def build_timeline(
@@ -84,22 +88,31 @@ def build_timeline(
     *,
     price: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
-    """逐步泳道数据。"""
+    """逐步泳道数据（一行 = 一次观察 / 一帧 / 一次动作）。"""
     from .traj import iter_traj
 
-    step_times: list[float] = []
+    times: list[float] = []
     for record in iter_traj(episode_dir):
         moment = record.get("wall_time")
-        step_times.append(float(moment) if isinstance(moment, (int, float)) else 0.0)
-    calls = _calls_by_step(episode_dir, step_times)
+        times.append(float(moment) if isinstance(moment, (int, float)) else 0.0)
+    windows = _calls_by_window(episode_dir, times)
+
+    buckets: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    for step in steps_detail:
+        number = step.get("step")
+        if isinstance(number, int):
+            buckets[number].append(step)
 
     rate_in = float((price or {}).get("input_per_1m") or 0.0)
     rate_out = float((price or {}).get("output_per_1m") or 0.0)
     rate_cached = float((price or {}).get("cached_per_1m") or 0.0)
 
     timeline: list[dict[str, Any]] = []
-    for index, step in enumerate(steps_detail):
-        step_calls = calls[index] if index < len(calls) else []
+    for index in range(len(times)):
+        bucket = buckets.get(index, [])
+        next_bucket = buckets.get(index + 1, [])
+        step_calls = windows[index] if index < len(windows) else []
+
         prompt = sum(call["prompt_tokens"] for call in step_calls)
         completion = sum(call["completion_tokens"] for call in step_calls)
         cached = sum(call["cached_tokens"] for call in step_calls)
@@ -108,40 +121,53 @@ def build_timeline(
             + cached / 1e6 * rate_cached
             + completion / 1e6 * rate_out
         )
+
         slow_text = ""
         for call in step_calls:
             if call["text"].strip():
                 slow_text = call["text"]
                 break
-        ranking = step.get("ranking") or {}
-        frame = next((item for item in frames if item.get("step_idx") == step.get("step")), None)
+
+        action_step = _pick(bucket, _ACTION_KINDS) or {}
+        verify_step = _pick(next_bucket, _VERIFY_KINDS) or {}
+        planner_step = _pick(bucket, {"planner"}) or {}
+        replan_step = _pick(bucket, {"stage_replan"}) or _pick(next_bucket, {"stage_replan"}) or {}
+        ranking = action_step.get("ranking") or {}
+        frame = frames[index] if index < len(frames) else None
+        elapsed = (times[index] - times[index - 1]) if index > 0 else 0.0
+
         timeline.append(
             {
-                "step": step.get("step"),
-                "kind": step.get("kind"),
+                "step": index,
+                "kind": action_step.get("kind") or "",
                 "slow": {
                     "calls": len(step_calls),
                     "role": step_calls[0]["role"] if step_calls else "",
                     "text": slow_text,
+                    "goal": planner_step.get("plan", {}).get("current_goal")
+                    if isinstance(planner_step.get("plan"), dict) else None,
                     "prompt_tokens": prompt,
                     "completion_tokens": completion,
                     "reasoning_tokens": sum(call["reasoning_tokens"] for call in step_calls),
                 },
                 "fast": {
-                    "n_candidates": step.get("n_candidates"),
-                    "winner": (step.get("winner") or {}).get("operation"),
+                    "n_candidates": action_step.get("n_candidates"),
+                    "winner": (action_step.get("winner") or {}).get("operation"),
                     "operation_margin": ranking.get("operation_margin"),
                     "target_margin": ranking.get("target_margin"),
                     "latency_ms": ranking.get("latency_ms"),
                     "used_image": ranking.get("used_image"),
                 },
-                "action": step.get("action") or step.get("winner") or step.get("command"),
-                "noop": bool(step.get("noop")),
-                "outcome": (step.get("verification") or {}).get("outcome"),
+                "action": action_step.get("action") or action_step.get("winner")
+                           or action_step.get("command"),
+                "noop": bool(action_step.get("noop")),
+                "outcome": (verify_step.get("verification") or {}).get("outcome"),
+                "replan": replan_step.get("reason"),
                 "cost_usd": round(cost, 6),
                 "tokens": prompt + completion,
-                "elapsed_ms": round(_elapsed(step_times, index) * 1000, 1),
+                "elapsed_ms": round(elapsed * 1000, 1),
                 "frame": (frame or {}).get("src"),
+                "frame_step": (frame or {}).get("step_idx"),
             }
         )
     return timeline
