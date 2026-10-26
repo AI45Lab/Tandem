@@ -194,25 +194,35 @@ def sync_sai_trajectories(offline: bool) -> int:
             steps.append(
                 {
                     "step_num": record.get("step_num"),
+                    "action_timestamp": record.get("action_timestamp"),
                     "action": _trim(record.get("action"), 200),
+                    "response": _trim(record.get("response"), 400),
                     "reward": record.get("reward"),
                     "done": record.get("done"),
                     "screenshot_file": record.get("screenshot_file"),
                     "osworld_action": _trim(record.get("osworld_action"), 200),
                 }
             )
-        write_json(
-            target,
-            {
-                "task": task,
-                "run": run,
-                "score": info.get("best"),
-                "mean": info.get("mean"),
-                "source_url": f"{SAI_REPO}/runs/{run}/{task}/traj.jsonl",
-                "fetched_at": now_iso(),
-                "steps": steps,
-            },
-        )
+        # 保留已有的帧映射（抓帧是另一个步骤，别把彼此的产物冲掉）
+        previous = {}
+        if target.is_file():
+            try:
+                previous = json.loads(target.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                previous = {}
+        payload = {
+            "task": task,
+            "run": run,
+            "score": info.get("best"),
+            "mean": info.get("mean"),
+            "source_url": f"{SAI_REPO}/runs/{run}/{task}/traj.jsonl",
+            "fetched_at": now_iso(),
+            "steps": steps,
+        }
+        for key in ("frames", "frames_dir"):
+            if previous.get(key):
+                payload[key] = previous[key]
+        write_json(target, payload)
         count += 1
     return count
 

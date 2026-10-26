@@ -4,10 +4,11 @@
   "score": 0.5,
   "mean": 0.5,
   "source_url": "https://huggingface.co/datasets/simular-ai/sai-osworld-v21-reference-runs/resolve/main/runs/v21-ref5-rest-20260923T103950Z/035/traj.jsonl",
-  "fetched_at": "2026-10-26T06:55:20Z",
+  "fetched_at": "2026-10-26T08:02:12Z",
   "steps": [
     {
       "step_num": 1,
+      "action_timestamp": "20260923@111930013629",
       "action": {
         "id": "toolu_bdrk_013CZVjGTWdRjVD5g1dk2Qbi",
         "name": "execute",
@@ -16,6 +17,7 @@
           "code": "var machine = getMachine((await listMachines())[0].id)\nvar wins = await machine.listAppWindows()\nconsole.log(JSON.stringify(wins, null, 2))\n"
         }
       },
+      "response": "I'll start by taking a look at the current state of the screen to understand the environment.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_1_20260923@111930013629.png",
@@ -23,6 +25,7 @@
     },
     {
       "step_num": 2,
+      "action_timestamp": "20260923@111943106728",
       "action": {
         "id": "toolu_bdrk_01Hc9FDLGPozhXt1vD9Mthz8",
         "name": "execute",
@@ -31,6 +34,7 @@
           "title": "Taking a screenshot of the browser"
         }
       },
+      "response": "Sai executed execute (success) in 2589 ms. 94 chars; calls: getAppWindow; 31542 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_2_20260923@111943106728.png",
@@ -38,6 +42,7 @@
     },
     {
       "step_num": 3,
+      "action_timestamp": "20260923@111957956568",
       "action": {
         "id": "toolu_bdrk_01HTSadyJaiAphxh1RCLDzLm",
         "name": "execute",
@@ -46,6 +51,7 @@
           "title": "Allowing notifications for TeamChat"
         }
       },
+      "response": "Sai executed execute (success) in 2472 ms. 94 chars; calls: click; 34526 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_3_20260923@111957956568.png",
@@ -53,6 +59,7 @@
     },
     {
       "step_num": 4,
+      "action_timestamp": "20260923@112014416352",
       "action": {
         "id": "toolu_bdrk_018BKQsSqc9DMQnr4Bmqrdp1",
         "name": "execute",
@@ -61,6 +68,7 @@
           "title": "Opening the finance-approvals channel"
         }
       },
+      "response": "Sai executed execute (success) in 4744 ms. 198 chars; calls: click; 34901 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_4_20260923@112014416352.png",
@@ -68,6 +76,7 @@
     },
     {
       "step_num": 5,
+      "action_timestamp": "20260923@112034973102",
       "action": {
         "id": "toolu_bdrk_01FYekWaMibJaYmFhkPttT1q",
         "name": "execute",
@@ -76,6 +85,7 @@
           "title": "Opening the general channel"
         }
       },
+      "response": "Sai executed execute (success) in 5263 ms. 630 chars; calls: click; 35310 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_5_20260923@112034973102.png",
@@ -83,6 +93,7 @@
     },
     {
       "step_num": 6,
+      "action_timestamp": "20260923@112055633350",
       "action": {
         "id": "toolu_bdrk_01UPA5bPAHNhqmWm3RvKzN3n",
         "name": "execute",
@@ -91,6 +102,7 @@
           "title": "Reading the finance-approvals announcement"
         }
       },
+      "response": "Sai executed execute (success) in 5330 ms. 731 chars; 37743 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_6_20260923@112055633350.png",
@@ -98,6 +110,7 @@
     },
     {
       "step_num": 7,
+      "action_timestamp": "20260923@112112795628",
       "action": {
         "id": "toolu_bdrk_01MwfngdiSPRbSuVHXxrEwNc",
         "name": "execute",
@@ -106,6 +119,7 @@
           "title": "Opening the DM with Sarah"
         }
       },
+      "response": "Sai executed execute (success) in 5228 ms. 249 chars; calls: click; 37441 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_7_20260923@112112795628.png",
@@ -113,6 +127,7 @@
     },
     {
       "step_num": 8,
+      "action_timestamp": "20260923@112137100867",
       "action": {
         "id": "toolu_bdrk_01BHnoosjKHAGkx53BitEWAZ",
         "name": "execute",
@@ -121,6 +136,7 @@
           "title": "Opening the DM with Alex"
         }
       },
+      "response": "Sai executed execute (success) in 3457 ms. 1078 chars; 39327 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_8_20260923@112137100867.png",
@@ -128,6 +144,7 @@
     },
     {
       "step_num": 9,
+      "action_timestamp": "20260923@112156319133",
       "action": {
         "id": "toolu_bdrk_01XWTXWaZ8NwDZ7ti8QZjHmA",
         "name": "execute",
@@ -136,6 +153,7 @@
           "title": "Opening the DM with S. Jones"
         }
       },
+      "response": "Sai executed execute (success) in 3413 ms. 425 chars; calls: click; 39380 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_9_20260923@112156319133.png",
@@ -143,6 +161,7 @@
     },
     {
       "step_num": 10,
+      "action_timestamp": "20260923@112212079385",
       "action": {
         "id": "toolu_bdrk_01TCNAviZiHwWjynsixcSQiF",
         "name": "execute",
@@ -151,6 +170,7 @@
           "title": "Opening the DM with Mike"
         }
       },
+      "response": "Sai executed execute (success) in 3379 ms. 276 chars; calls: click; 40091 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_10_20260923@112212079385.png",
@@ -158,6 +178,7 @@
     },
     {
       "step_num": 11,
+      "action_timestamp": "20260923@112227115113",
       "action": {
         "id": "toolu_bdrk_01EHuZZRGxhgpZmCzD5DAMJJ",
         "name": "execute",
@@ -166,6 +187,7 @@
           "title": "Opening the DM with Jessica"
         }
       },
+      "response": "Sai executed execute (success) in 3402 ms. 272 chars; calls: click; 40519 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_11_20260923@112227115113.png",
@@ -173,6 +195,7 @@
     },
     {
       "step_num": 12,
+      "action_timestamp": "20260923@112249244268",
       "action": {
         "id": "toolu_bdrk_0115DSu4R528xp7d1NoJsX7J",
         "name": "execute",
@@ -181,6 +204,7 @@
           "title": "Re-reading the finance-approvals channel from the top"
         }
       },
+      "response": "Sai executed execute (success) in 6161 ms. 474 chars; calls: click, move, press; 40914 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_12_20260923@112249244268.png",
@@ -188,6 +212,7 @@
     },
     {
       "step_num": 13,
+      "action_timestamp": "20260923@112301622466",
       "action": {
         "id": "toolu_bdrk_01HAWCktLBFWuHLewdmKVXPR",
         "name": "execute",
@@ -196,6 +221,7 @@
           "title": "Locating the Purchase Order Form on the Desktop"
         }
       },
+      "response": "Sai executed execute (success) in 540 ms. 131 chars; calls: exec; 42080 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_13_20260923@112301622466.png",
@@ -203,6 +229,7 @@
     },
     {
       "step_num": 14,
+      "action_timestamp": "20260923@112314370787",
       "action": {
         "id": "toolu_bdrk_01HnpyzTSs6SazhJBSnUU1ea",
         "name": "execute",
@@ -211,6 +238,7 @@
           "title": "Reading the purchase order workbook contents"
         }
       },
+      "response": "Sai executed execute (error) in 637 ms. 656 chars; calls: writeToFile, exec; 39713 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_14_20260923@112314370787.png",
@@ -218,6 +246,7 @@
     },
     {
       "step_num": 15,
+      "action_timestamp": "20260923@112328256327",
       "action": {
         "id": "toolu_bdrk_01FUJbAUtRYi4QaVLFyBnTKA",
         "name": "execute",
@@ -226,6 +255,7 @@
           "title": "Extracting the workbook XML to read its data"
         }
       },
+      "response": "Sai executed execute (success) in 551 ms. 314 chars; calls: exec; 39775 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_15_20260923@112328256327.png",
@@ -233,6 +263,7 @@
     },
     {
       "step_num": 16,
+      "action_timestamp": "20260923@112342290010",
       "action": {
         "id": "toolu_bdrk_01KUwywr9zjyRZtpfPAfTgX5",
         "name": "execute",
@@ -241,6 +272,7 @@
           "title": "Reading the worksheet structure and existing rows"
         }
       },
+      "response": "Sai executed execute (success) in 525 ms. 284 chars; calls: exec; 41304 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_16_20260923@112342290010.png",
@@ -248,6 +280,7 @@
     },
     {
       "step_num": 17,
+      "action_timestamp": "20260923@112407161240",
       "action": {
         "id": "toolu_bdrk_014z16u5wJ5B6BwVyCNpeWwZ",
         "name": "execute",
@@ -256,6 +289,7 @@
           "title": "Mapping the TeamChat sidebar buttons"
         }
       },
+      "response": "Sai executed execute (success) in 2957 ms. 362 chars; 44214 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_17_20260923@112407161240.png",
@@ -263,6 +297,7 @@
     },
     {
       "step_num": 18,
+      "action_timestamp": "20260923@112425225321",
       "action": {
         "id": "toolu_bdrk_012HwAsEiJWFFXpvCjsk2Pq1",
         "name": "execute",
@@ -271,6 +306,7 @@
           "title": "Probing the TeamChat web app for an API"
         }
       },
+      "response": "Sai executed execute (success) in 688 ms. 206 chars; calls: exec; 45761 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_18_20260923@112425225321.png",
@@ -278,6 +314,7 @@
     },
     {
       "step_num": 19,
+      "action_timestamp": "20260923@112438053365",
       "action": {
         "id": "toolu_bdrk_01PPsVn3kkBqPxxF3Yh3joT7",
         "name": "execute",
@@ -286,6 +323,7 @@
           "title": "Checking the TeamChat app structure and endpoints"
         }
       },
+      "response": "Sai executed execute (success) in 1251 ms. 483 chars; calls: exec; 43862 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_19_20260923@112438053365.png",
@@ -293,6 +331,7 @@
     },
     {
       "step_num": 20,
+      "action_timestamp": "20260923@112451266360",
       "action": {
         "id": "toolu_bdrk_01Nqnkw9xnU8kvba69G6Pcok",
         "name": "execute",
@@ -301,6 +340,7 @@
           "title": "Downloading the app bundle to look for message data"
         }
       },
+      "response": "Sai executed execute (success) in 619 ms. 323 chars; calls: exec; 44656 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_20_20260923@112451266360.png",
@@ -308,6 +348,7 @@
     },
     {
       "step_num": 21,
+      "action_timestamp": "20260923@112504382740",
       "action": {
         "id": "toolu_bdrk_01Ne4QVqqvAfpgG2K8GXUdnh",
         "name": "execute",
@@ -316,6 +357,7 @@
           "title": "Searching the bundle for its data endpoints"
         }
       },
+      "response": "Sai executed execute (success) in 549 ms. 302 chars; calls: exec; 45215 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_21_20260923@112504382740.png",
@@ -323,6 +365,7 @@
     },
     {
       "step_num": 22,
+      "action_timestamp": "20260923@112518723136",
       "action": {
         "id": "toolu_bdrk_019Med9J7KJDaEmq4bXBb9cw",
         "name": "execute",
@@ -331,6 +374,7 @@
           "title": "Finding the chat API base URL"
         }
       },
+      "response": "Sai executed execute (success) in 585 ms. 309 chars; calls: exec; 46104 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_22_20260923@112518723136.png",
@@ -338,6 +382,7 @@
     },
     {
       "step_num": 23,
+      "action_timestamp": "20260923@112530878232",
       "action": {
         "id": "toolu_bdrk_01G7mKiUfS5rMrfqJGmjbLyH",
         "name": "execute",
@@ -346,6 +391,7 @@
           "title": "Trying the TeamChat API endpoints"
         }
       },
+      "response": "Sai executed execute (success) in 1007 ms. 266 chars; calls: exec; 46889 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_23_20260923@112530878232.png",
@@ -353,6 +399,7 @@
     },
     {
       "step_num": 24,
+      "action_timestamp": "20260923@112607079256",
       "action": {
         "id": "toolu_bdrk_016QtzQzPaPgh31JhFAn36SH",
         "name": "execute",
@@ -361,6 +408,7 @@
           "title": "Setting up a helper to read conversation text"
         }
       },
+      "response": "Sai executed execute (success) in 514 ms. 353 chars; 48000 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_24_20260923@112607079256.png",
@@ -368,6 +416,7 @@
     },
     {
       "step_num": 25,
+      "action_timestamp": "20260923@112653284804",
       "action": {
         "id": "toolu_bdrk_01NKMWGHysNaJsYAiAKAfwqT",
         "name": "execute",
@@ -376,6 +425,7 @@
           "title": "Polling all TeamChat conversations for updates"
         }
       },
+      "response": "Sai executed execute (success) in 29900 ms. 849 chars; calls: click; 49340 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_25_20260923@112653284804.png",
@@ -383,6 +433,7 @@
     },
     {
       "step_num": 26,
+      "action_timestamp": "20260923@112916509861",
       "action": {
         "id": "toolu_bdrk_019sq4QDCEcxtGJBgCP2QxDR",
         "name": "execute",
@@ -391,6 +442,7 @@
           "title": "Waiting and polling TeamChat for new messages"
         }
       },
+      "response": "Sai executed execute (error) in 120446 ms. 1036 chars; 55777 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_26_20260923@112916509861.png",
@@ -398,6 +450,7 @@
     },
     {
       "step_num": 27,
+      "action_timestamp": "20260923@112934897493",
       "action": {
         "id": "toolu_bdrk_01CoFtMd8f4Q8nvA12pMf7s6",
         "name": "execute",
@@ -406,6 +459,7 @@
           "title": "Re-establishing the automation session"
         }
       },
+      "response": "Sai executed execute (success) in 3400 ms. 1057 chars; calls: getAppWindow, click; 50740 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_27_20260923@112934897493.png",
@@ -413,6 +467,7 @@
     },
     {
       "step_num": 28,
+      "action_timestamp": "20260923@113025724272",
       "action": {
         "id": "toolu_bdrk_015Lonz91QLDT7UTPS7qknrF",
         "name": "execute",
@@ -421,6 +476,7 @@
           "title": "Saving notes and checking the general channel"
         }
       },
+      "response": "Sai executed execute (success) in 27777 ms. 2114 chars; calls: writeToFile; 51804 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_28_20260923@113025724272.png",
@@ -428,6 +484,7 @@
     },
     {
       "step_num": 29,
+      "action_timestamp": "20260923@113040074312",
       "action": {
         "id": "toolu_bdrk_01H8cnTavfQqm3NS7mRYkJzD",
         "name": "execute",
@@ -436,6 +493,7 @@
           "title": "Reviewing the latest messages in each conversation"
         }
       },
+      "response": "Sai executed execute (success) in 451 ms. 171 chars; 57045 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_29_20260923@113040074312.png",
@@ -443,6 +501,7 @@
     },
     {
       "step_num": 30,
+      "action_timestamp": "20260923@113100270233",
       "action": {
         "id": "toolu_bdrk_017aFS9VSLFGrp86deAEkqiY",
         "name": "execute",
@@ -451,6 +510,7 @@
           "title": "Re-reading the DM with Jessica"
         }
       },
+      "response": "Sai executed execute (success) in 4601 ms. 362 chars; calls: click; 55833 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_30_20260923@113100270233.png",
@@ -458,6 +518,7 @@
     },
     {
       "step_num": 31,
+      "action_timestamp": "20260923@113123194651",
       "action": {
         "id": "toolu_bdrk_013QFhjHh3kVWXgfpSY8eZpY",
         "name": "execute",
@@ -466,6 +527,7 @@
           "title": "Checking whether a spreadsheet library can be installed"
         }
       },
+      "response": "Sai executed execute (success) in 3632 ms. 189 chars; calls: exec; 57594 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_31_20260923@113123194651.png",
@@ -473,6 +535,7 @@
     },
     {
       "step_num": 32,
+      "action_timestamp": "20260923@113137529355",
       "action": {
         "id": "toolu_bdrk_01ESxyzKw2hYQHgKTtaN3PVg",
         "name": "execute",
@@ -481,6 +544,7 @@
           "title": "Inspecting the worksheet formatting"
         }
       },
+      "response": "Sai executed execute (error) in 846 ms. 852 chars; calls: writeToFile, exec; 55768 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_32_20260923@113137529355.png",
@@ -488,6 +552,7 @@
     },
     {
       "step_num": 33,
+      "action_timestamp": "20260923@113150267101",
       "action": {
         "id": "toolu_bdrk_018XM51PmYoXb1iTiKUJz9oQ",
         "name": "execute",
@@ -496,6 +561,7 @@
           "title": "Inspecting cell styles in the worksheet"
         }
       },
+      "response": "Sai executed execute (success) in 818 ms. 880 chars; calls: writeToFile, exec; 56141 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_33_20260923@113150267101.png",
@@ -503,6 +569,7 @@
     },
     {
       "step_num": 34,
+      "action_timestamp": "20260923@113352126478",
       "action": {
         "id": "toolu_bdrk_013LdZrtc25FbSvP7EGYjQWa",
         "name": "execute",
@@ -511,6 +578,7 @@
           "title": "Monitoring TeamChat for new messages"
         }
       },
+      "response": "Sai executed execute (success) in 104927 ms. 354 chars; 61027 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_34_20260923@113352126478.png",
@@ -518,6 +586,7 @@
     },
     {
       "step_num": 35,
+      "action_timestamp": "20260923@113423390287",
       "action": {
         "id": "toolu_bdrk_017sbjv2UQ7nxzTogWp9CATg",
         "name": "execute",
@@ -526,6 +595,7 @@
           "title": "Scrolling to the bottom of the general channel"
         }
       },
+      "response": "Sai executed execute (success) in 7291 ms. 229 chars; calls: click, move, press; 64018 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_35_20260923@113423390287.png",
@@ -533,6 +603,7 @@
     },
     {
       "step_num": 36,
+      "action_timestamp": "20260923@113442034184",
       "action": {
         "id": "toolu_bdrk_013PRU2Ms683NzNHXjNGdiCa",
         "name": "execute",
@@ -541,6 +612,7 @@
           "title": "Opening the Activity feed"
         }
       },
+      "response": "Sai executed execute (success) in 3445 ms. 94 chars; calls: click; 63035 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_36_20260923@113442034184.png",
@@ -548,6 +620,7 @@
     },
     {
       "step_num": 37,
+      "action_timestamp": "20260923@113503469447",
       "action": {
         "id": "toolu_bdrk_01BERnQeG2AW4EhLcsENiCSB",
         "name": "execute",
@@ -556,6 +629,7 @@
           "title": "Searching TeamChat for CorpTech mentions"
         }
       },
+      "response": "Sai executed execute (success) in 6009 ms. 184 chars; calls: click, type; 63297 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_37_20260923@113503469447.png",
@@ -563,6 +637,7 @@
     },
     {
       "step_num": 38,
+      "action_timestamp": "20260923@113527974872",
       "action": {
         "id": "toolu_bdrk_01RBBAz45JWMKGnA9nEjkyWq",
         "name": "execute",
@@ -571,6 +646,7 @@
           "title": "Searching TeamChat for approval decisions"
         }
       },
+      "response": "Sai executed execute (success) in 5068 ms. 153 chars; calls: press, type; 63969 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_38_20260923@113527974872.png",
@@ -578,6 +654,7 @@
     },
     {
       "step_num": 39,
+      "action_timestamp": "20260923@113548364965",
       "action": {
         "id": "toolu_bdrk_01YPBv5Zpk4ZbbR6BA29d7JU",
         "name": "execute",
@@ -586,6 +663,7 @@
           "title": "Searching for approval-related messages"
         }
       },
+      "response": "Sai executed execute (success) in 6142 ms. 265 chars; calls: click, press, type; 64905 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_39_20260923@113548364965.png",
@@ -593,6 +671,7 @@
     },
     {
       "step_num": 40,
+      "action_timestamp": "20260923@113610860787",
       "action": {
         "id": "toolu_bdrk_01YSW2MkJUC3HA3ygEuZTCiw",
         "name": "execute",
@@ -601,6 +680,7 @@
           "title": "Searching for all approval messages"
         }
       },
+      "response": "Sai executed execute (success) in 8299 ms. 363 chars; calls: click, type; 65518 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_40_20260923@113610860787.png",
@@ -608,6 +688,7 @@
     },
     {
       "step_num": 41,
+      "action_timestamp": "20260923@113806667012",
       "action": {
         "id": "toolu_bdrk_01HbcVRQZSt5vu49Wz9BsiPb",
         "name": "execute",
@@ -616,6 +697,7 @@
           "title": "Continuing to monitor TeamChat for updates"
         }
       },
+      "response": "Sai executed execute (success) in 100304 ms. 432 chars; 66989 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_41_20260923@113806667012.png",
@@ -623,6 +705,7 @@
     },
     {
       "step_num": 42,
+      "action_timestamp": "20260923@113832073873",
       "action": {
         "id": "toolu_bdrk_0153RrNKgNc912rt6NJwDbRg",
         "name": "execute",
@@ -631,6 +714,7 @@
           "title": "Reloading the page to refresh the general channel"
         }
       },
+      "response": "Sai executed execute (success) in 8917 ms. 254 chars; calls: click, press; 67911 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_42_20260923@113832073873.png",
@@ -638,6 +722,7 @@
     },
     {
       "step_num": 43,
+      "action_timestamp": "20260923@113903180464",
       "action": {
         "id": "toolu_bdrk_019xcjQUvsew4k2zyXDbizm9",
         "name": "execute",
@@ -646,6 +731,7 @@
           "title": "Testing a broad search to list all messages"
         }
       },
+      "response": "Sai executed execute (success) in 7986 ms. 470 chars; calls: click, press, type; 68549 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_43_20260923@113903180464.png",
@@ -653,6 +739,7 @@
     },
     {
       "step_num": 44,
+      "action_timestamp": "20260923@113936294924",
       "action": {
         "id": "toolu_bdrk_01Uk8e48qaNzo89WsJUwXwXR",
         "name": "execute",
@@ -661,6 +748,7 @@
           "title": "Scrolling through all search results"
         }
       },
+      "response": "Sai executed execute (success) in 14427 ms. 291 chars; calls: move, press; 70838 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_44_20260923@113936294924.png",
@@ -668,6 +756,7 @@
     },
     {
       "step_num": 45,
+      "action_timestamp": "20260923@114006304974",
       "action": {
         "id": "toolu_bdrk_015P8Fk1WTjm6DgwKy7FDqK9",
         "name": "execute",
@@ -676,6 +765,7 @@
           "title": "Checking the Threads view for replies"
         }
       },
+      "response": "Sai executed execute (success) in 3913 ms. 96 chars; calls: click; 71483 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_45_20260923@114006304974.png",
@@ -683,6 +773,7 @@
     },
     {
       "step_num": 46,
+      "action_timestamp": "20260923@114037620354",
       "action": {
         "id": "toolu_bdrk_01KHxjAzsWbWRXTs26wgnvR5",
         "name": "execute",
@@ -691,6 +782,7 @@
           "title": "Opening the full search results list"
         }
       },
+      "response": "Sai executed execute (success) in 6231 ms. 260 chars; calls: click, press, type; 71871 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_46_20260923@114037620354.png",
@@ -698,6 +790,7 @@
     },
     {
       "step_num": 47,
+      "action_timestamp": "20260923@114055042842",
       "action": {
         "id": "toolu_bdrk_01JNVDPWRgRb9oLJmtqNHCo3",
         "name": "execute",
@@ -706,6 +799,7 @@
           "title": "Scrolling down through the search results"
         }
       },
+      "response": "Sai executed execute (success) in 3563 ms. 140 chars; calls: dragTo; 73258 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_47_20260923@114055042842.png",
@@ -713,6 +807,7 @@
     },
     {
       "step_num": 48,
+      "action_timestamp": "20260923@114112500137",
       "action": {
         "id": "toolu_bdrk_01MYQ2Xi15dkZqkvB8PQWJc2",
         "name": "execute",
@@ -721,6 +816,7 @@
           "title": "Scrolling further through search results"
         }
       },
+      "response": "Sai executed execute (success) in 3510 ms. 141 chars; calls: dragTo; 73757 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_48_20260923@114112500137.png",
@@ -728,6 +824,7 @@
     },
     {
       "step_num": 49,
+      "action_timestamp": "20260923@114130729325",
       "action": {
         "id": "toolu_bdrk_01UMkaFnWaNDXz18r2RfgqAZ",
         "name": "execute",
@@ -736,6 +833,7 @@
           "title": "Filtering search results to messages only"
         }
       },
+      "response": "Sai executed execute (success) in 5343 ms. 238 chars; calls: click; 74308 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_49_20260923@114130729325.png",
@@ -743,6 +841,7 @@
     },
     {
       "step_num": 50,
+      "action_timestamp": "20260923@114223371910",
       "action": {
         "id": "toolu_bdrk_0145aY2qz83gZeNwbpZWkw6u",
         "name": "execute",
@@ -751,6 +850,7 @@
           "title": "Checking DMs and finance channel for new messages"
         }
       },
+      "response": "Sai executed execute (success) in 23922 ms. 577 chars; calls: click; 75424 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_50_20260923@114223371910.png",
@@ -758,6 +858,7 @@
     },
     {
       "step_num": 51,
+      "action_timestamp": "20260923@114247394041",
       "action": {
         "id": "toolu_bdrk_011nR16JMLpEdu9op9Yes1ed",
         "name": "execute",
@@ -766,6 +867,7 @@
           "title": "Confirming the worksheet headers and rows"
         }
       },
+      "response": "Sai executed execute (success) in 873 ms. 531 chars; calls: writeToFile, exec; 79212 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_51_20260923@114247394041.png",
@@ -773,6 +875,7 @@
     },
     {
       "step_num": 52,
+      "action_timestamp": "20260923@114422837566",
       "action": {
         "id": "toolu_bdrk_012GT1fL1hFPZGRMiL5Xtakk",
         "name": "execute",
@@ -781,6 +884,7 @@
           "title": "Monitoring for new manager messages"
         }
       },
+      "response": "Sai executed execute (success) in 84380 ms. 135 chars; 76082 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_52_20260923@114422837566.png",
@@ -788,6 +892,7 @@
     },
     {
       "step_num": 53,
+      "action_timestamp": "20260923@114604764397",
       "action": {
         "id": "toolu_bdrk_01WpND1EXRc7BKd5u6xMNMHt",
         "name": "execute",
@@ -796,6 +901,7 @@
           "title": "Monitoring TeamChat for further updates"
         }
       },
+      "response": "Sai executed execute (success) in 89024 ms. 281 chars; 81196 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_53_20260923@114604764397.png",
@@ -803,6 +909,7 @@
     },
     {
       "step_num": 54,
+      "action_timestamp": "20260923@114757978016",
       "action": {
         "id": "toolu_bdrk_01Qi26LeFWfTX7KJRVRy4SSG",
         "name": "execute",
@@ -811,6 +918,7 @@
           "title": "Waiting for any further TeamChat activity"
         }
       },
+      "response": "Sai executed execute (success) in 100412 ms. 70 chars; 80821 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_54_20260923@114757978016.png",
@@ -818,6 +926,7 @@
     },
     {
       "step_num": 55,
+      "action_timestamp": "20260923@114838908119",
       "action": {
         "id": "toolu_bdrk_01UQNvXuLijnoGiDtv88xA7k",
         "name": "execute",
@@ -826,6 +935,7 @@
           "title": "Checking DMs and searching for recent messages"
         }
       },
+      "response": "Sai executed execute (success) in 30920 ms. 250 chars; 77618 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_55_20260923@114838908119.png",
@@ -833,6 +943,7 @@
     },
     {
       "step_num": 56,
+      "action_timestamp": "20260923@115036229655",
       "action": {
         "id": "toolu_bdrk_01K34HQcyHQYMdhwTg4HGEcV",
         "name": "execute",
@@ -841,6 +952,7 @@
           "title": "Checking for any new conversations in the sidebar"
         }
       },
+      "response": "Sai executed execute (success) in 98075 ms. 216 chars; 81996 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_56_20260923@115036229655.png",
@@ -848,6 +960,7 @@
     },
     {
       "step_num": 57,
+      "action_timestamp": "20260923@115239736602",
       "action": {
         "id": "toolu_bdrk_017wZTJnMfqhT4ouVB4k7XfJ",
         "name": "execute",
@@ -856,6 +969,7 @@
           "title": "Waiting out the notification window"
         }
       },
+      "response": "Sai executed execute (success) in 110616 ms. 70 chars; 81775 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_57_20260923@115239736602.png",
@@ -863,6 +977,7 @@
     },
     {
       "step_num": 58,
+      "action_timestamp": "20260923@115313563566",
       "action": {
         "id": "toolu_bdrk_01Pb14zqbPiC9MQXaPFahL76",
         "name": "execute",
@@ -871,6 +986,7 @@
           "title": "Final check of all TeamChat conversations"
         }
       },
+      "response": "Sai executed execute (success) in 23839 ms. 186 chars; 79398 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_58_20260923@115313563566.png",
@@ -878,6 +994,7 @@
     },
     {
       "step_num": 59,
+      "action_timestamp": "20260923@115346795849",
       "action": {
         "id": "toolu_bdrk_01DUKPxXB5C39CUvJ4UW34PW",
         "name": "execute",
@@ -886,6 +1003,7 @@
           "title": "Re-reading the manager DM in full"
         }
       },
+      "response": "Sai executed execute (success) in 5339 ms. 196 chars; calls: click; 83233 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_59_20260923@115346795849.png",
@@ -893,6 +1011,7 @@
     },
     {
       "step_num": 60,
+      "action_timestamp": "20260923@115413808494",
       "action": {
         "id": "toolu_bdrk_0121yERt6KsTo6n7oUUv6BAp",
         "name": "execute",
@@ -901,6 +1020,7 @@
           "title": "Reviewing the workbook file structure before editing"
         }
       },
+      "response": "Now I'll update the purchase order form with the approved purchase.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_60_20260923@115413808494.png",
@@ -908,6 +1028,7 @@
     },
     {
       "step_num": 61,
+      "action_timestamp": "20260923@115431978238",
       "action": {
         "id": "toolu_bdrk_01Q5vUhNgkSQFS8GpdRLQkqN",
         "name": "execute",
@@ -916,6 +1037,7 @@
           "title": "Appending the approved purchase to the form"
         }
       },
+      "response": "Sai executed execute (success) in 857 ms. 1042 chars; calls: writeToFile, exec; 85153 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_61_20260923@115431978238.png",
@@ -923,6 +1045,7 @@
     },
     {
       "step_num": 62,
+      "action_timestamp": "20260923@115645071816",
       "action": {
         "id": "toolu_bdrk_01LSTn2pMXTxax6wrwFdo9aG",
         "name": "execute",
@@ -931,6 +1054,7 @@
           "title": "Monitoring TeamChat for late updates"
         }
       },
+      "response": "The form is updated. Let me continue monitoring TeamChat in case more messages arrive.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_62_20260923@115645071816.png",
@@ -938,6 +1062,7 @@
     },
     {
       "step_num": 63,
+      "action_timestamp": "20260923@115729708099",
       "action": {
         "id": "toolu_bdrk_01QEUgFozT9w1yMSDFXu3UL2",
         "name": "execute",
@@ -946,6 +1071,7 @@
           "title": "Re-establishing session and baselining conversations"
         }
       },
+      "response": "Sai executed execute (success) in 30218 ms. 1215 chars; calls: getAppWindow, click; 83941 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_63_20260923@115729708099.png",
@@ -953,6 +1079,7 @@
     },
     {
       "step_num": 64,
+      "action_timestamp": "20260923@115908929917",
       "action": {
         "id": "toolu_bdrk_013p4rJjKrFsGqfnYyV7TkZA",
         "name": "execute",
@@ -961,6 +1088,7 @@
           "title": "Monitoring TeamChat for new content"
         }
       },
+      "response": "Sai executed execute (success) in 87148 ms. 218 chars; 88265 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_64_20260923@115908929917.png",
@@ -968,6 +1096,7 @@
     },
     {
       "step_num": 65,
+      "action_timestamp": "20260923@120049846799",
       "action": {
         "id": "toolu_bdrk_01Xmic1GaxRRkuFR8XG5ftgH",
         "name": "execute",
@@ -976,6 +1105,7 @@
           "title": "Final monitoring cycle and verifying the saved form"
         }
       },
+      "response": "Sai executed execute (success) in 85458 ms. 481 chars; calls: exec; 88700 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_65_20260923@120049846799.png",
@@ -983,6 +1113,7 @@
     },
     {
       "step_num": 66,
+      "action_timestamp": "20260923@120236836587",
       "action": {
         "id": "toolu_bdrk_01TgVNkC7cs77KXk2KrSbo8h",
         "name": "execute",
@@ -991,6 +1122,7 @@
           "title": "Monitoring TeamChat once more"
         }
       },
+      "response": "The form has been updated correctly. Let me do a couple more monitoring passes to be certain no late messages arrive.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_66_20260923@120236836587.png",
@@ -998,6 +1130,7 @@
     },
     {
       "step_num": 67,
+      "action_timestamp": "20260923@120255897090",
       "action": {
         "id": "toolu_bdrk_01CpQm7FbdnosZ6Nbw4mBJgy",
         "name": "execute",
@@ -1006,6 +1139,7 @@
           "title": "Verifying the saved file opens correctly"
         }
       },
+      "response": "Sai executed execute (success) in 1108 ms. 323 chars; calls: exec; 90975 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_67_20260923@120255897090.png",
@@ -1013,6 +1147,7 @@
     },
     {
       "step_num": 68,
+      "action_timestamp": "20260923@120431492183",
       "action": {
         "id": "toolu_bdrk_01RUQeC7VeBnq8qGZxjVmtnJ",
         "name": "execute",
@@ -1021,6 +1156,7 @@
           "title": "Final monitoring pass and cleanup"
         }
       },
+      "response": "Sai executed execute (success) in 81266 ms. 398 chars; calls: exec; 89374 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_68_20260923@120431492183.png",
@@ -1028,6 +1164,7 @@
     },
     {
       "step_num": 69,
+      "action_timestamp": "20260923@120446222980",
       "action": {
         "id": "toolu_bdrk_018DVdC3YZZPVNMxGB6Q4Ffs",
         "name": "execute",
@@ -1036,6 +1173,7 @@
           "title": "Reviewing the detected change in general channel"
         }
       },
+      "response": "Sai executed execute (success) in 326 ms. 24 chars; 93223 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_69_20260923@120446222980.png",
@@ -1043,7 +1181,9 @@
     },
     {
       "step_num": 70,
+      "action_timestamp": "20260923@120508737508",
       "action": "DONE",
+      "response": "The task is complete. Here's what I found and did:\n\n## Manager's guidance gathered\n\n**#finance-approvals (pinned announcement — Sarah Jenkins):**\n1. Budget: max **$1,000 per hardware item**\n2. Vendors: IT hardware = **TechMax only**; Office supplies = **OfficeDepot**\n3. Freeze: **no Team Building or Entertainment** this quarter\n4. Software: annual subscriptions only\n+ later: all approved hardware …",
       "reward": 0,
       "done": true,
       "screenshot_file": "step_70_20260923@120508737508.png",
@@ -1051,77 +1191,6 @@
     }
   ],
   "frames": {
-    "initial_state.png": "initial_state.jpg",
-    "step_10_20260923@112212079385.png": "step_10_20260923@112212079385.jpg",
-    "step_11_20260923@112227115113.png": "step_11_20260923@112227115113.jpg",
-    "step_12_20260923@112249244268.png": "step_12_20260923@112249244268.jpg",
-    "step_13_20260923@112301622466.png": "step_13_20260923@112301622466.jpg",
-    "step_14_20260923@112314370787.png": "step_14_20260923@112314370787.jpg",
-    "step_15_20260923@112328256327.png": "step_15_20260923@112328256327.jpg",
-    "step_16_20260923@112342290010.png": "step_16_20260923@112342290010.jpg",
-    "step_17_20260923@112407161240.png": "step_17_20260923@112407161240.jpg",
-    "step_18_20260923@112425225321.png": "step_18_20260923@112425225321.jpg",
-    "step_19_20260923@112438053365.png": "step_19_20260923@112438053365.jpg",
-    "step_1_20260923@111930013629.png": "step_1_20260923@111930013629.jpg",
-    "step_20_20260923@112451266360.png": "step_20_20260923@112451266360.jpg",
-    "step_21_20260923@112504382740.png": "step_21_20260923@112504382740.jpg",
-    "step_22_20260923@112518723136.png": "step_22_20260923@112518723136.jpg",
-    "step_23_20260923@112530878232.png": "step_23_20260923@112530878232.jpg",
-    "step_24_20260923@112607079256.png": "step_24_20260923@112607079256.jpg",
-    "step_25_20260923@112653284804.png": "step_25_20260923@112653284804.jpg",
-    "step_26_20260923@112916509861.png": "step_26_20260923@112916509861.jpg",
-    "step_27_20260923@112934897493.png": "step_27_20260923@112934897493.jpg",
-    "step_28_20260923@113025724272.png": "step_28_20260923@113025724272.jpg",
-    "step_29_20260923@113040074312.png": "step_29_20260923@113040074312.jpg",
-    "step_2_20260923@111943106728.png": "step_2_20260923@111943106728.jpg",
-    "step_30_20260923@113100270233.png": "step_30_20260923@113100270233.jpg",
-    "step_31_20260923@113123194651.png": "step_31_20260923@113123194651.jpg",
-    "step_32_20260923@113137529355.png": "step_32_20260923@113137529355.jpg",
-    "step_33_20260923@113150267101.png": "step_33_20260923@113150267101.jpg",
-    "step_34_20260923@113352126478.png": "step_34_20260923@113352126478.jpg",
-    "step_35_20260923@113423390287.png": "step_35_20260923@113423390287.jpg",
-    "step_36_20260923@113442034184.png": "step_36_20260923@113442034184.jpg",
-    "step_37_20260923@113503469447.png": "step_37_20260923@113503469447.jpg",
-    "step_38_20260923@113527974872.png": "step_38_20260923@113527974872.jpg",
-    "step_39_20260923@113548364965.png": "step_39_20260923@113548364965.jpg",
-    "step_3_20260923@111957956568.png": "step_3_20260923@111957956568.jpg",
-    "step_40_20260923@113610860787.png": "step_40_20260923@113610860787.jpg",
-    "step_41_20260923@113806667012.png": "step_41_20260923@113806667012.jpg",
-    "step_42_20260923@113832073873.png": "step_42_20260923@113832073873.jpg",
-    "step_43_20260923@113903180464.png": "step_43_20260923@113903180464.jpg",
-    "step_44_20260923@113936294924.png": "step_44_20260923@113936294924.jpg",
-    "step_45_20260923@114006304974.png": "step_45_20260923@114006304974.jpg",
-    "step_46_20260923@114037620354.png": "step_46_20260923@114037620354.jpg",
-    "step_47_20260923@114055042842.png": "step_47_20260923@114055042842.jpg",
-    "step_48_20260923@114112500137.png": "step_48_20260923@114112500137.jpg",
-    "step_49_20260923@114130729325.png": "step_49_20260923@114130729325.jpg",
-    "step_4_20260923@112014416352.png": "step_4_20260923@112014416352.jpg",
-    "step_50_20260923@114223371910.png": "step_50_20260923@114223371910.jpg",
-    "step_51_20260923@114247394041.png": "step_51_20260923@114247394041.jpg",
-    "step_52_20260923@114422837566.png": "step_52_20260923@114422837566.jpg",
-    "step_53_20260923@114604764397.png": "step_53_20260923@114604764397.jpg",
-    "step_54_20260923@114757978016.png": "step_54_20260923@114757978016.jpg",
-    "step_55_20260923@114838908119.png": "step_55_20260923@114838908119.jpg",
-    "step_56_20260923@115036229655.png": "step_56_20260923@115036229655.jpg",
-    "step_57_20260923@115239736602.png": "step_57_20260923@115239736602.jpg",
-    "step_58_20260923@115313563566.png": "step_58_20260923@115313563566.jpg",
-    "step_59_20260923@115346795849.png": "step_59_20260923@115346795849.jpg",
-    "step_5_20260923@112034973102.png": "step_5_20260923@112034973102.jpg",
-    "step_60_20260923@115413808494.png": "step_60_20260923@115413808494.jpg",
-    "step_61_20260923@115431978238.png": "step_61_20260923@115431978238.jpg",
-    "step_62_20260923@115645071816.png": "step_62_20260923@115645071816.jpg",
-    "step_63_20260923@115729708099.png": "step_63_20260923@115729708099.jpg",
-    "step_64_20260923@115908929917.png": "step_64_20260923@115908929917.jpg",
-    "step_65_20260923@120049846799.png": "step_65_20260923@120049846799.jpg",
-    "step_66_20260923@120236836587.png": "step_66_20260923@120236836587.jpg",
-    "step_67_20260923@120255897090.png": "step_67_20260923@120255897090.jpg",
-    "step_68_20260923@120431492183.png": "step_68_20260923@120431492183.jpg",
-    "step_69_20260923@120446222980.png": "step_69_20260923@120446222980.jpg",
-    "step_6_20260923@112055633350.png": "step_6_20260923@112055633350.jpg",
-    "step_70_20260923@120508737508.png": "step_70_20260923@120508737508.jpg",
-    "step_7_20260923@112112795628.png": "step_7_20260923@112112795628.jpg",
-    "step_8_20260923@112137100867.png": "step_8_20260923@112137100867.jpg",
-    "step_9_20260923@112156319133.png": "step_9_20260923@112156319133.jpg",
     "000001-pre-tool-toolu_bdrk_013CZVjGTWdRjVD5g1dk2Qbi.png": "000001-pre-tool-toolu_bdrk_013CZVjGTWdRjVD5g1dk2Qbi.jpg",
     "000002-pre-tool-toolu_bdrk_01Hc9FDLGPozhXt1vD9Mthz8.png": "000002-pre-tool-toolu_bdrk_01Hc9FDLGPozhXt1vD9Mthz8.jpg",
     "000003-tool_result-11-output-value-1.png": "000003-tool_result-11-output-value-1.jpg",
@@ -1276,7 +1345,78 @@
     "000152-pre-tool-toolu_bdrk_01RUQeC7VeBnq8qGZxjVmtnJ.png": "000152-pre-tool-toolu_bdrk_01RUQeC7VeBnq8qGZxjVmtnJ.jpg",
     "000153-tool_result-942-output-value-1.png": "000153-tool_result-942-output-value-1.jpg",
     "000154-tool_result-942-observations-screenshot.png": "000154-tool_result-942-observations-screenshot.jpg",
-    "000155-pre-tool-toolu_bdrk_018DVdC3YZZPVNMxGB6Q4Ffs.png": "000155-pre-tool-toolu_bdrk_018DVdC3YZZPVNMxGB6Q4Ffs.jpg"
+    "000155-pre-tool-toolu_bdrk_018DVdC3YZZPVNMxGB6Q4Ffs.png": "000155-pre-tool-toolu_bdrk_018DVdC3YZZPVNMxGB6Q4Ffs.jpg",
+    "initial_state.png": "initial_state.jpg",
+    "step_10_20260923@112212079385.png": "step_10_20260923@112212079385.jpg",
+    "step_11_20260923@112227115113.png": "step_11_20260923@112227115113.jpg",
+    "step_12_20260923@112249244268.png": "step_12_20260923@112249244268.jpg",
+    "step_13_20260923@112301622466.png": "step_13_20260923@112301622466.jpg",
+    "step_14_20260923@112314370787.png": "step_14_20260923@112314370787.jpg",
+    "step_15_20260923@112328256327.png": "step_15_20260923@112328256327.jpg",
+    "step_16_20260923@112342290010.png": "step_16_20260923@112342290010.jpg",
+    "step_17_20260923@112407161240.png": "step_17_20260923@112407161240.jpg",
+    "step_18_20260923@112425225321.png": "step_18_20260923@112425225321.jpg",
+    "step_19_20260923@112438053365.png": "step_19_20260923@112438053365.jpg",
+    "step_1_20260923@111930013629.png": "step_1_20260923@111930013629.jpg",
+    "step_20_20260923@112451266360.png": "step_20_20260923@112451266360.jpg",
+    "step_21_20260923@112504382740.png": "step_21_20260923@112504382740.jpg",
+    "step_22_20260923@112518723136.png": "step_22_20260923@112518723136.jpg",
+    "step_23_20260923@112530878232.png": "step_23_20260923@112530878232.jpg",
+    "step_24_20260923@112607079256.png": "step_24_20260923@112607079256.jpg",
+    "step_25_20260923@112653284804.png": "step_25_20260923@112653284804.jpg",
+    "step_26_20260923@112916509861.png": "step_26_20260923@112916509861.jpg",
+    "step_27_20260923@112934897493.png": "step_27_20260923@112934897493.jpg",
+    "step_28_20260923@113025724272.png": "step_28_20260923@113025724272.jpg",
+    "step_29_20260923@113040074312.png": "step_29_20260923@113040074312.jpg",
+    "step_2_20260923@111943106728.png": "step_2_20260923@111943106728.jpg",
+    "step_30_20260923@113100270233.png": "step_30_20260923@113100270233.jpg",
+    "step_31_20260923@113123194651.png": "step_31_20260923@113123194651.jpg",
+    "step_32_20260923@113137529355.png": "step_32_20260923@113137529355.jpg",
+    "step_33_20260923@113150267101.png": "step_33_20260923@113150267101.jpg",
+    "step_34_20260923@113352126478.png": "step_34_20260923@113352126478.jpg",
+    "step_35_20260923@113423390287.png": "step_35_20260923@113423390287.jpg",
+    "step_36_20260923@113442034184.png": "step_36_20260923@113442034184.jpg",
+    "step_37_20260923@113503469447.png": "step_37_20260923@113503469447.jpg",
+    "step_38_20260923@113527974872.png": "step_38_20260923@113527974872.jpg",
+    "step_39_20260923@113548364965.png": "step_39_20260923@113548364965.jpg",
+    "step_3_20260923@111957956568.png": "step_3_20260923@111957956568.jpg",
+    "step_40_20260923@113610860787.png": "step_40_20260923@113610860787.jpg",
+    "step_41_20260923@113806667012.png": "step_41_20260923@113806667012.jpg",
+    "step_42_20260923@113832073873.png": "step_42_20260923@113832073873.jpg",
+    "step_43_20260923@113903180464.png": "step_43_20260923@113903180464.jpg",
+    "step_44_20260923@113936294924.png": "step_44_20260923@113936294924.jpg",
+    "step_45_20260923@114006304974.png": "step_45_20260923@114006304974.jpg",
+    "step_46_20260923@114037620354.png": "step_46_20260923@114037620354.jpg",
+    "step_47_20260923@114055042842.png": "step_47_20260923@114055042842.jpg",
+    "step_48_20260923@114112500137.png": "step_48_20260923@114112500137.jpg",
+    "step_49_20260923@114130729325.png": "step_49_20260923@114130729325.jpg",
+    "step_4_20260923@112014416352.png": "step_4_20260923@112014416352.jpg",
+    "step_50_20260923@114223371910.png": "step_50_20260923@114223371910.jpg",
+    "step_51_20260923@114247394041.png": "step_51_20260923@114247394041.jpg",
+    "step_52_20260923@114422837566.png": "step_52_20260923@114422837566.jpg",
+    "step_53_20260923@114604764397.png": "step_53_20260923@114604764397.jpg",
+    "step_54_20260923@114757978016.png": "step_54_20260923@114757978016.jpg",
+    "step_55_20260923@114838908119.png": "step_55_20260923@114838908119.jpg",
+    "step_56_20260923@115036229655.png": "step_56_20260923@115036229655.jpg",
+    "step_57_20260923@115239736602.png": "step_57_20260923@115239736602.jpg",
+    "step_58_20260923@115313563566.png": "step_58_20260923@115313563566.jpg",
+    "step_59_20260923@115346795849.png": "step_59_20260923@115346795849.jpg",
+    "step_5_20260923@112034973102.png": "step_5_20260923@112034973102.jpg",
+    "step_60_20260923@115413808494.png": "step_60_20260923@115413808494.jpg",
+    "step_61_20260923@115431978238.png": "step_61_20260923@115431978238.jpg",
+    "step_62_20260923@115645071816.png": "step_62_20260923@115645071816.jpg",
+    "step_63_20260923@115729708099.png": "step_63_20260923@115729708099.jpg",
+    "step_64_20260923@115908929917.png": "step_64_20260923@115908929917.jpg",
+    "step_65_20260923@120049846799.png": "step_65_20260923@120049846799.jpg",
+    "step_66_20260923@120236836587.png": "step_66_20260923@120236836587.jpg",
+    "step_67_20260923@120255897090.png": "step_67_20260923@120255897090.jpg",
+    "step_68_20260923@120431492183.png": "step_68_20260923@120431492183.jpg",
+    "step_69_20260923@120446222980.png": "step_69_20260923@120446222980.jpg",
+    "step_6_20260923@112055633350.png": "step_6_20260923@112055633350.jpg",
+    "step_70_20260923@120508737508.png": "step_70_20260923@120508737508.jpg",
+    "step_7_20260923@112112795628.png": "step_7_20260923@112112795628.jpg",
+    "step_8_20260923@112137100867.png": "step_8_20260923@112137100867.jpg",
+    "step_9_20260923@112156319133.png": "step_9_20260923@112156319133.jpg"
   },
   "frames_dir": "assets/sai_frames/035"
 }

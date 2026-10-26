@@ -1,13 +1,12 @@
-/* 总览：Hero + 战绩热力 + 失败解剖 + 官方对标 + 成本散点
+/* 总览：Hero → 大数字 → OSW2.1 风格对比表 → 战绩热力 → 官方对标 → 成本散点
  *
- * 版式原则：一屏一个论点。先给结论（大数字），再给证据（热力/散点），
- * 最后给对标（榜单条）。信息密度靠**分层**降下来，不靠砍内容。
+ * 版式原则：一屏一个论点；大字、少小字说明；口径差异写在对比表同一行里，
+ * 不另开一块"注意事项"。
  */
 (function () {
   "use strict";
   var TD = window.TD;
 
-  /* 数字滚动：大数字比静态数字更有"仪表盘"感，也提示这是实时数据 */
   function countUp(node, target, opts) {
     opts = opts || {};
     var digits = opts.digits === undefined ? 2 : opts.digits;
@@ -22,38 +21,31 @@
     function frame(now) {
       var p = Math.min(1, (now - start) / dur);
       var eased = 1 - Math.pow(1 - p, 3);
-      var value = target * eased;
-      node.textContent = prefix + value.toFixed(digits) + suffix;
+      node.textContent = prefix + (target * eased).toFixed(digits) + suffix;
       if (p < 1) requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
   }
 
-  function metric(label, value, foot, kind, animate) {
+  function metric(label, foot, kind, animate) {
     var valueNode = TD.el("div", { class: "value" });
     var box = TD.el("div", { class: "metric " + (kind || "") }, [
       valueNode,
       TD.el("div", { class: "label", text: label }),
       foot ? TD.el("div", { class: "foot", text: foot }) : null
     ]);
-    if (animate) {
-      countUp(valueNode, animate.value, { digits: animate.digits, prefix: animate.prefix, suffix: animate.suffix });
-    } else {
-      valueNode.textContent = value;
-    }
+    countUp(valueNode, animate.value, animate);
     return box;
   }
 
   function cellKind(row) {
-    if (row.status !== "scored") {
-      return row.stop === "exception" ? "s-exc" : "s-wall";
-    }
+    if (row.status !== "scored") return row.stop === "exception" ? "s-exc" : "s-wall";
     if (row.score >= 1) return "s-full";
     if (row.score > 0) return "s-part";
     return "s-zero";
   }
 
-  /* 战绩热力：按域分行，题号横排 */
+  /* ---------------------------------------------------------- 战绩热力 */
   function heat(overview) {
     var subset = overview.subset_tasks || [];
     var byDomain = {};
@@ -72,8 +64,7 @@
           class: "heat-cell " + kind,
           style: "animation-delay:" + (index * 12) + "ms",
           title: row.task + " · " + (row.score === null ? "未出分（" + (row.stop || "-") + "）" : row.score.toFixed(4)) +
-                 " · 步数 " + (row.steps || 0) + " · " + (row.ours_noop_rate === null || row.ours_noop_rate === undefined
-                     ? "" : "空转 " + Math.round(row.ours_noop_rate * 100) + "%"),
+                 " · 步数 " + (row.steps || 0),
           text: row.task
         });
       });
@@ -93,7 +84,71 @@
     return TD.el("div", {}, [TD.el("div", { class: "heat" }, rows), legend]);
   }
 
-  /* 失败解剖：一条堆叠条 + 可点清单 */
+  /* ------------------------------------------------ OSW2.1 风格对比表 */
+  function leaderboard(overview, compare) {
+    var ours = overview.ours;
+    var harness = overview.official.harness || [];
+    var e2e = overview.official.e2e_background || [];
+    var sai = null;
+    var darwinx = null;
+    harness.forEach(function (row) {
+      if (!sai && /Sai/i.test(row.model)) sai = row;
+      if (!darwinx && /Darwinx/i.test(row.model)) darwinx = row;
+    });
+    var opus5 = e2e.filter(function (row) { return /Opus 5/.test(row.model || ""); })[0];
+
+    function row(name, model, release, steps, binary, partial, cost, note, ours_) {
+      return [
+        { text: name, class: ours_ ? "good" : "" },
+        { text: model, class: "dim" },
+        { text: release, class: "dim" },
+        { text: String(steps), num: true },
+        { text: binary === null ? "—" : binary.toFixed(2), num: true },
+        { text: partial === null ? "—" : partial.toFixed(2), num: true },
+        { text: cost === null ? "未发布" : "$" + cost.toFixed(cost < 1 ? 3 : 2), num: true },
+        { text: note, class: "dim" }
+      ];
+    }
+
+    var rows = [
+      row("Tandem（我们）", "MiniMax-M3.1-Flash + JEV", "v2.1", 500,
+        (ours.binary_rate_attempted || 0) * 100, (ours.partial_scored || 0) * 100,
+        ours.usd_per_task,
+        ours.attempted + " 题尝试 / " + ours.scored + " 题出分（分母与官方不同）", true)
+    ];
+    if (sai) {
+      rows.push(row("Sai", "Claude Opus 5", sai.release || "v2.1", sai.step_budget,
+        sai.binary_accuracy, sai.partial_score, sai.cost_per_task_usd, "108 题全量 · 官方 harness"));
+    }
+    if (darwinx) {
+      rows.push(row("Darwinx", "Claude Opus 4.8", darwinx.release || "v2.1", darwinx.step_budget,
+        darwinx.binary_accuracy, darwinx.partial_score, darwinx.cost_per_task_usd, "官方 harness"));
+    }
+    if (opus5) {
+      rows.push(row("Claude Opus 5（背景）", "官方 runner 直跑", opus5.release || "v2.1", opus5.step_budget,
+        opus5.binary_accuracy, opus5.partial_score, opus5.cost_per_task_usd, "非 harness 型，仅作参照"));
+    }
+
+    return TD.el("div", { class: "panel" }, [
+      TD.el("div", { class: "panel-head" }, [
+        TD.el("h2", { text: "结果对比（OSWorld 2.1 · full set · 500 步）" }),
+        TD.el("span", { class: "hint", text: "官方数据快照 " + (overview.official.snapshot || "—") })
+      ]),
+      TD.table(
+        [{ label: "Agent" }, { label: "模型底座" }, { label: "Release" }, { label: "步数", num: true },
+         { label: "Binary %", num: true }, { label: "Partial %", num: true }, { label: "$/题", num: true },
+         { label: "备注" }],
+        rows
+      ),
+      TD.el("div", { class: "small dim", style: "margin-top:14px", text:
+        "Binary / Partial 均为官方口径（逐题分恰好 1.00 记为 Binary；Partial 是逐题浮分均值）。" +
+        "我们的分母是 " + ours.attempted + " 道尝试题（未出分不折算 0，另计），官方是 108 题全量——" +
+        "两者不可直接排名，只看量级与成本比。" +
+        (compare.cost_ratio ? "成本比 1/" + compare.cost_ratio + "，但底座不同（M3.1-Flash vs Claude Opus 5）。" : "") })
+    ]);
+  }
+
+  /* -------------------------------------------------------- 终态解剖 */
   function anatomy(overview) {
     var buckets = [
       { key: "done_full", label: "完成且满分", color: "var(--good)", rows: [] },
@@ -118,7 +173,7 @@
       return TD.el("span", {
         style: "width:" + (bucket.rows.length / total * 100).toFixed(2) + "%;background:" + bucket.color,
         title: bucket.label + " " + bucket.rows.length + " 题"
-      }, bucket.rows.length >= 3 ? String(bucket.rows.length) : "");
+      }, bucket.rows.length >= 3 ? [String(bucket.rows.length)] : []);
     }));
     var legend = TD.el("div", { class: "stack-legend" }, buckets.filter(function (b) { return b.rows.length; }).map(function (bucket) {
       return TD.el("span", {}, [
@@ -129,33 +184,7 @@
     return TD.el("div", {}, [bar, legend]);
   }
 
-  /* 官方对标：榜单条 —— 我们的行插在 harness 行里 */
-  function ladder(overview, compare) {
-    var ours = overview.ours;
-    var harness = overview.official.harness || [];
-    var rows = [];
-    rows.push(TD.el("div", { class: "ladder-row ours" }, [
-      TD.el("div", { class: "name" }, [
-        TD.el("span", { text: "我们（stage+memory）" }),
-        TD.el("span", { class: "kind", text: "本次" })
-      ]),
-      TD.el("div", { class: "num", text: (ours.partial_scored * 100).toFixed(2) + "%" }),
-      TD.el("div", { class: "num", text: ours.usd_per_task === null ? "—" : "$" + ours.usd_per_task.toFixed(3) })
-    ]));
-    harness.forEach(function (row) {
-      rows.push(TD.el("div", { class: "ladder-row ref" }, [
-        TD.el("div", { class: "name" }, [
-          TD.el("span", { text: row.model }),
-          TD.el("span", { class: "kind", text: "官方" })
-        ]),
-        TD.el("div", { class: "num", text: row.partial_score === null ? "—" : row.partial_score.toFixed(2) + "%" }),
-        TD.el("div", { class: "num", text: row.cost_per_task_usd === null ? "未发布" : "$" + row.cost_per_task_usd.toFixed(2) })
-      ]));
-    });
-    return TD.el("div", { class: "ladder" }, rows);
-  }
-
-  /* 成本 × 分数散点：带轴、网格与官方参照线 */
+  /* ---------------------------------------------------------- 散点 */
   function scatter(overview) {
     var rows = (overview.rows || []).filter(function (row) { return row.score !== null; });
     var maxTokens = rows.reduce(function (max, row) { return Math.max(max, row.ours_tokens || 0); }, 1);
@@ -163,9 +192,6 @@
     [0, 0.25, 0.5, 0.75, 1].forEach(function (value) {
       box.appendChild(TD.el("div", { class: "grid-line", style: "bottom:" + (value * 92) + "%" }));
       box.appendChild(TD.el("div", { class: "tick y", style: "bottom:" + (value * 92) + "%", text: value.toFixed(2) }));
-    });
-    [0, 0.5, 1].forEach(function (value) {
-      box.appendChild(TD.el("div", { class: "grid-line v", style: "left:" + (value * 96) + "%" }));
     });
     rows.forEach(function (row, index) {
       var x = Math.sqrt(row.ours_tokens || 0) / Math.sqrt(maxTokens) * 96;
@@ -184,7 +210,6 @@
       ]));
     });
     box.appendChild(TD.el("div", { class: "tick x", style: "left:96%", text: "token（√刻度）" }));
-    box.appendChild(TD.el("div", { class: "tick x", style: "left:0", text: "0" }));
     return box;
   }
 
@@ -198,33 +223,31 @@
     var ours = overview.ours;
     var price = ours.price || {};
 
-    /* ---------------------------------------------------------- Hero */
-    var hero = TD.el("section", { class: "hero" }, [
+    container.appendChild(TD.el("section", { class: "hero" }, [
       TD.el("div", { class: "eyebrow", text: "OSWorld 2.1 · stage + memory · 原生官方评测器" }),
       TD.el("h1", { text: "快慢双模 CUA Harness 的真实跑批结果" }),
       TD.el("p", { class: "lede", html:
-        "慢模型（MiniMax-M3.1-Flash）做规划与纠错，快模型（JEV）只做候选排序——" +
-        "本批 <em>" + ours.attempted + " 题</em>里出分 <em>" + ours.scored + " 题</em>，" +
+        "慢模型（MiniMax-M3.1-Flash）做规划与纠错，快模型（JEV）只做候选排序。" +
+        "本批 <em>" + ours.attempted + " 题</em>出分 <em>" + ours.scored + " 题</em>，" +
         "撞 4 小时墙钟 <em>" + (ours.stop_reasons.wall_time_limit || 0) + " 题</em>，" +
         "每题 API 成本 <em>$" + (ours.usd_per_task === null ? "—" : ours.usd_per_task.toFixed(3)) + "</em>。" })
-    ]);
-    container.appendChild(hero);
+    ]));
 
-    var metrics = TD.el("div", { class: "metrics" }, [
-      metric("Partial Score（已出分）", "", ours.scored + " 题的平均分", "accent",
+    container.appendChild(TD.el("div", { class: "metrics" }, [
+      metric("Partial Score（已出分）", ours.scored + " 题的平均分", "accent",
         { value: ours.partial_scored * 100, digits: 2, suffix: "%" }),
-      metric("Binary Accuracy", "", "逐题分恰好 1.00", ours.binary ? "good" : "bad",
+      metric("Binary Accuracy", "逐题分恰好 1.00", ours.binary ? "good" : "bad",
         { value: ours.binary_rate_attempted * 100, digits: 2, suffix: "%" }),
-      metric("每题成本", "", (price.model || "") + " · " + (price.snapshot || ""), "warn",
+      metric("每题成本", (price.model || "") + " · " + (price.snapshot || ""), "warn",
         { value: ours.usd_per_task || 0, digits: 3, prefix: "$" }),
-      metric("对比官方 Sai", "", "官方 " + (compare.sai_usd_per_task ? "$" + compare.sai_usd_per_task.toFixed(2) : "—") + "/题", "",
+      metric("对比官方 Sai", "官方 " + (compare.sai_usd_per_task ? "$" + compare.sai_usd_per_task.toFixed(2) : "—") + "/题", "",
         { value: compare.cost_ratio || 0, digits: 0, prefix: "1/" }),
-      metric("未出分", "", "基础设施 / 判分失败，非能力差距", ours.unscored ? "bad" : "",
+      metric("未出分", "基础设施 / 判分失败，非能力差距", ours.unscored ? "bad" : "",
         { value: ours.unscored, digits: 0 })
-    ]);
-    container.appendChild(metrics);
+    ]));
 
-    /* ------------------------------------------------------- 主看板 */
+    container.appendChild(leaderboard(overview, compare));
+
     var board = TD.el("div", { class: "board", style: "margin-top:22px" });
     var left = TD.el("div", { class: "stack" });
     var right = TD.el("div", { class: "stack" });
@@ -234,7 +257,6 @@
         TD.el("h2", { text: "战绩（按域分行）" }),
         TD.el("span", { class: "hint", text: ours.attempted + " 题 · 悬停看详情" })
       ]),
-      TD.el("p", { class: "lede", text: "每格一道题；颜色 = 得分档 / 终态；蓝框 = 进入官方逐题对照的子集。" }),
       heat(overview)
     ]));
 
@@ -245,22 +267,11 @@
       ]),
       anatomy(overview),
       TD.el("div", { class: "callout bad", style: "margin-top:16px" }, [
-        TD.el("strong", { text: "“完成却零分" + (compare.common_scored ? "" : "") + "”最值得看：" }),
+        TD.el("strong", { text: "“完成却零分”最值得看：" }),
         TD.el("span", { text:
           "planner 说做完、verifier 也确认了，官方评测器却判 0 分——完成判定与评测口径不一致。" +
-          "另有 " + compare.unscored_sai_full + " 道未出分的题，官方 Sai 拿满分：这是 API / 判分侧失败。" })
+          "另有 " + compare.unscored_sai_full + " 道未出分的题，官方 Sai 拿满分：API / 判分侧失败。" })
       ])
-    ]));
-
-    right.appendChild(TD.el("div", { class: "panel" }, [
-      TD.el("div", { class: "panel-head" }, [
-        TD.el("h2", { text: "官方 harness 对标" }),
-        TD.el("span", { class: "hint", text: "release v2.1 · 500 步 · 108 题" })
-      ]),
-      TD.el("p", { class: "lede", text: "官方 leaderboard 里的 harness 型条目（modelType=agent）；e2e 直跑行不作主对比。" }),
-      ladder(overview, compare),
-      TD.el("div", { class: "small dim", style: "margin-top:12px" },
-        "Partial 列：我们的 29.93% 只算 69 道已出分的题，官方是 108 题逐题均值（未出分计 0）——口径不同，不可直接排名。")
     ]));
 
     right.appendChild(TD.el("div", { class: "panel" }, [
@@ -278,7 +289,7 @@
 
     container.appendChild(TD.el("div", { class: "footer-note", text:
       "数据源：stage+memory 批次（execution_mode=stage · 500 步上限 / 4h 墙钟 · " +
-      "慢模型 MiniMax-M3.1-Flash reasoning_effort=max · 快模型 JEV · 原生官方评测器）。" +
-      "数字由 tools/batch_summary.py 统一计算；官方数据与价格表带抓取日期。" }));
+      "慢模型 MiniMax-M3.1-Flash reasoning_effort=max · 快模型 JEV · 原生官方评测器）；" +
+      "数字由 tools/batch_summary.py 统一计算；口径差异见对比表备注列。" }));
   };
 })();

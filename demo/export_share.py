@@ -133,12 +133,13 @@ def check_red_lines(site_dir: Path) -> list[tuple[str, bool, str]]:
         "播放器标注离散帧",
     ))
 
-    # 9 失败与口径披露
+    # 9 失败与口径披露（首屏披露块已按要求删除 → 口径改在对比视图 + 首页对比表备注列）
     has_failure_notes = any("未出分" in note for note in notes) and any("墙钟" in note for note in notes)
+    has_caliber_view = "对比口径" in player_js
     checks.append((
-        "失败与口径在首屏披露",
-        has_failure_notes,
-        f"{len(notes)} 条披露，含未出分与墙钟说明",
+        "失败与口径有披露",
+        has_failure_notes and has_caliber_view,
+        f"{len(notes)} 条口径说明 + 对比视图的「对比口径」面板",
     ))
 
     return checks

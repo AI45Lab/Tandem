@@ -15,6 +15,7 @@ from .episodes import EpisodeRef
 from .events import build_steps, noop_stats, rank_stats, steps_from_events
 from .llm import read_llm_errors, read_llm_texts, read_llm_usage
 from .paths import scrub_paths
+from .steps import build_timeline, timeline_totals
 from .traj import read_budget, read_frames
 
 #: 没有价格表时的兜底：只报 token，不报美元（红线 3：没有价格就不许出现美元数）
@@ -104,6 +105,9 @@ def build_view_model(
         "exception_type": ref.exception_type,
     }
     model["tokens"].update(estimate_usd(usage_total, price))
+    # 逐步泳道：慢模型原文/成本/耗时 + 快模型排序 + 实际动作
+    model["timeline"] = build_timeline(episode_dir, steps, frames, price=price)
+    model["timeline_totals"] = timeline_totals(model["timeline"])
     if sai:
         model["sai"] = sai
     if max_candidates_note:

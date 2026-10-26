@@ -26,9 +26,13 @@ window.TD = (function () {
         node.addEventListener(key.slice(2), value);
       } else node.setAttribute(key, String(value));
     });
-    (children || []).forEach(function (child) {
+    var list = children === null || children === undefined ? []
+      : (Array.isArray(children) ? children : [children]);
+    list.forEach(function (child) {
       if (child === null || child === undefined || child === false) return;
-      node.appendChild(typeof child === "string" ? document.createTextNode(child) : child);
+      if (typeof child === "string") { node.appendChild(document.createTextNode(child)); return; }
+      if (child.nodeType) { node.appendChild(child); return; }
+      node.appendChild(el("span", { text: String(child) }));
     });
     return node;
   }

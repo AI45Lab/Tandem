@@ -22,6 +22,5 @@
   }
 
   window.addEventListener("hashchange", TD.render);
-  TD.renderDisclaimer();
   TD.render();
 })();

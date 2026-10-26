@@ -1,6 +1,6 @@
 {
   "source_url": "https://huggingface.co/datasets/simular-ai/sai-osworld-v21-reference-runs/resolve/main",
-  "fetched_at": "2026-10-26T06:55:11Z",
+  "fetched_at": "2026-10-26T08:02:03Z",
   "model": "anthropic/claude-opus-5",
   "release": "osworld-v2.1",
   "runs_total": 134,

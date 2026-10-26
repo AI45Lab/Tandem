@@ -97,15 +97,44 @@ def extract_task(task: str, run: str, media_tar: str) -> dict[str, Any]:
     return mapping
 
 
+def reattach(task: str) -> int:
+    """只用缓存目录重建帧映射（不重新下载 tar）。"""
+    task_dir = CACHE_DIR / task
+    if not task_dir.is_dir():
+        return 0
+    mapping = {}
+    for frame in sorted(task_dir.iterdir()):
+        if frame.suffix == ".jpg":
+            mapping[frame.stem + ".png"] = frame.name
+        elif frame.suffix == ".png":
+            mapping[frame.name] = frame.name
+    if not mapping:
+        return 0
+    traj_path = REPO_ROOT / "demo" / "data" / "official" / "sai_traj" / f"{task}.json"
+    if not traj_path.is_file():
+        return 0
+    payload = json.loads(traj_path.read_text(encoding="utf-8"))
+    payload["frames"] = mapping
+    payload["frames_dir"] = f"assets/sai_frames/{task}"
+    traj_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return len(mapping)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="抓取官方 Sai 参考 run 的帧")
     parser.add_argument("--tasks", default="", help="逗号分隔题号；默认取对比子集")
+    parser.add_argument("--reattach", action="store_true",
+                        help="不下载，只用缓存目录重建帧映射（同步脚本覆盖轨迹后用）")
     args = parser.parse_args(argv)
 
     tasks = [t.strip() for t in args.tasks.split(",") if t.strip()] or subset_tasks()
     index = load_index()
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     for task in tasks:
+        if args.reattach:
+            count = reattach(task)
+            print(f"[frames] {task}: 重挂映射 {count} 帧")
+            continue
         info = index.get(task) or {}
         run = info.get("run")
         media_tar = info.get("media_tar")

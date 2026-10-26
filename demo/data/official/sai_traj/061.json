@@ -4,10 +4,11 @@
   "score": 1.0,
   "mean": 1.0,
   "source_url": "https://huggingface.co/datasets/simular-ai/sai-osworld-v21-reference-runs/resolve/main/runs/v21-ref8-20260923T135043Z/061/traj.jsonl",
-  "fetched_at": "2026-10-26T06:55:23Z",
+  "fetched_at": "2026-10-26T08:02:14Z",
   "steps": [
     {
       "step_num": 1,
+      "action_timestamp": "20260923@135255816686",
       "action": {
         "id": "toolu_bdrk_014DHBBcfbALXfw1PtsNiEss",
         "name": "execute",
@@ -16,6 +17,7 @@
           "code": "var machine = getMachine((await listMachines())[0].id)\nvar r = await machine.exec({ command: \"ls -la ~/Pictures\" })\nconsole.log(r.stdout, r.stderr)"
         }
       },
+      "response": "I'll start by examining the files in ~/Pictures to understand what I'm working with.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_1_20260923@135255816686.png",
@@ -23,6 +25,7 @@
     },
     {
       "step_num": 2,
+      "action_timestamp": "20260923@135308132607",
       "action": {
         "id": "toolu_bdrk_01F68ahi9VG1MMzeTPnfxaSB",
         "name": "execute",
@@ -31,6 +34,7 @@
           "title": "Checking available image tools on the machine"
         }
       },
+      "response": "Sai executed execute (error) in 1232 ms. 433 chars; calls: exec; 31716 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_2_20260923@135308132607.png",
@@ -38,6 +42,7 @@
     },
     {
       "step_num": 3,
+      "action_timestamp": "20260923@135319131733",
       "action": {
         "id": "toolu_bdrk_01RC9SAXzmfiYz4djruppYWQ",
         "name": "execute",
@@ -46,6 +51,7 @@
           "title": "Checking installed image processing tools"
         }
       },
+      "response": "Sai executed execute (success) in 544 ms. 343 chars; calls: exec; 31752 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_3_20260923@135319131733.png",
@@ -53,6 +59,7 @@
     },
     {
       "step_num": 4,
+      "action_timestamp": "20260923@135334334125",
       "action": {
         "id": "toolu_bdrk_01JtEkAQjk5bfWogCf8N37xY",
         "name": "execute",
@@ -61,6 +68,7 @@
           "title": "Checking Python imaging libraries and Darktable"
         }
       },
+      "response": "Sai executed execute (success) in 1458 ms. 430 chars; 32566 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_4_20260923@135334334125.png",
@@ -68,6 +76,7 @@
     },
     {
       "step_num": 5,
+      "action_timestamp": "20260923@135405718030",
       "action": {
         "id": "toolu_bdrk_017nccjv9jvnGJnZAH81MLfA",
         "name": "execute",
@@ -76,6 +85,7 @@
           "title": "Analyzing image dimensions and color statistics"
         }
       },
+      "response": "Sai executed execute (success) in 17310 ms. 696 chars; calls: writeToFile; 33633 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_5_20260923@135405718030.png",
@@ -83,6 +93,7 @@
     },
     {
       "step_num": 6,
+      "action_timestamp": "20260923@135427840480",
       "action": {
         "id": "toolu_bdrk_018kTLGBTwjyxU8c69EsTyWj",
         "name": "execute",
@@ -91,6 +102,7 @@
           "title": "Creating small previews of all three images"
         }
       },
+      "response": "Sai executed execute (success) in 2079 ms. 574 chars; calls: writeToFile; 34395 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_6_20260923@135427840480.png",
@@ -98,6 +110,7 @@
     },
     {
       "step_num": 7,
+      "action_timestamp": "20260923@135442645669",
       "action": {
         "id": "toolu_bdrk_01MHZ2EKMYsahFEj8cmLv3GM",
         "name": "execute",
@@ -106,6 +119,7 @@
           "title": "Locating the shared files folder"
         }
       },
+      "response": "Sai executed execute (success) in 522 ms. 161 chars; 35694 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_7_20260923@135442645669.png",
@@ -113,6 +127,7 @@
     },
     {
       "step_num": 8,
+      "action_timestamp": "20260923@135515282349",
       "action": {
         "id": "toolu_bdrk_01QpqeXCEA51BWtzUBYtmS7q",
         "name": "execute",
@@ -121,6 +136,7 @@
           "title": "Measuring how well a global color mapping explains the edit"
         }
       },
+      "response": "Sai executed execute (success) in 2340 ms. 1590 chars; calls: writeToFile; 36217 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_8_20260923@135515282349.png",
@@ -128,6 +144,7 @@
     },
     {
       "step_num": 9,
+      "action_timestamp": "20260923@135546610081",
       "action": {
         "id": "toolu_bdrk_01TQbySva7tHBHUZpG4kVokp",
         "name": "execute",
@@ -136,6 +153,7 @@
           "title": "Checking spatial and cross-channel structure of the edit"
         }
       },
+      "response": "Sai executed execute (success) in 2417 ms. 1670 chars; calls: writeToFile; 38497 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_9_20260923@135546610081.png",
@@ -143,6 +161,7 @@
     },
     {
       "step_num": 10,
+      "action_timestamp": "20260923@135634406240",
       "action": {
         "id": "toolu_bdrk_01LmicFF4tFCuBGSnxzyFJTS",
         "name": "execute",
@@ -151,6 +170,7 @@
           "title": "Comparing tonal ranges of both source images"
         }
       },
+      "response": "Sai executed execute (success) in 1540 ms. 1227 chars; calls: writeToFile; 41120 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_10_20260923@135634406240.png",
@@ -158,6 +178,7 @@
     },
     {
       "step_num": 11,
+      "action_timestamp": "20260923@135718605499",
       "action": {
         "id": "toolu_bdrk_01LJcCCfh27NXS3ipQ5Mzfko",
         "name": "execute",
@@ -166,6 +187,7 @@
           "title": "Fitting the color-grading curves from the example pair"
         }
       },
+      "response": "Sai executed execute (success) in 3534 ms. 3329 chars; calls: writeToFile; 44157 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_11_20260923@135718605499.png",
@@ -173,6 +195,7 @@
     },
     {
       "step_num": 12,
+      "action_timestamp": "20260923@135804491310",
       "action": {
         "id": "toolu_bdrk_01Hae8CNWQpWqpKNvq1xiKjs",
         "name": "execute",
@@ -181,6 +204,7 @@
           "title": "Applying the learned grade to the new photo"
         }
       },
+      "response": "Sai executed execute (success) in 16461 ms. 2337 chars; calls: writeToFile; 47288 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_12_20260923@135804491310.png",
@@ -188,6 +212,7 @@
     },
     {
       "step_num": 13,
+      "action_timestamp": "20260923@135836204242",
       "action": {
         "id": "toolu_bdrk_018KsvDtDD4NSDTw9A3orCBz",
         "name": "execute",
@@ -196,6 +221,7 @@
           "title": "Building a side-by-side comparison montage"
         }
       },
+      "response": "Sai executed execute (success) in 8414 ms. 793 chars; calls: writeToFile, listAppWindows; 49778 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_13_20260923@135836204242.png",
@@ -203,6 +229,7 @@
     },
     {
       "step_num": 14,
+      "action_timestamp": "20260923@135851003701",
       "action": {
         "id": "toolu_bdrk_01WGktSv95mM7Bw17bdeB7Qx",
         "name": "execute",
@@ -211,6 +238,7 @@
           "title": "Opening the comparison montage to view it"
         }
       },
+      "response": "Sai executed execute (error) in 362 ms. 116 chars; 51175 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_14_20260923@135851003701.png",
@@ -218,6 +246,7 @@
     },
     {
       "step_num": 15,
+      "action_timestamp": "20260923@135905636591",
       "action": {
         "id": "toolu_bdrk_014ApJo4uTjRweQLk2DwegEC",
         "name": "execute",
@@ -226,6 +255,7 @@
           "title": "Checking for an image viewer to preview results"
         }
       },
+      "response": "Sai executed execute (success) in 464 ms. 264 chars; 51052 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_15_20260923@135905636591.png",
@@ -233,6 +263,7 @@
     },
     {
       "step_num": 16,
+      "action_timestamp": "20260923@135925513325",
       "action": {
         "id": "toolu_bdrk_01NKavi8kJ5jNUUcN7Ycty7B",
         "name": "execute",
@@ -241,6 +272,7 @@
           "title": "Opening the montage in the image viewer"
         }
       },
+      "response": "Sai executed execute (success) in 8317 ms. 202 chars; calls: listAppWindows; 52449 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_16_20260923@135925513325.png",
@@ -248,6 +280,7 @@
     },
     {
       "step_num": 17,
+      "action_timestamp": "20260923@135950023792",
       "action": {
         "id": "toolu_bdrk_018WfifWcRyHjH7Uy1tgSfda",
         "name": "execute",
@@ -256,6 +289,7 @@
           "title": "Capturing the montage view"
         }
       },
+      "response": "Sai executed execute (success) in 8821 ms. 63 chars; calls: getAppWindow; 53001 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_17_20260923@135950023792.png",
@@ -263,6 +297,7 @@
     },
     {
       "step_num": 18,
+      "action_timestamp": "20260923@140040652871",
       "action": {
         "id": "toolu_bdrk_01P4YUZTkYKuok42VT9LMWCC",
         "name": "execute",
@@ -271,6 +306,7 @@
           "title": "Investigating residual structure for local adjustments"
         }
       },
+      "response": "Sai executed execute (success) in 5364 ms. 1829 chars; calls: writeToFile; 56135 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_18_20260923@140040652871.png",
@@ -278,6 +314,7 @@
     },
     {
       "step_num": 19,
+      "action_timestamp": "20260923@140122783789",
       "action": {
         "id": "toolu_bdrk_01H1anuheTpYSrkLfTazSSDC",
         "name": "execute",
@@ -286,6 +323,7 @@
           "title": "Checking color profiles of the source and reference files"
         }
       },
+      "response": "Sai executed execute (success) in 3400 ms. 878 chars; calls: writeToFile; 57420 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_19_20260923@140122783789.png",
@@ -293,6 +331,7 @@
     },
     {
       "step_num": 20,
+      "action_timestamp": "20260923@140152924352",
       "action": {
         "id": "toolu_bdrk_01MAPiYhuu7Wg3rNXVCxqBYg",
         "name": "execute",
@@ -301,6 +340,7 @@
           "title": "Testing whether local-contrast effects are worth modeling"
         }
       },
+      "response": "Sai executed execute (success) in 4116 ms. 1292 chars; calls: writeToFile; 58858 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_20_20260923@140152924352.png",
@@ -308,6 +348,7 @@
     },
     {
       "step_num": 21,
+      "action_timestamp": "20260923@140224500160",
       "action": {
         "id": "toolu_bdrk_01WC2rWujJGWduWoNFPwp8ct",
         "name": "execute",
@@ -316,6 +357,7 @@
           "title": "Saving the graded image as IMG_7318_edited.jpg"
         }
       },
+      "response": "Sai executed execute (success) in 8795 ms. 1404 chars; calls: writeToFile; 60577 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_21_20260923@140224500160.png",
@@ -323,6 +365,7 @@
     },
     {
       "step_num": 22,
+      "action_timestamp": "20260923@140245108491",
       "action": {
         "id": "toolu_bdrk_01TJu9JJy7CMqe39vTbQB9Vh",
         "name": "execute",
@@ -331,6 +374,7 @@
           "title": "Opening the larger comparison view"
         }
       },
+      "response": "Sai executed execute (success) in 7724 ms. 220 chars; calls: listAppWindows; 62060 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_22_20260923@140245108491.png",
@@ -338,6 +382,7 @@
     },
     {
       "step_num": 23,
+      "action_timestamp": "20260923@140306355142",
       "action": {
         "id": "toolu_bdrk_015AMhyXH7tVrpd7yf1W9TLr",
         "name": "execute",
@@ -346,6 +391,7 @@
           "title": "Relaunching the viewer for the comparison image"
         }
       },
+      "response": "Sai executed execute (success) in 9333 ms. 284 chars; calls: listAppWindows; 62594 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_23_20260923@140306355142.png",
@@ -353,6 +399,7 @@
     },
     {
       "step_num": 24,
+      "action_timestamp": "20260923@140323996328",
       "action": {
         "id": "toolu_bdrk_01B7KF2rT5kpUu6CtkuRXaew",
         "name": "execute",
@@ -361,6 +408,7 @@
           "title": "Reviewing the graded result next to the example edit"
         }
       },
+      "response": "Sai executed execute (success) in 7134 ms. 65 chars; calls: getAppWindow; 63398 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_24_20260923@140323996328.png",
@@ -368,6 +416,7 @@
     },
     {
       "step_num": 25,
+      "action_timestamp": "20260923@140410435294",
       "action": {
         "id": "toolu_bdrk_01RK5mUrTY5xquGoDAaxKHMK",
         "name": "execute",
@@ -376,6 +425,7 @@
           "title": "Checking fine detail quality at full resolution"
         }
       },
+      "response": "Sai executed execute (success) in 8500 ms. 1199 chars; calls: writeToFile, listAppWindows; 66135 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_25_20260923@140410435294.png",
@@ -383,6 +433,7 @@
     },
     {
       "step_num": 26,
+      "action_timestamp": "20260923@140440146590",
       "action": {
         "id": "toolu_bdrk_01L5SDRUJHYZnAzTQiK3e9z3",
         "name": "execute",
@@ -391,6 +442,7 @@
           "title": "Verifying the saved file and cleaning up temporary previews"
         }
       },
+      "response": "Sai executed execute (success) in 953 ms. 363 chars; 65969 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_26_20260923@140440146590.png",
@@ -398,6 +450,7 @@
     },
     {
       "step_num": 27,
+      "action_timestamp": "20260923@140516635288",
       "action": {
         "id": "toolu_bdrk_01566uQG9HRPPkaLWnQuKySP",
         "name": "execute",
@@ -406,6 +459,7 @@
           "title": "Opening the final edited image for review"
         }
       },
+      "response": "Sai executed execute (success) in 11804 ms. 478 chars; calls: listAppWindows; 68130 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_27_20260923@140516635288.png",
@@ -413,6 +467,7 @@
     },
     {
       "step_num": 28,
+      "action_timestamp": "20260923@140531848496",
       "action": {
         "id": "toolu_bdrk_016PSRDSitM84iY93kefkftA",
         "name": "execute",
@@ -421,6 +476,7 @@
           "title": "Viewing the final edited image"
         }
       },
+      "response": "Sai executed execute (success) in 4544 ms. 59 chars; calls: getAppWindow; 69347 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_28_20260923@140531848496.png",
@@ -428,6 +484,7 @@
     },
     {
       "step_num": 29,
+      "action_timestamp": "20260923@140608155211",
       "action": {
         "id": "toolu_bdrk_014aU9Q5Kc8JAZC9PyxBPpW1",
         "name": "execute",
@@ -436,6 +493,7 @@
           "title": "Final verification of the committed image"
         }
       },
+      "response": "Sai executed execute (success) in 2807 ms. 1084 chars; calls: writeToFile; 72152 input tokens.",
       "reward": 0,
       "done": false,
       "screenshot_file": "step_29_20260923@140608155211.png",
@@ -443,7 +501,9 @@
     },
     {
       "step_num": 30,
+      "action_timestamp": "20260923@140632824011",
       "action": "DONE",
+      "response": "Done — `~/Pictures/IMG_7318_edited.jpg` has been created with the same color grade as the example.\n\n## How I matched the style\n\nRather than eyeballing sliders in GIMP/Darktable, I **reverse-engineered the exact grade** from the example pair, which is far more accurate:\n\n1. **Verified the pair is pixel-aligned** — `IMG_7328_original.jpg` and `IMG_7328_edited.jpg` are both 6048×8064, same orientatio…",
       "reward": 0,
       "done": true,
       "screenshot_file": "step_30_20260923@140632824011.png",
@@ -451,37 +511,6 @@
     }
   ],
   "frames": {
-    "initial_state.png": "initial_state.jpg",
-    "step_10_20260923@135634406240.png": "step_10_20260923@135634406240.jpg",
-    "step_11_20260923@135718605499.png": "step_11_20260923@135718605499.jpg",
-    "step_12_20260923@135804491310.png": "step_12_20260923@135804491310.jpg",
-    "step_13_20260923@135836204242.png": "step_13_20260923@135836204242.jpg",
-    "step_14_20260923@135851003701.png": "step_14_20260923@135851003701.jpg",
-    "step_15_20260923@135905636591.png": "step_15_20260923@135905636591.jpg",
-    "step_16_20260923@135925513325.png": "step_16_20260923@135925513325.jpg",
-    "step_17_20260923@135950023792.png": "step_17_20260923@135950023792.jpg",
-    "step_18_20260923@140040652871.png": "step_18_20260923@140040652871.jpg",
-    "step_19_20260923@140122783789.png": "step_19_20260923@140122783789.jpg",
-    "step_1_20260923@135255816686.png": "step_1_20260923@135255816686.jpg",
-    "step_20_20260923@140152924352.png": "step_20_20260923@140152924352.jpg",
-    "step_21_20260923@140224500160.png": "step_21_20260923@140224500160.jpg",
-    "step_22_20260923@140245108491.png": "step_22_20260923@140245108491.jpg",
-    "step_23_20260923@140306355142.png": "step_23_20260923@140306355142.jpg",
-    "step_24_20260923@140323996328.png": "step_24_20260923@140323996328.jpg",
-    "step_25_20260923@140410435294.png": "step_25_20260923@140410435294.jpg",
-    "step_26_20260923@140440146590.png": "step_26_20260923@140440146590.jpg",
-    "step_27_20260923@140516635288.png": "step_27_20260923@140516635288.jpg",
-    "step_28_20260923@140531848496.png": "step_28_20260923@140531848496.jpg",
-    "step_29_20260923@140608155211.png": "step_29_20260923@140608155211.jpg",
-    "step_2_20260923@135308132607.png": "step_2_20260923@135308132607.jpg",
-    "step_30_20260923@140632824011.png": "step_30_20260923@140632824011.jpg",
-    "step_3_20260923@135319131733.png": "step_3_20260923@135319131733.jpg",
-    "step_4_20260923@135334334125.png": "step_4_20260923@135334334125.jpg",
-    "step_5_20260923@135405718030.png": "step_5_20260923@135405718030.jpg",
-    "step_6_20260923@135427840480.png": "step_6_20260923@135427840480.jpg",
-    "step_7_20260923@135442645669.png": "step_7_20260923@135442645669.jpg",
-    "step_8_20260923@135515282349.png": "step_8_20260923@135515282349.jpg",
-    "step_9_20260923@135546610081.png": "step_9_20260923@135546610081.jpg",
     "000001-pre-tool-toolu_bdrk_014DHBBcfbALXfw1PtsNiEss.png": "000001-pre-tool-toolu_bdrk_014DHBBcfbALXfw1PtsNiEss.jpg",
     "000002-pre-tool-toolu_bdrk_01F68ahi9VG1MMzeTPnfxaSB.png": "000002-pre-tool-toolu_bdrk_01F68ahi9VG1MMzeTPnfxaSB.jpg",
     "000003-pre-tool-toolu_bdrk_01RC9SAXzmfiYz4djruppYWQ.png": "000003-pre-tool-toolu_bdrk_01RC9SAXzmfiYz4djruppYWQ.jpg",
@@ -516,7 +545,38 @@
     "000032-pre-tool-toolu_bdrk_016PSRDSitM84iY93kefkftA.png": "000032-pre-tool-toolu_bdrk_016PSRDSitM84iY93kefkftA.jpg",
     "000033-tool_result-160-output-value-1.png": "000033-tool_result-160-output-value-1.jpg",
     "000034-tool_result-160-observations-screenshot.png": "000034-tool_result-160-observations-screenshot.jpg",
-    "000035-pre-tool-toolu_bdrk_014aU9Q5Kc8JAZC9PyxBPpW1.png": "000035-pre-tool-toolu_bdrk_014aU9Q5Kc8JAZC9PyxBPpW1.jpg"
+    "000035-pre-tool-toolu_bdrk_014aU9Q5Kc8JAZC9PyxBPpW1.png": "000035-pre-tool-toolu_bdrk_014aU9Q5Kc8JAZC9PyxBPpW1.jpg",
+    "initial_state.png": "initial_state.jpg",
+    "step_10_20260923@135634406240.png": "step_10_20260923@135634406240.jpg",
+    "step_11_20260923@135718605499.png": "step_11_20260923@135718605499.jpg",
+    "step_12_20260923@135804491310.png": "step_12_20260923@135804491310.jpg",
+    "step_13_20260923@135836204242.png": "step_13_20260923@135836204242.jpg",
+    "step_14_20260923@135851003701.png": "step_14_20260923@135851003701.jpg",
+    "step_15_20260923@135905636591.png": "step_15_20260923@135905636591.jpg",
+    "step_16_20260923@135925513325.png": "step_16_20260923@135925513325.jpg",
+    "step_17_20260923@135950023792.png": "step_17_20260923@135950023792.jpg",
+    "step_18_20260923@140040652871.png": "step_18_20260923@140040652871.jpg",
+    "step_19_20260923@140122783789.png": "step_19_20260923@140122783789.jpg",
+    "step_1_20260923@135255816686.png": "step_1_20260923@135255816686.jpg",
+    "step_20_20260923@140152924352.png": "step_20_20260923@140152924352.jpg",
+    "step_21_20260923@140224500160.png": "step_21_20260923@140224500160.jpg",
+    "step_22_20260923@140245108491.png": "step_22_20260923@140245108491.jpg",
+    "step_23_20260923@140306355142.png": "step_23_20260923@140306355142.jpg",
+    "step_24_20260923@140323996328.png": "step_24_20260923@140323996328.jpg",
+    "step_25_20260923@140410435294.png": "step_25_20260923@140410435294.jpg",
+    "step_26_20260923@140440146590.png": "step_26_20260923@140440146590.jpg",
+    "step_27_20260923@140516635288.png": "step_27_20260923@140516635288.jpg",
+    "step_28_20260923@140531848496.png": "step_28_20260923@140531848496.jpg",
+    "step_29_20260923@140608155211.png": "step_29_20260923@140608155211.jpg",
+    "step_2_20260923@135308132607.png": "step_2_20260923@135308132607.jpg",
+    "step_30_20260923@140632824011.png": "step_30_20260923@140632824011.jpg",
+    "step_3_20260923@135319131733.png": "step_3_20260923@135319131733.jpg",
+    "step_4_20260923@135334334125.png": "step_4_20260923@135334334125.jpg",
+    "step_5_20260923@135405718030.png": "step_5_20260923@135405718030.jpg",
+    "step_6_20260923@135427840480.png": "step_6_20260923@135427840480.jpg",
+    "step_7_20260923@135442645669.png": "step_7_20260923@135442645669.jpg",
+    "step_8_20260923@135515282349.png": "step_8_20260923@135515282349.jpg",
+    "step_9_20260923@135546610081.png": "step_9_20260923@135546610081.jpg"
   },
   "frames_dir": "assets/sai_frames/061"
 }
