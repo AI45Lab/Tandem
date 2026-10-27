@@ -388,6 +388,25 @@ Sai 也是 500 步）、官方成本含其自身工具费与缓存定价，我�
 - 对照页 12 题 Δ 截图 + Sai 轨迹对照截图；
 - 与 `tools/batch_summary.py` 输出并排截图（人工确认一致）。
 
+**机制段流程图的视觉 smoke（可自动化，替代部分人工截图）**：
+
+本机没有浏览器（无 chromium / playwright），但「框里字出框」「标签压字」
+这类版式问题**能用真实字体度量判定**——把首页真实渲染出来的 SVG 导出来，
+用 Pillow + Noto Sans CJK 按浏览器的字体回退规则量字宽，再和框/胶囊的实际
+宽度比：
+
+```bash
+node tests/demo/flow_svg_dump.js <overview> <compare> <episode> <site> /tmp/flow.json
+python3 demo/render_svg.py /tmp/flow.json --out /tmp/flow.png
+```
+
+- `tests/demo/flow_svg_dump.js` —— 首页真渲染 → SVG JSON（不手写第二套版式）
+- `demo/render_svg.py` —— 出图 + 版式问题清单（`demo/svg_geom.py` 负责几何与字体）
+- `tests/demo/test_flow_svg.py` —— CI 里跑「不出框、不重叠」
+
+这套链路抓到过真 bug：`TD.flow.concept()` 的参数个数对不上，导致节点小字
+永远走默认值、点节点直接抛 TypeError。人工截图不易发现这种。
+
 ### 7.3 Definition of Done
 
 - [ ] `ruff check src tests` 绿；`pytest` 全绿；`tandem check` 绿
