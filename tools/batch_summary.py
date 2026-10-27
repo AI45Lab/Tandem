@@ -220,7 +220,9 @@ def run_timestamp(run_name: str) -> str:
 
     不能用文件 mtime：GPFS 上 mtime 精度是秒级，同秒写入的两批排不出先后。
     """
-    match = re.search(r"(\d{8}-\d{6})", run_name)
+    # 批次时间戳有两种格式：20261024-235014（6 位）与 20261025-0450（4 位），
+    # 只认 6 位会让新批次之间排不出新旧（c10/c20 合并时全落空 → 挑错批次）
+    match = re.search(r"(\d{8}-\d{4,6})", run_name)
     return match.group(1) if match else ""
 
 

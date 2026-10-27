@@ -35,7 +35,7 @@ if str(REPO_ROOT) not in sys.path:
 from demo.frames import process_frames  # noqa: E402
 from demo.reader.aggregate import (  # noqa: E402
     build_overview,
-    collect_rows,
+    collect_merged_rows,
     compare_summary,
     load_official,
 )
@@ -46,11 +46,8 @@ from demo.reader.viewmodel import build_view_model  # noqa: E402
 WEB_DIR = REPO_ROOT / "demo" / "web"
 DATA_DIR = REPO_ROOT / "demo" / "data"
 
-#: 默认数据源：stage+memory 批次（唯一数据源，不使用 osw21-500-jevfull）
-DEFAULT_RUNS_ROOT = Path(
-    "/mnt/shared-storage-gpfs2/evobox-share-gpfs2/xuyuanxun/"
-    "tandem_osworld21_stage_memory_c10_20261025_0450/rjob_logs"
-)
+#: 合并基线清单（c10 + c20 合成 OSW v2.1 全量 108 题）
+MANIFEST_PATH = REPO_ROOT / "demo" / "data" / "merged_manifest.json"
 
 
 def copy_web(out_dir: Path) -> None:
@@ -83,26 +80,46 @@ def inline_json(index_path: Path, slot_id: str, payload: Any) -> None:
     index_path.write_text(text, encoding="utf-8")
 
 
-def episode_index(runs_root: Path) -> dict[str, Path]:
-    """题号 → episode 目录（跨 run 去重：已出分优先，其次时间戳晚）。"""
-    index: dict[str, tuple[float, Path]] = {}
-    for run_dir in sorted(p for p in runs_root.iterdir() if p.is_dir()) if runs_root.is_dir() else []:
-        episodes_dir = run_dir / "episodes"
-        if not episodes_dir.is_dir():
+def episode_index(roots: list[Path], selection: dict[str, Any] | None = None) -> dict[str, Path]:
+    """题号 → episode 目录。
+
+    `selection` 是合并基线清单（题号 → run_id）。**清单指定的 run 优先**——
+    它就是环境侧认定的"这道题该用哪次尝试"；清单没有的题才回退到
+    「已出分优先、其次文件时间晚」。
+    """
+    index: dict[str, tuple[tuple, Path]] = {}
+    for root in roots:
+        if not root.is_dir():
             continue
-        for episode_dir in sorted(p for p in episodes_dir.iterdir() if p.is_dir()):
-            task = normalize_task_id(episode_dir.name)
-            score_path = episode_dir / "episode.json"
-            if not score_path.is_file():
+        for run_dir in sorted(p for p in root.iterdir() if p.is_dir()):
+            episodes_dir = run_dir / "episodes"
+            if not episodes_dir.is_dir():
                 continue
-            try:
-                score = json.loads(score_path.read_text(encoding="utf-8")).get("score")
-            except (OSError, json.JSONDecodeError):
-                score = None
-            mtime = score_path.stat().st_mtime
-            key = (0 if score is not None else 1, -mtime)
-            if task not in index or key < index[task][0]:
-                index[task] = (key, episode_dir)
+            for episode_dir in sorted(p for p in episodes_dir.iterdir() if p.is_dir()):
+                task = normalize_task_id(episode_dir.name)
+                score_path = episode_dir / "episode.json"
+                if not score_path.is_file():
+                    continue
+                try:
+                    score = json.loads(score_path.read_text(encoding="utf-8")).get("score")
+                except (OSError, json.JSONDecodeError):
+                    score = None
+                mtime = score_path.stat().st_mtime
+                key = (0 if score is not None else 1, -mtime)
+                if task not in index or key < index[task][0]:
+                    index[task] = (key, episode_dir)
+    # 清单指定的 run 覆盖
+    if selection:
+        for task, item in (selection.get("tasks") or {}).items():
+            run_id = item.get("run_id")
+            for root in roots:
+                candidate = root / str(run_id) / "episodes"
+                if not candidate.is_dir():
+                    continue
+                for episode_dir in candidate.iterdir():
+                    if episode_dir.is_dir() and normalize_task_id(episode_dir.name) == task:
+                        index[task] = ((-1, 0.0), episode_dir)
+                        break
     return {task: value[1] for task, value in index.items()}
 
 
@@ -128,10 +145,14 @@ def disclaimer_notes(overview: dict[str, Any], compare: dict[str, Any]) -> list[
 
 
 def build_episodes(
-    out_dir: Path, runs_root: Path, tasks: list[str], price: dict[str, Any] | None
+    out_dir: Path,
+    roots: list[Path],
+    tasks: list[str],
+    price: dict[str, Any] | None,
+    selection: dict[str, Any] | None = None,
 ) -> int:
     """给对比子集生成逐题 view model 与缩放帧。"""
-    index = episode_index(runs_root)
+    index = episode_index(roots, selection)
     count = 0
     for task in tasks:
         episode_dir = index.get(task)
@@ -166,8 +187,8 @@ def build_episodes(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="构建 Tandem demo 单页工作台")
-    parser.add_argument("--runs-root", type=Path, default=DEFAULT_RUNS_ROOT,
-                        help="结果目录根（默认：stage+memory 批次）")
+    parser.add_argument("--runs-root", type=Path, action="append", default=None,
+                        help="结果目录根，可给多次（默认：合并基线清单里的批次）")
     parser.add_argument("--out", type=Path, default=REPO_ROOT / "demo" / "site")
     parser.add_argument("--benchmark", default="osworld21")
     parser.add_argument("--data-dir", type=Path, default=DATA_DIR)
@@ -175,9 +196,15 @@ def main(argv: list[str] | None = None) -> int:
                         help="按 summary.json 的 mtime 跳过没变的 run（本版本只跳过逐题数据重建）")
     args = parser.parse_args(argv)
 
-    runs_root = args.runs_root
-    if not runs_root.is_dir():
-        print(f"[build] 结果目录不存在：{runs_root}")
+    manifest = {}
+    if MANIFEST_PATH.is_file():
+        manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    # 显式给 --runs-root = 只构建那个根（不套用合并清单）；不给 = 用清单里的全量批次
+    explicit = bool(args.runs_root)
+    roots = args.runs_root or [Path(p) for p in (manifest.get("batch_roots") or {}).values()]
+    roots = [root for root in roots if root.is_dir()]
+    if not roots:
+        print("[build] 没有可用的结果目录（先跑 demo/sync_merged.py 生成合并清单）")
         return 2
     out_dir = args.out
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -194,10 +221,13 @@ def main(argv: list[str] | None = None) -> int:
             stale.unlink()
 
     official = load_official(args.data_dir)
-    rows = collect_rows(runs_root)
-    if args.benchmark:
-        rows = [row for row in rows if True]  # 逐题行不带 benchmark 字段，过滤在 run 层做
-    overview = build_overview(rows, data_dir=args.data_dir)
+    rows = collect_merged_rows(roots, None if explicit else manifest)
+    overview = build_overview(
+        rows,
+        data_dir=args.data_dir,
+        dataset_size=int(manifest.get("dataset_size") or 108),
+        missing=[] if explicit else list(manifest.get("missing") or []),
+    )
 
     subset = official["subset"]
     subset_tasks = sorted({task for tasks in (subset.get("groups") or {}).values() for task in tasks})
@@ -229,7 +259,7 @@ def main(argv: list[str] | None = None) -> int:
                 sai_frame_count += 1
 
     price = (overview["ours"] or {}).get("price")
-    episodes = build_episodes(out_dir, runs_root, subset_tasks, price)
+    episodes = build_episodes(out_dir, roots, subset_tasks, price, manifest)
 
     index_path = out_dir / "index.html"
     inline_json(index_path, "data-overview", overview)

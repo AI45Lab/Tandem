@@ -21,6 +21,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from tools.batch_summary import _row_rank  # noqa: E402  跨批次去重口径，全站只此一份
 from tools.batch_summary import collect_rows as _collect_rows  # noqa: E402
 from tools.batch_summary import summarize as _summarize  # noqa: E402
 
@@ -50,6 +51,43 @@ def load_json(path: Path) -> Any:
         return json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return None
+
+
+def collect_merged_rows(
+    roots: list[Path], selection: dict[str, Any] | None = None
+) -> list[dict[str, Any]]:
+    """跨多个批次根目录收集逐题行（c10 + c20 合成 OSW v2.1 全量）。
+
+    `selection` 是合并基线清单（题号 → run_id）。**给了清单就按清单挑 run**——
+    清单是环境侧写明的合并规则（同题取已出分的那次、recheck 用新的替换），
+    逐题核对过磁盘，直接照它走，口径零漂移。
+
+    没给清单时回退到 `tools/batch_summary._row_rank`（已出分优先 → 批次时间戳晚）。
+    """
+    rows: list[dict[str, Any]] = []
+    for root in roots:
+        rows.extend(_collect_rows(Path(root)))
+    for row in rows:
+        row["task"] = normalize_task_id(row.get("task") or "")
+        row["run_id"] = row.get("run") or ""
+    if selection:
+        wanted = selection.get("tasks") or {}
+        picked: list[dict[str, Any]] = []
+        for task_id, item in wanted.items():
+            match = next(
+                (row for row in rows
+                 if row["task"] == task_id and row["run_id"] == item.get("run_id")),
+                None,
+            )
+            if match is not None:
+                picked.append(match)
+        return sorted(picked, key=lambda row: row["task"])
+    best: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        current = best.get(row["task"])
+        if current is None or _row_rank(row) > _row_rank(current):
+            best[row["task"]] = row
+    return sorted(best.values(), key=lambda row: row["task"])
 
 
 def load_official(data_dir: Path) -> dict[str, Any]:
@@ -116,8 +154,14 @@ def build_overview(
     *,
     data_dir: Path,
     dataset_size: int = 108,
+    missing: list[str] | None = None,
 ) -> dict[str, Any]:
-    """站点总览：我们的成绩 + 官方参照 + 逐题行。"""
+    """站点总览：我们的成绩 + 官方参照 + 逐题行。
+
+    两个 partial 口径都给：
+    - `partial_over_dataset`：108 题分母、未出分计 0 —— **与官方榜可比**（官方就是这么算的）；
+    - `partial_scored`：只算有分的题 —— 反映"真做出来时"的水平。
+    """
     official = load_official(data_dir)
     prices = official["prices"]
     price = _price_for(prices, "slow_model")
@@ -137,15 +181,25 @@ def build_overview(
             + completion / 1e6 * float(price.get("output_per_1m") or 0.0)
         )
 
-    attempted = len(rows)
+    # attempted = 有结果的题 + 明确没跑出结果的题（= 我们实际覆盖的题数）
+    missing = missing or []
     scored = stats["scored"]
+    attempted = len(rows) + len(missing)
+    # 停止原因里可能有整段 infeasible 理由（几百字）→ 归到「其它」，
+    # 免得它在分布图里变成一个巨大的 key
+    stops: dict[str, int] = {}
+    for row in rows:
+        reason = str(row.get("stop") or "")
+        key = reason if len(reason) <= 40 else "其它（规划判定不可行）"
+        stops[key] = stops.get(key, 0) + 1
     return {
         "ours": {
             "attempted": attempted,
             "scored": scored,
             "unscored": attempted - scored,
+            "missing": missing,
             "partial_scored": stats["average_scored"],
-            "partial_attempted": (sum(scores) / attempted) if attempted else None,
+            "partial_attempted": (sum(scores) / scored) if scored else None,
             "partial_over_dataset": (sum(scores) / dataset_size) if dataset_size else None,
             "binary": stats["full_hits"],
             "binary_rate_attempted": (stats["full_hits"] / attempted) if attempted else None,
@@ -161,7 +215,7 @@ def build_overview(
             "usd_per_task": round(usd / attempted, 4) if usd is not None and attempted else None,
             "price": price,
             "wall_seconds": stats["wall_seconds"],
-            "stop_reasons": dict(stats["stop_reasons"]),
+            "stop_reasons": stops,
             "env_failed": len(stats["env_failed"]),
             "judge_infra": len(stats["judge_infra"]),
             "model_failed": len(stats["model_failed"]),
@@ -241,6 +295,31 @@ def compare_summary(
     - `unscored_sai_full`：我们未出分、但 Sai 拿满分的题数 —— 基础设施失败的代价。
     """
     compared = compare_rows(rows, sai_tasks, subset)
+    # 两批都没跑出结果的题也要进对照行（ours=None）——否则"未出分且官方拿满分"
+    # 这类披露会漏掉它们（075 的 Sai 分是 0.9999999999999999，其实就是满分）
+    known = {row["task"] for row in compared}
+    for task_id in (overview.get("ours") or {}).get("missing") or []:
+        if task_id in known:
+            continue
+        sai = sai_tasks.get(task_id) or {}
+        compared.append({
+            "task": task_id,
+            "run_id": "",
+            "ours": None,
+            "ours_status": "missing",
+            "ours_stop": "",
+            "ours_steps": 0,
+            "ours_wall": None,
+            "ours_noop_rate": None,
+            "ours_tokens": 0,
+            "sai_best": sai.get("best"),
+            "sai_mean": sai.get("mean"),
+            "sai_runs": sai.get("runs"),
+            "delta": None,
+            "tie": False,
+            "group": "",
+        })
+    compared.sort(key=lambda item: item["task"])
     common = [
         row for row in compared
         if row["ours"] is not None and row["sai_best"] is not None
@@ -259,11 +338,12 @@ def compare_summary(
         ratio = round(sai_cost / ours_cost, 1)
     # 满分容差：官方评测器是加权求和，会出现 0.9999999999999999 这种浮点尾差，
     # 与真正的 1.00 是同一件事（075 就是这种）。用容差判定，别让尾差吃掉一个满分。
-    unscored_sai_full = sum(
-        1 for row in compared
+    unscored_sai_full_tasks = [
+        row["task"] for row in compared
         if row["ours"] is None and row["sai_best"] is not None
         and row["sai_best"] >= FULL_SCORE_TOLERANCE
-    )
+    ]
+    unscored_sai_full = len(unscored_sai_full_tasks)
     return {
         "rows": compared,
         "common_scored": len(common),
@@ -274,6 +354,7 @@ def compare_summary(
         "ours_attempted": ours.get("attempted"),
         "ours_unscored": ours.get("unscored"),
         "unscored_sai_full": unscored_sai_full,
+        "unscored_sai_full_tasks": unscored_sai_full_tasks,
         "ours_usd_per_task": ours_cost,
         "sai_usd_per_task": sai_cost,
         "cost_ratio": ratio,

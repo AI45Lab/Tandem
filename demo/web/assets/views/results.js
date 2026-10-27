@@ -53,17 +53,25 @@
       var domain = row.domain || "other";
       (byDomain[domain] = byDomain[domain] || []).push(row);
     });
+    // 两批都没跑出结果的题：单独一行虚线格（不折算 0，只是没结果）
+    var missing = overview.ours.missing || [];
+    if (missing.length) {
+      byDomain["未跑出结果"] = missing.map(function (task) {
+        return { task: task, score: null, status: "missing", stop: "", steps: 0, domain: "" };
+      });
+    }
     var domains = Object.keys(byDomain).sort(function (a, b) {
       return byDomain[b].length - byDomain[a].length;
     });
     var rows = domains.map(function (domain) {
       var cells = byDomain[domain].sort(function (a, b) { return a.task < b.task ? -1 : 1; }).map(function (row, index) {
-        var kind = cellKind(row);
+        var kind = row.status === "missing" ? "s-miss" : cellKind(row);
         if (subset.indexOf(row.task) >= 0) kind += " in-subset";
         return TD.el("div", {
           class: "heat-cell " + kind,
           style: "animation-delay:" + (index * 12) + "ms",
-          title: row.task + " · " + (row.score === null ? "未出分（" + (row.stop || "-") + "）" : row.score.toFixed(4)) +
+          title: row.task + " · " + (row.status === "missing" ? "两批都没跑出结果"
+                 : (row.score === null ? "未出分（" + (row.stop || "-") + "）" : row.score.toFixed(4))) +
                  " · 步数 " + (row.steps || 0),
           text: row.task
         });
@@ -116,7 +124,7 @@
 
     var rows = [
       row("Tandem", "MiniMax-M3.1-Flash + JEV", "v2.1", 500,
-        (ours.binary_rate_attempted || 0) * 100, (ours.partial_scored || 0) * 100,
+        (ours.binary_rate_attempted || 0) * 100, (ours.partial_over_dataset || 0) * 100,
         ours.usd_per_task, true)
     ];
     if (sai) {
@@ -168,9 +176,9 @@
     ]));
 
     container.appendChild(TD.el("div", { class: "metrics" }, [
-      metric("Partial Score（已出分）", ours.scored + " 题的平均分", "accent",
-        { value: ours.partial_scored * 100, digits: 2, suffix: "%" }),
-      metric("Binary Accuracy", "逐题分恰好 1.00", ours.binary ? "good" : "bad",
+      metric("Partial Score（108 题分母）", "未出分计 0 · 与官方榜同口径", "accent",
+        { value: ours.partial_over_dataset * 100, digits: 2, suffix: "%" }),
+      metric("Binary Accuracy", ours.binary + " / " + ours.attempted + " 题 · 逐题分恰好 1.00", ours.binary ? "good" : "bad",
         { value: ours.binary_rate_attempted * 100, digits: 2, suffix: "%" }),
       metric("每题成本", (price.model || "") + " · " + (price.snapshot || ""), "warn",
         { value: ours.usd_per_task || 0, digits: 3, prefix: "$" }),

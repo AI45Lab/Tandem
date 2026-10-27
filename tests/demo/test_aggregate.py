@@ -10,6 +10,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
@@ -21,6 +23,7 @@ from helpers import make_contract_run as make_run  # noqa: E402
 
 from demo.reader.aggregate import (  # noqa: E402
     build_overview,
+    collect_merged_rows,
     collect_rows,
     compare_rows,
     compare_summary,
@@ -158,3 +161,40 @@ def test_compare_rows_carry_run_id(tmp_path):
     compared = compare_summary(rows, sai_tasks, build_overview(rows, data_dir=DATA_DIR))
     assert compared["rows"][0]["run_id"], "对照行必须带 run_id"
     assert compared["rows"][0]["run_id"].startswith("osw21-run-")
+
+
+def test_merged_selection_matches_env_manifest(tmp_path):
+    """demo 的合并口径必须与环境侧的 merged_progress 逐题一致。
+
+    清单是环境侧写明的合并规则（同题取已出分的那次、recheck 用新的替换），
+    demo 用同一套 `_row_rank` 去重——两边对不上就说明有一处口径漂了。
+    """
+    import json
+    from pathlib import Path
+
+    manifest_path = REPO_ROOT / "demo" / "data" / "merged_manifest.json"
+    if not manifest_path.is_file():
+        pytest.skip("还没有合并清单（先跑 demo/sync_merged.py）")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    roots = [Path(p) for p in (manifest.get("batch_roots") or {}).values()]
+    roots = [root for root in roots if root.is_dir()]
+    if not roots:
+        pytest.skip("批次目录不在本机")
+
+    # 只关心「选哪次尝试」，token 数字与此无关 → stub 掉重 I/O，测试跑得快
+    import tools.batch_summary as bs
+
+    original = bs._episode_tokens
+    bs._episode_tokens = lambda episode_dir: (0, 0, 0, 0)
+    try:
+        rows = collect_merged_rows(roots, manifest)
+    finally:
+        bs._episode_tokens = original
+    mine = {row["task"]: row for row in rows}
+    for task_id, item in (manifest.get("tasks") or {}).items():
+        row = mine.get(task_id)
+        assert row is not None, f"清单里的 {task_id} 在 demo 聚合里没有"
+        assert row["run_id"] == item["run_id"], (
+            f"{task_id}: 选错了 run —— demo={row['run_id']} 清单={item['run_id']}"
+        )
+        assert row["score"] == item["score"], f"{task_id}: 分数与清单不一致"

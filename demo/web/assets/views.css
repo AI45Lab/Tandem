@@ -19,6 +19,7 @@
 .heat-cell.s-zero { background: var(--surface-3); color: var(--text-3); }
 .heat-cell.s-wall { background: color-mix(in srgb, var(--warn) 45%, var(--surface-1)); color: var(--text-1); }
 .heat-cell.s-exc { background: color-mix(in srgb, var(--bad) 55%, var(--surface-1)); color: #fff; }
+.heat-cell.s-miss { background: transparent; border: 1px dashed var(--line); color: var(--text-3); }
 .heat-cell.in-subset { border-color: var(--accent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); }
 @keyframes cell-in { from { opacity: 0; transform: scale(.7); } to { opacity: 1; transform: scale(1); } }
 

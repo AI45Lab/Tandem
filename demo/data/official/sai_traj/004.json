@@ -4,7 +4,7 @@
   "score": 0.8,
   "mean": 0.8,
   "source_url": "https://huggingface.co/datasets/simular-ai/sai-osworld-v21-reference-runs/resolve/main/runs/v21-r12-20260923T074850Z/004/traj.jsonl",
-  "fetched_at": "2026-10-26T08:02:06Z",
+  "fetched_at": "2026-10-27T02:49:11Z",
   "steps": [
     {
       "step_num": 1,
