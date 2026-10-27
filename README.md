@@ -159,53 +159,6 @@ tandem check      # 协议样例自检（CI 同样跑）
 边界规则：harness ↔ eval 只走消息层协议；eval ↔ demo 只读结果目录；
 仓库 ↔ 共享资源只读、零新增依赖。
 
-### Harness 内部分层
-
-以下路径均相对 `src/tandem/`；包内 `__init__.py` 只说明职责，不集中转导出组件。
-
-```text
-src/tandem/
-├── __init__.py              # 包信息
-├── __main__.py              # tandem CLI
-├── config.py                # SessionConfig
-├── components.py            # Components + build_default：统一装配入口
-├── runtime/
-│   ├── session.py           # TandemSession.act：观察 → 动作
-│   ├── episode.py           # 回执验证编排、完成探针与终态处理
-│   ├── stages.py            # 阶段进度与按需重规划
-│   └── stopping.py          # 停止条件
-├── planning/
-│   ├── planner.py           # 单步规划
-│   └── stage_planner.py     # 阶段规划
-├── gui/
-│   ├── targets.py           # A11y → UITarget
-│   ├── candidates.py        # UITarget → ActionSpace
-│   ├── proposals.py         # 根据规划提案聚焦候选
-│   ├── focus.py             # 焦点、控件状态与历史剪枝
-│   └── compile.py           # 候选 → 声明式 GUI/Wait 动作
-├── models/
-│   ├── slow.py              # 慢模型 HTTP 客户端
-│   ├── jev.py               # JEV 选择器
-│   ├── kev.py               # Kev 选择器
-│   └── ranking.py           # 共用 choice 请求、Ranking 与事件序列化
-├── verification/
-│   ├── verifier.py          # 需求抽取与独立模型验证
-│   └── stage_rules.py       # 可观察的阶段后置条件检查
-└── protocol/                # 消息结构、校验器、schema 与 golden 样例
-```
-
-开发时按职责定位：修改计划内容看 `planning/`，修改动作空间看 `gui/`，
-接入模型服务看 `models/`，修改成功证据判定看 `verification/`，
-只有调整执行流程或状态推进时才改 `runtime/`。
-可替换组件通过 `components.py` 的 `Components` 注入；保留 `step` / `stage` 两种模式。
-`models` 不负责调用 VM；`gui/compile.py` 只编译声明式动作，真实执行仍在 `tandem_eval`。
-模块尽量控制在 300 行内，硬上限为 500 行，按职责而不是按行数机械拆分。
-
-原先平铺模块的 Python 导入路径已迁移，例如 `tandem.session` →
-`tandem.runtime.session`、`tandem.providers` → `tandem.models.slow`、
-`tandem.selector` → `tandem.models.jev`；共用 `Ranking` 从 `tandem.models.ranking` 导入。
-不保留旧路径兼容壳，CLI 命令、配置字段与结果目录契约不变。
-
 ## 快速开始
 
 ```bash

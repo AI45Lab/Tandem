@@ -19,7 +19,7 @@ worker 入口、共享资源与已知坑。
 | `scripts/` | 批量脚本 | `run_osw2_20x5.sh` 等批量运行 |
 
 Harness 内部已按 `runtime` / `planning` / `gui` / `models` / `verification` / `protocol`
-分包，见 [README 的内部分层](../README.md#harness-内部分层)。
+分包，见 [README](../README.md)。
 这次目录整理不改变本手册中的启动命令、配置字段、worker 生命周期或结果目录。
 
 原则（AGENTS.md 配置纪律）：
