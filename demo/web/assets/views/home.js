@@ -19,12 +19,12 @@
   }
 
   /* ------------------------------------------- 2. 机制（流程图 + 滚动切换） */
-  function mechanism(episode, taskLabel) {
+  function mechanism(episode) {
     var steps = buildMechanismSteps(episode);
-    var facts = buildFacts(episode);
+    var facts = TD.facts.build(episode);
     var active = 0;
 
-    var diagram = TD.flow.concept(steps, facts.concept, function (index) { setStep(index, true); });
+    var diagram = TD.flow.concept(facts.concept, function (index) { setStep(index, true); });
 
     var sticky = TD.el("div", { class: "mech-sticky" });
     var column = TD.el("div", { class: "mech-steps" });
@@ -122,102 +122,60 @@
       ]),
       layout
     ]);
-    /* 真实 case 的泳道融进粘性卡片（不再单列一块） */
-    if (TD.sections && TD.sections.swimlaneNode) {
-      var swim = TD.sections.swimlaneNode(episode, taskLabel);
-      if (swim) sticky.appendChild(swim);
-    }
     return section;
   }
 
-  /* 从真实 episode 里抽出五个环节 + 各自的迷你图 */
-  function buildFacts(episode) {
-    var timeline = (episode && episode.timeline) || [];
-    var frames = (episode && episode.frames) || [];
-    var steps = (episode && episode.steps_detail) || [];
-    var facts = {
-      planner: null, ranked: null, executed: null, verified: null, replanned: null,
-      bars: [], nodes: 0, gui: null, candidates: 0, plan: null, milestones: [], frames: frames
-    };
-    steps.forEach(function (step) {
-      if (!facts.plan && step.kind === "planner" && step.plan) facts.plan = step.plan;
-    });
-    if (facts.plan && facts.plan.milestones) facts.milestones = facts.plan.milestones;
-    timeline.forEach(function (entry) {
-      // timeline 的 kind 是「这一步执行了什么」（gui/cli），不是事件类型；
-      // 规划原文要看 slow.text（该步窗口里慢模型吐出来的内容）
-      if (!facts.planner && (entry.slow || {}).text) facts.planner = entry;
-      if (!facts.ranked && entry.fast && entry.fast.n_candidates) facts.ranked = entry;
-      if (!facts.executed && entry.action && entry.kind === "gui") facts.executed = entry;
-      if (!facts.verified && entry.outcome) facts.verified = entry;
-      if (!facts.replanned && entry.replan) facts.replanned = entry;
-    });
-    steps.forEach(function (step) {
-      if (!facts.gui && step.kind === "gui" && step.ranking) facts.gui = step;
-    });
-    frames.forEach(function (frame) {
-      if ((frame.node_count || 0) > facts.nodes) facts.nodes = frame.node_count;
-    });
-    if (facts.gui) {
-      facts.bars = (facts.gui.ranking && facts.gui.ranking.operation_ranked) || [];
-      facts.candidates = facts.gui.n_candidates || 0;
-    }
-    /* 流程图节点上显示的真实数字（不是文案，是这条 case 的实际值） */
-    facts.concept = {
-      plan: facts.plan
-        ? String(facts.plan.current_goal || facts.plan.stage_goal || "拆解子任务 + 定目标").slice(0, 22)
-        : "拆解子任务 + 定目标",
-      next: facts.milestones.length ? (facts.milestones.length + " 个子任务") : "循环直到任务完成",
-      plan_tokens: facts.planner
-        ? (TD.int(facts.planner.slow.prompt_tokens) + " in / " + TD.int(facts.planner.slow.completion_tokens) + " out")
-        : "目标 + 预期结果",
-      candidates: facts.candidates ? (facts.candidates + " 个候选") : "候选动作",
-      rank: facts.ranked ? (facts.ranked.fast.latency_ms + " ms") : "operation → target",
-      action: facts.ranked ? (facts.ranked.fast.winner || "动作") : "送进 VM",
-      verify: facts.verified ? facts.verified.outcome : "达成 / 未达成",
-      replan: facts.replanned ? ("重规划：" + facts.replanned.replan) : "核验不通过 → 重规划"
-    };
-    return facts;
-  }
-
   function buildMechanismSteps(episode) {
-    var facts = buildFacts(episode);
+    var facts = TD.facts.build(episode);
     var steps = [];
 
     steps.push({
       title: "慢模型拆解与规划",
       role: "slow_model",
-      desc: "慢模型把任务拆成子任务，给出每个子任务的目标与预期结果。",
-      diagram: TD.flow.milestones(facts.milestones),
+      desc: "慢模型把任务拆成子任务，给出每个子任务的目标与预期结果；不达标就重规划，拆出新的子任务。",
+      diagram: TD.flow.milestones(facts.subtasks, {
+        total: facts.subtasks.length, plans: facts.plans, limit: 6
+      }),
       meta: facts.planner
-        ? ("token " + TD.int(facts.planner.slow.prompt_tokens) + " in / " +
+        ? ("规划 " + facts.plans + " 次 · 拆出 " + facts.subtasks.length + " 个子任务 · token " +
+           TD.int(facts.planner.slow.prompt_tokens) + " in / " +
            TD.int(facts.planner.slow.completion_tokens) + " out · " +
            ((facts.planner.elapsed_ms || 0) / 1000).toFixed(1) + "s · $" +
            (facts.planner.cost_usd || 0).toFixed(5))
-        : "",
-      body: facts.planner
-        ? ((facts.planner.slow.text || "").slice(0, 900) || "（无原文）")
-        : "（这一题没有记录到规划原文）"
+        : ("规划 " + facts.plans + " 次 · 拆出 " + facts.subtasks.length + " 个子任务"),
+      body: (facts.plan && facts.plan.stage_goal
+              ? ("stage_goal：" + facts.plan.stage_goal + "\n\n") : "") +
+            (facts.planner ? ((facts.planner.slow.text || "").slice(0, 900) || "（无原文）")
+                           : "（这一题没有记录到规划原文）")
     });
 
     steps.push({
       title: "快模型在候选空间里挑选动作",
       role: "fast_model",
       desc: "候选空间来自 a11y 树解析与慢模型提案；快模型只做排序，逐轮收敛到一个可执行动作。",
-      diagram: TD.flow.choiceBlocks(facts.bars, facts.ranked ? facts.ranked.fast.winner : null),
+      diagram: TD.flow.choiceBlocks(facts.bars, facts.winner),
       meta: facts.ranked
-        ? ("候选 " + facts.ranked.fast.n_candidates + " 个 · margin " +
+        ? ("候选空间 " + facts.candidates + " 个 · 画出 " + facts.bars.length + " 个动作级候选 · margin " +
            facts.ranked.fast.operation_margin + " / " + facts.ranked.fast.target_margin +
            " · " + facts.ranked.fast.latency_ms + " ms" +
            (facts.ranked.fast.used_image ? " · 用了截图" : " · 只用结构"))
-        : "",
-      body: facts.ranked
-        ? ("候选 " + facts.ranked.fast.n_candidates + " 个 → 赢家 " + (facts.ranked.fast.winner || "?") +
-           "\noperation margin " + facts.ranked.fast.operation_margin +
-           " · target margin " + facts.ranked.fast.target_margin +
-           "\n排序耗时 " + facts.ranked.fast.latency_ms + " ms" +
-           (facts.ranked.fast.used_image ? "（用了截图）" : "（只用结构）"))
-        : "（没有排序事件）"
+        : ("候选空间 " + facts.candidates + " 个"),
+      body: (facts.winner
+              ? ("快模型选中：" + (facts.winner.operation || "?") + " → " +
+                 (facts.winner.description || facts.winner.id || "") + "\n")
+              : "") +
+            (facts.opBars && facts.opBars.length
+              ? ("操作类型分布：" + facts.opBars.map(function (bar) {
+                  return bar.operation + " " + (bar.score || 0).toFixed(3);
+                }).join(" · ") + "\n")
+              : "") +
+            (facts.ranked
+              ? ("候选 " + facts.candidates + " 个 → 赢家 " + (facts.ranked.fast.winner || "?") +
+                 "\noperation margin " + facts.ranked.fast.operation_margin +
+                 " · target margin " + facts.ranked.fast.target_margin +
+                 "\n排序耗时 " + facts.ranked.fast.latency_ms + " ms" +
+                 (facts.ranked.fast.used_image ? "（用了截图）" : "（只用结构）"))
+              : "（没有排序事件）")
     });
 
     steps.push({
@@ -242,11 +200,26 @@
     steps.push({
       title: "重规划 / 纠错",
       role: "replan",
-      desc: "子任务完成得不符合预期时，慢模型带着失败原因换目标重来（stage_replan 是原生事件）。",
-      meta: facts.replanned ? ("reason = " + facts.replanned.replan) : "",
-      body: facts.replanned
-        ? ("reason = " + facts.replanned.replan +
-           "\n新的 stage_goal：\n" + String((facts.replanned.slow || {}).text || "").slice(0, 500))
+      desc: "子任务完成得不符合预期时，慢模型带着失败原因换目标重来（stage_replan 是原生事件），并重写计划。",
+      diagram: facts.replan && facts.replan.milestones.length
+        ? TD.flow.milestones(facts.replan.milestones, {
+            total: facts.replan.milestones.length, plans: 1, limit: 4
+          })
+        : null,
+      meta: facts.replan
+        ? ("reason = " + (facts.replan.reason || "—") +
+           " · 重规划后拆出 " + facts.replan.milestones.length + " 个子任务")
+        : "",
+      body: facts.replan
+        ? ("reason = " + (facts.replan.reason || "—") +
+           "\n\n重规划时的 stage_goal：\n" + (facts.replan.stage_goal || "—") +
+           "\n\n重规划后的新计划 stage_goal：\n" + (facts.replan.goal || "—") +
+           "\n\n新的子任务：\n" +
+           (facts.replan.milestones.length
+             ? facts.replan.milestones.map(function (item, index) {
+                 return (index + 1) + ". " + item;
+               }).join("\n")
+             : "（没有记录到新的子任务）"))
         : "（这一题没有触发重规划）"
     });
 
@@ -288,7 +261,7 @@
           finish();
           return;
         }
-        placeholder.replaceWith(mechanism(episode, "Task " + row.task));
+        placeholder.replaceWith(mechanism(episode));
         finish();
       });
     }

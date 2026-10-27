@@ -1,111 +1,29 @@
-
 const fs = require('fs');
 const path = require('path');
-
-function makeEl(tag) {
-  const el = {
-    // nodeType 必须有：站点的 el() 用它判断「这是不是个节点」，没有的话
-    // 子节点会被当成普通对象渲染成 [object Object]
-    nodeType: 1,
-    tagName: tag, _classes: [], _text: '', innerHTML: '', value: '',
-    style: {}, dataset: {}, children: [], attributes: {},
-    classList: {
-      _set: new Set(),
-      add(c) { this._set.add(c); }, remove(c) { this._set.delete(c); },
-      contains(c) { return this._set.has(c); },
-      toggle(c, on) { if (on === undefined) { this._set.has(c) ? this._set.delete(c) : this._set.add(c); } else if (on) { this._set.add(c); } else { this._set.delete(c); } }
-    },
-    appendChild(c) { this.children.push(c); if (c) c.parentNode = this; return c; },
-    // 真删：站点的 clear() 是 while(firstChild) removeChild(...)，不删就会死循环
-    removeChild(c) { this.children = this.children.filter((x) => x !== c); if (c) c.parentNode = null; return c; },
-    replaceChild(n, o) {
-      this.children = this.children.filter((x) => x !== o);
-      this.children.push(n);
-      if (n) n.parentNode = this;
-      if (o) o.parentNode = null;
-      return o;
-    },
-    replaceWith(n) { if (this.parentNode) this.parentNode.replaceChild(n, this); return n; },
-    insertBefore(n) { this.children.push(n); return n; },
-    addEventListener() {}, removeEventListener() {},
-    setAttribute(k, v) {
-      this.attributes[k] = String(v);
-      // SVG 节点用 setAttribute('class', ...) 设类，查询也要认
-      if (k === 'class') this._classes = String(v).split(/\s+/).filter(Boolean);
-    }, getAttribute(k) { return this.attributes[k]; },
-    querySelectorAll(sel) {
-      const want = String(sel || '').replace(/^\./, '');
-      const out = [];
-      (function walk(node) {
-        (node.children || []).forEach(function (c) {
-          if (want && (c._classes || []).indexOf(want) >= 0) out.push(c);
-          walk(c);
-        });
-      })(this);
-      return out;
-    },
-    querySelector() { return this.querySelectorAll('.' + String(arguments[0] || '').replace(/^\./, ''))[0] || null; },
-    closest() { return null; }, getBoundingClientRect() { return { top: 0, left: 0 }; },
-    scrollIntoView() {}, focus() {},
-    get className() { return this._classes.join(' '); },
-    set className(v) { this._classes = String(v).split(/\s+/).filter(Boolean); },
-    get textContent() {
-      if (this._ownText !== undefined) return this._ownText;
-      return this.children.map((c) => (c && c.textContent) || '').join('');
-    },
-    set textContent(v) { this._ownText = String(v); this.children = []; },
-    get firstChild() { return this.children[0] || null; },
-    parentNode: null
-  };
-  return el;
-}
+const { makeEl, installDom } = require('./dom_stub');
 
 const overview = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
 const compare = JSON.parse(fs.readFileSync(process.argv[3], 'utf8'));
 const episode = JSON.parse(fs.readFileSync(process.argv[4], 'utf8'));
 
-const appEl = makeEl('div');
-const documentBody = makeEl('body');
-global.document = {
-  createElement: makeEl,
-  createElementNS: (ns, tag) => makeEl(tag),   // SVG 节点
-  addEventListener() {},
-  removeEventListener() {},
-  createTextNode: (t) => makeEl('#text'),
-  getElementById: (id) => {
-    if (id === 'data-overview') { const e = makeEl('script'); e.textContent = JSON.stringify(overview); return e; }
-    if (id === 'data-compare') { const e = makeEl('script'); e.textContent = JSON.stringify(compare); return e; }
-    if (id === 'app') return appEl;
-    return null;
-  },
-  querySelectorAll(sel) { return documentBody.querySelectorAll(sel); },
-  querySelector(sel) { return documentBody.querySelector(sel); },
-  body: documentBody
-};
-documentBody.appendChild(appEl);
-global.window = { addEventListener() {}, removeEventListener() {}, location: { hash: '#/' } };
-global.location = { hash: '#/' };
-global.localStorage = { getItem: () => null, setItem() {} };
-global.performance = { now: () => 0 };
-// 给一个"未来"的时间戳：p 直接到 1，避免计数动画再递归调 rAF（同步 stub 会死循环）
-global.requestAnimationFrame = (fn) => { fn(1000); return 0; };
 const realSetTimeout = setTimeout;
-global.setTimeout = (fn) => { try { fn(); } catch (e) {} return 0; };
-global.setInterval = () => 0;
-global.clearInterval = () => {};
-global.fetch = (url) => {
-  const name = String(url);
-  if (name.includes('assets/data/episode/')) {
-    return Promise.resolve({ ok: true, json: () => Promise.resolve(episode) });
+installDom({
+  overview,
+  compare,
+  fetch: (url) => {
+    const name = String(url);
+    if (name.includes('assets/data/episode/')) {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(episode) });
+    }
+    if (name.includes('assets/data/sai_traj/')) {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ task: '004', run: 'r', score: 0.8, steps: [], frames: {} }) });
+    }
+    return Promise.reject(new Error('unexpected fetch ' + name));
   }
-  if (name.includes('assets/data/sai_traj/')) {
-    return Promise.resolve({ ok: true, json: () => Promise.resolve({ task: '004', run: 'r', score: 0.8, steps: [], frames: {} }) });
-  }
-  return Promise.reject(new Error('unexpected fetch ' + name));
-};
+});
 
 const web = process.argv[5];
-for (const file of ['app.js', 'views/flow.js', 'views/home.js', 'views/results.js', 'views/mechanism.js', 'views/browser_player.js', 'views/browser.js', 'boot.js']) {
+for (const file of ['app.js', 'views/flow.js', 'views/facts.js', 'views/home.js', 'views/results.js', 'views/browser_player.js', 'views/browser.js', 'boot.js']) {
   const code = fs.readFileSync(path.join(web, 'assets', file), 'utf8');
   // eslint-disable-next-line no-eval
   (0, eval)(code);
@@ -116,6 +34,84 @@ function collectText(node, acc) {
   if (node.textContent) acc.push(String(node.textContent));
   (node.children || []).forEach(function (c) { collectText(c, acc); });
   return acc;
+}
+
+function byTag(node, tag) {
+  return (node.children || []).filter(function (c) { return c && c.tagName === tag; });
+}
+
+function num(value) { return Number(value || 0); }
+
+/* 矩形是否相交（贴边不算相交） */
+function overlaps(a, b) {
+  return a.x < b.x + b.w - 0.5 && b.x < a.x + a.w - 0.5 &&
+         a.y < b.y + b.h - 0.5 && b.y < a.y + a.h - 0.5;
+}
+
+/* 流程图版式自检：文字不出框 + 框与框不重叠 + 标签互不压字
+ *
+ * 这三条正是「框中字体超出」「摆放位置不对」的机器可判定形式——
+ * 截图没法做 smoke，但几何是可以断言的。 */
+function checkFlowGeometry() {
+  const tw = window.TD.flow.textWidth;
+  const problems = [];
+
+  document.querySelectorAll('.fedge-label').forEach(function (group) {
+    const rect = byTag(group, 'rect')[0];
+    const label = byTag(group, 'text')[0];
+    if (!rect || !label) { problems.push('标签缺 rect/text'); return; }
+    const text = String(label.textContent || '');
+    const need = tw(text, 12) + 18;
+    const have = num(rect.getAttribute('width'));
+    if (need > have + 0.5) {
+      problems.push('标签「' + text + '」字宽 ' + need.toFixed(1) + ' > 胶囊宽 ' + have.toFixed(1));
+    }
+  });
+
+  const boxes = [];
+  document.querySelectorAll('.fnode').forEach(function (group) {
+    const rect = byTag(group, 'rect')[0];
+    if (!rect) return;
+    const box = {
+      x: num(rect.getAttribute('x')), y: num(rect.getAttribute('y')),
+      w: num(rect.getAttribute('width')), h: num(rect.getAttribute('height'))
+    };
+    boxes.push(box);
+    byTag(group, 'text').forEach(function (label) {
+      const cls = label.getAttribute('class') || '';
+      const size = cls.indexOf('fnode-sub') >= 0 ? 12 : 15;
+      const need = tw(String(label.textContent || ''), size) + 22;
+      if (need > box.w + 0.5) {
+        problems.push('节点文字「' + String(label.textContent || '') + '」字宽 ' +
+          need.toFixed(1) + ' > 框宽 ' + box.w.toFixed(1));
+      }
+    });
+  });
+  for (let i = 0; i < boxes.length; i++) {
+    for (let j = i + 1; j < boxes.length; j++) {
+      if (overlaps(boxes[i], boxes[j])) {
+        problems.push('节点框 #' + i + ' 与 #' + j + ' 重叠');
+      }
+    }
+  }
+
+  const labels = [];
+  document.querySelectorAll('.fedge-label').forEach(function (group) {
+    const rect = byTag(group, 'rect')[0];
+    if (!rect) return;
+    labels.push({
+      x: num(rect.getAttribute('x')), y: num(rect.getAttribute('y')),
+      w: num(rect.getAttribute('width')), h: num(rect.getAttribute('height'))
+    });
+  });
+  for (let i = 0; i < labels.length; i++) {
+    for (let j = i + 1; j < labels.length; j++) {
+      if (overlaps(labels[i], labels[j])) {
+        problems.push('连线标签 #' + i + ' 与 #' + j + ' 互相压字');
+      }
+    }
+  }
+  return problems;
 }
 
 function run(name, fn, ...args) {
@@ -164,15 +160,29 @@ realSetTimeout(function () {
   const flows = document.querySelectorAll('.flow');
   const nodes = document.querySelectorAll('.fnode');
   const choices = document.querySelectorAll('.choice');
+  const subs = document.querySelectorAll('.sub');
   const cards = document.querySelectorAll('.mech-card');
-  const swim = document.querySelectorAll('.swim');
   if (!flows.length) { console.error('FAIL: 流程图没渲染出来'); process.exit(1); }
   if (nodes.length < 6) { console.error('FAIL: 流程图节点不足：' + nodes.length); process.exit(1); }
   if (!choices.length) { console.error('FAIL: 候选选择方块没渲染出来'); process.exit(1); }
   if (cards.length < 4) { console.error('FAIL: 环节卡片不足：' + cards.length); process.exit(1); }
-  if (!swim.length) { console.error('FAIL: 真实 case 泳道没融进粘性卡片'); process.exit(1); }
+  if (document.querySelectorAll('.swim').length) {
+    console.error('FAIL: 真实 case 泳道还在（应已删除）'); process.exit(1);
+  }
+  /* 子任务要展示整轮累积的那一串，不该只有第一次规划的两三个 */
+  if (subs.length < 5) { console.error('FAIL: 子任务行不足：' + subs.length); process.exit(1); }
+  /* 候选要画到动作级（≥5 个具体动作），不能只有 3 个 operation */
+  const candidateRows = choices.length - subs.length;
+  if (candidateRows < 5) { console.error('FAIL: 动作级候选不足：' + candidateRows); process.exit(1); }
+
+  const problems = checkFlowGeometry();
+  if (problems.length) {
+    console.error('FAIL flow 版式：' + problems.join('；'));
+    process.exit(1);
+  }
   console.log('ok flow: ' + flows.length + ' 图 / ' + nodes.length + ' 节点 / ' +
-              choices.length + ' 选择方块 / ' + cards.length + ' 环节卡 / ' + swim.length + ' 泳道');
+              candidateRows + ' 动作候选 / ' + subs.length + ' 子任务 / ' +
+              cards.length + ' 环节卡 / 版式无出框无重叠');
 
   global.location.hash = '#/browser';
   window.TD.render();

@@ -79,14 +79,18 @@ def test_build_steps_normalizes_kinds(tmp_path):
     episode_dir = make_episode(tmp_path)
     steps = build_steps(episode_dir)
     kinds = [s["kind"] for s in steps]
-    assert kinds == ["planner", "gui", "gui", "gui_verified", "stage_replan", "action"]
-    assert steps[1]["n_candidates"] == 1
+    # 末尾多一个 planner：重规划之后慢模型会重写计划（机制段要展示新计划）
+    assert kinds == ["planner", "gui", "gui", "gui_verified", "stage_replan", "action", "planner"]
+    assert steps[1]["n_candidates"] == 5
     assert steps[1]["ranking"]["latency_ms"] == 42.0
+    assert steps[1]["ranking"]["action_ranked"][0]["id"] == "click:a11y:t0:1"
     assert steps[1]["noop"] is False
     assert steps[2]["noop"] is True
     assert steps[3]["verification"]["outcome"] == "not_achieved"
     assert steps[3]["verification"]["requirement_checks"][0]["id"] == "font_name"
     assert steps[4]["reason"] == "execution_failed_or_unverified"
+    assert len(steps[0]["plan"]["milestones"]) == 3
+    assert len(steps[6]["plan"]["milestones"]) == 2
 
 
 def test_noop_rate_uses_action_null_caliber(tmp_path):

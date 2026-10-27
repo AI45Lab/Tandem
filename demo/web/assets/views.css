@@ -180,41 +180,6 @@ pre.text {
 .callout strong { color: var(--text-1); }
 .callout ul { margin: 6px 0 0; padding-left: 18px; }
 
-/* ------------------------------------------------------- 机制泳道（多泳道） */
-.swim {
-  display: grid; gap: 1px; overflow-x: auto;
-  background: var(--line-soft); border: 1px solid var(--line-soft);
-  border-radius: 10px; padding-bottom: 2px;
-}
-.swim-head {
-  background: var(--surface-2); padding: 9px 10px;
-  font-family: var(--mono); font-size: 12.5px; color: var(--text-3);
-  position: sticky; left: 0; z-index: 1;
-}
-.swim-head.step { text-align: center; }
-.swim-lane-name {
-  background: var(--surface-1); padding: 11px 13px;
-  position: sticky; left: 0; z-index: 2;
-  display: flex; flex-direction: column; gap: 3px;
-}
-.swim-lane-name b { font-size: 14px; color: var(--text-1); }
-.swim-lane-name span { font-size: 11.5px; }
-.lane-cell {
-  background: var(--bg-elev); padding: 9px 11px; font-size: 12.5px; color: var(--text-2);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  border-left: 1px solid var(--line-soft);
-}
-.lane-cell.s-slow { background: color-mix(in srgb, var(--s4) 13%, var(--bg-elev)); color: var(--text-1); }
-.lane-cell.s-fast { background: color-mix(in srgb, var(--s2) 13%, var(--bg-elev)); color: var(--text-1); }
-.lane-cell.s-action { background: color-mix(in srgb, var(--s1) 11%, var(--bg-elev)); }
-.lane-cell.s-ok { background: color-mix(in srgb, var(--good) 24%, var(--bg-elev)); }
-.lane-cell.s-bad { background: color-mix(in srgb, var(--bad) 28%, var(--bg-elev)); }
-.lane-cell.s-replan, .lane-cell.s-noop { background: color-mix(in srgb, var(--warn) 28%, var(--bg-elev)); }
-.lane-cell.s-cost { font-family: var(--mono); font-size: 12px; }
-.lane-cell.s-empty { color: var(--text-3); }
-.swim-legend { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 16px; font-size: 13px; color: var(--text-2); }
-.swim-legend i { width: 11px; height: 11px; border-radius: 3px; display: inline-block; margin-right: 7px; vertical-align: -1px; }
-
 /* ------------------------------------------------- 播放器的逐步读数条 */
 .meta-row { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px 0; }
 .meta-chip {

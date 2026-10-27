@@ -80,13 +80,20 @@
 
 /* ------------------------------------------------- 候选选择方块（快模型选了什么） */
 .choices { display: grid; gap: 6px; margin: 6px 0 12px; }
+.choices-head {
+  font-size: 12px; color: var(--text-3); margin-bottom: 2px;
+}
 .choice {
-  display: grid; grid-template-columns: 96px 1fr 58px auto; gap: 10px; align-items: center;
+  display: grid; grid-template-columns: 118px 1fr 58px auto; gap: 10px; align-items: center;
   padding: 7px 10px; border: 1px solid var(--line-soft); border-radius: 8px;
   background: var(--surface-2); font-size: 12.5px;
 }
 .choice-name { font-family: var(--mono); color: var(--text-2); }
 .choice-note { grid-column: 2 / -1; color: var(--text-3); font-size: 12px; }
+.choice-desc {
+  grid-column: 1 / -1; color: var(--text-3); font-size: 12px; line-height: 1.55;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .choice-bar { height: 8px; background: var(--surface-3); border-radius: 4px; overflow: hidden; }
 .choice-bar i { display: block; height: 100%; background: var(--series-2); border-radius: 4px; }
 .choice-score { font-family: var(--mono); color: var(--text-3); text-align: right; }
@@ -97,6 +104,10 @@
 }
 .choice.picked .choice-bar i { background: var(--accent); }
 .choice.picked .choice-name { color: var(--text-1); }
+/* 子任务行：左边是编号，右边整行是子任务描述 */
+.choice.sub { grid-template-columns: 118px 1fr; align-items: start; }
+.choice.sub .choice-note { grid-column: 2; line-height: 1.55; }
+.choice.sub .choice-name { color: var(--text-3); font-size: 12px; padding-top: 1px; }
 
 /* ------------------------------------------------------------ 截图条 */
 .strip { display: flex; gap: 6px; overflow-x: auto; padding: 4px 0 8px; margin-top: 8px; }
@@ -121,3 +132,4 @@
 .fnode.on.done .fnode-box { stroke: var(--good); fill: color-mix(in srgb, var(--good) 13%, var(--surface-1)); }
 .fedge.loopback .fedge-flow { stroke: var(--good); }
 .fedge.loopback .fedge-line { stroke: color-mix(in srgb, var(--good) 45%, var(--line)); }
+.choices-more { font-size: 12px; color: var(--text-3); padding: 2px 2px 0; }
