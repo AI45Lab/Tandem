@@ -203,3 +203,21 @@ def test_sticky_column_is_not_stretched_by_grid():
     assert "align-items: start" in match.group(1), (
         ".mech-layout 必须 align-items: start，否则吸顶元素被拉伸成整行高、sticky 失效"
     )
+
+
+def test_built_index_carries_inline_data(tmp_path):
+    """构建产物的 index.html 必须带**非空**的内联数据。
+
+    症状：首页报「没有内联的总览数据——请用构建脚本生成站点。」
+    成因：有人把**源** index.html 直接拷到产物目录，把构建时注入的内联数据冲掉了。
+    """
+    runs_root = _fixture(tmp_path)
+    out_dir = tmp_path / "site"
+    assert build_site(tmp_path, runs_root, out_dir).returncode == 0
+    html = (out_dir / "index.html").read_text(encoding="utf-8")
+    for slot in ("data-overview", "data-compare"):
+        match = re.search(r'id="' + slot + r'">(.*?)</script>', html, re.DOTALL)
+        assert match, f"index.html 里找不到 {slot} 槽位"
+        body = match.group(1).strip()
+        assert body, f"{slot} 槽位是空的（内联数据被冲掉了？）"
+        assert isinstance(json.loads(body), dict), f"{slot} 不是合法 JSON"

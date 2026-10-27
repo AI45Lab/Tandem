@@ -194,23 +194,42 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--data-dir", type=Path, default=DATA_DIR)
     parser.add_argument("--only-changed", action="store_true",
                         help="按 summary.json 的 mtime 跳过没变的 run（本版本只跳过逐题数据重建）")
+    parser.add_argument("--site-only", action="store_true",
+                        help="只重建前端：复用已有的 assets/data/*.json，不重读结果目录。"
+                             "改了前端之后用这个（不用等几分钟重扫 39GB）")
     args = parser.parse_args(argv)
 
+    out_dir = args.out
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # ---- 只重建前端：先读出已有数据，再覆盖前端文件，最后重新注入内联数据
+    # （顺序不能反：清目录会把要复用的数据一起删掉，这坑踩过一次）
+    if args.site_only:
+        data_dir = out_dir / "assets" / "data"
+        overview = json.loads((data_dir / "overview.json").read_text(encoding="utf-8"))
+        compare = json.loads((data_dir / "compare.json").read_text(encoding="utf-8"))
+        for stale in ("views", "player"):
+            shutil.rmtree(out_dir / "assets" / stale, ignore_errors=True)
+        copy_web(out_dir)
+        index_path = out_dir / "index.html"
+        inline_json(index_path, "data-overview", overview)
+        inline_json(index_path, "data-compare", compare)
+        print(f"[build] 只重建前端：{out_dir}")
+        print(f"[build] 逐题行 {len(overview.get('rows') or [])} 题 · 内联数据已重新注入")
+        return 0
+
+    # ---- 完整构建
     manifest = {}
     if MANIFEST_PATH.is_file():
         manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
-    # 显式给 --runs-root = 只构建那个根（不套用合并清单）；不给 = 用清单里的全量批次
     explicit = bool(args.runs_root)
     roots = args.runs_root or [Path(p) for p in (manifest.get("batch_roots") or {}).values()]
     roots = [root for root in roots if root.is_dir()]
     if not roots:
         print("[build] 没有可用的结果目录（先跑 demo/sync_merged.py 生成合并清单）")
         return 2
-    out_dir = args.out
-    out_dir.mkdir(parents=True, exist_ok=True)
-    # 清掉上一轮产物（只删我们自己生成的那几个名字，不动目标目录里的其它东西：
-    # --out 可能指向共享目录）。旧版站点留下的 task/ 与 compare.html 也要清，
-    # 否则两代产物会混在一起。
+
+    # 清掉上一轮产物（只删我们自己生成的那几个名字，不动目标目录里的其它东西）
     for name in ("assets", "task"):
         stale = out_dir / name
         if stale.is_dir():
@@ -239,15 +258,15 @@ def main(argv: list[str] | None = None) -> int:
     write_json(out_dir / "assets" / "data" / "overview.json", overview)
     write_json(out_dir / "assets" / "data" / "compare.json", compare)
 
-    # 官方参考轨迹：拷进站点（离线可读）
+    # 官方参考轨迹的文本摘要（对照页要读）
     sai_traj_src = args.data_dir / "official" / "sai_traj"
     if sai_traj_src.is_dir():
+        target_traj = out_dir / "assets" / "data" / "sai_traj"
+        target_traj.mkdir(parents=True, exist_ok=True)
         for item in sai_traj_src.glob("*.json"):
-            target = out_dir / "assets" / "data" / "sai_traj" / item.name
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(item, target)
+            shutil.copyfile(item, target_traj / item.name)
 
-    # 官方参考帧：把缓存拷进站点（站点自包含，不依赖外部与缓存目录）
+    # 官方参考轨迹：把缓存拷进站点（站点自包含，不依赖外部与缓存目录）
     sai_frames_src = REPO_ROOT / "demo" / ".cache" / "sai_frames"
     sai_frame_count = 0
     if sai_frames_src.is_dir():
