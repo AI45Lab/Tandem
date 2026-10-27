@@ -105,7 +105,7 @@ global.fetch = (url) => {
 };
 
 const web = process.argv[5];
-for (const file of ['app.js', 'views/flow.js', 'views/home.js', 'views/results.js', 'views/mechanism.js', 'views/browser.js', 'boot.js']) {
+for (const file of ['app.js', 'views/flow.js', 'views/home.js', 'views/results.js', 'views/mechanism.js', 'views/browser_player.js', 'views/browser.js', 'boot.js']) {
   const code = fs.readFileSync(path.join(web, 'assets', file), 'utf8');
   // eslint-disable-next-line no-eval
   (0, eval)(code);

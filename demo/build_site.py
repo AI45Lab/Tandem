@@ -4,6 +4,7 @@
 产物（默认 `demo/site/`）：
     index.html                              单页应用（总览/对照/机制/轨迹 四视图）
     assets/app.css|app.js|boot.js           应用内核与双主题 token
+    assets/views.css|browser.css|mechanism.css  视图样式（按职责拆三份）
     assets/views/*.js                      四个视图
     assets/player/dual.js                   双轨播放器
     assets/data/overview.json|compare.json  站点数据（同时内联进 index.html）

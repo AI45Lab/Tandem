@@ -55,7 +55,7 @@ def test_build_site_produces_single_page_app(tmp_path):
 
 
 def test_index_references_only_existing_scripts(tmp_path):
-    """index.html 引用的每个脚本都必须在产物里存在（防止漏拷视图）。"""
+    """index.html 引用的每个脚本/样式都必须在产物里存在（防止漏拷视图）。"""
     runs_root = _fixture(tmp_path)
     out_dir = tmp_path / "site"
     assert build_site(tmp_path, runs_root, out_dir).returncode == 0
@@ -64,6 +64,10 @@ def test_index_references_only_existing_scripts(tmp_path):
     assert sources
     for source in sources:
         assert (out_dir / source).is_file(), f"index.html 引用了不存在的脚本：{source}"
+    styles = re.findall(r'<link rel="stylesheet" href="([^"]+)"', html)
+    assert styles
+    for href in styles:
+        assert (out_dir / href).is_file(), f"index.html 引用了不存在的样式：{href}"
 
 
 def test_built_site_has_no_external_resources(tmp_path):
@@ -160,6 +164,8 @@ def test_built_site_ships_view_stylesheet_and_official_reference_data(tmp_path):
     out_dir = tmp_path / "site"
     assert build_site(tmp_path, runs_root, out_dir).returncode == 0
     assert (out_dir / "assets" / "views.css").is_file()
+    assert (out_dir / "assets" / "browser.css").is_file()
+    assert (out_dir / "assets" / "mechanism.css").is_file()
     traj_dir = out_dir / "assets" / "data" / "sai_traj"
     assert traj_dir.is_dir()
     payloads = [json.loads(path.read_text(encoding="utf-8")) for path in traj_dir.glob("*.json")]
@@ -203,6 +209,22 @@ def test_sticky_column_is_not_stretched_by_grid():
     assert "align-items: start" in match.group(1), (
         ".mech-layout 必须 align-items: start，否则吸顶元素被拉伸成整行高、sticky 失效"
     )
+
+
+def test_web_assets_stay_under_300_lines():
+    """前端单模块 ≤300 行（AGENTS.md 纪律 3）。
+
+    demo 层的 JS/CSS 也算「模块」——超了就该拆职责，而不是接着往里塞。
+    """
+    assets = REPO_ROOT / "demo" / "web" / "assets"
+    offenders = []
+    for path in sorted(assets.rglob("*")):
+        if path.suffix not in {".js", ".css"} or not path.is_file():
+            continue
+        count = len(path.read_text(encoding="utf-8").splitlines())
+        if count > 300:
+            offenders.append(f"{path.relative_to(REPO_ROOT)} ({count} 行)")
+    assert offenders == [], "前端模块超 300 行：" + "、".join(offenders)
 
 
 def test_built_index_carries_inline_data(tmp_path):
