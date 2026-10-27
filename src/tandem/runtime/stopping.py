@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from .protocol.models import Budget
+from ..protocol.models import Budget
 
 NO_ACTION_LIMIT = 3
 

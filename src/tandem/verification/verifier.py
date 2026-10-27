@@ -1,4 +1,4 @@
-"""verifier：独立验证与需求抽取（LLM）。从旧仓库 verification.py 按契约移植。"""
+"""verifier：独立验证与需求抽取（LLM）；从旧仓库 verification.py 按契约移植。"""
 
 from __future__ import annotations
 

@@ -8,15 +8,15 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from functools import partial
 
-from .candidates import ActionCandidateBuilder
-from .compile import gui_action
 from .config import SessionConfig
-from .planner import plan_step
-from .proposals import focused_candidates
-from .selector import JevOmniPolicy
-from .stage_planner import plan_stage
-from .targets import A11yTargetBuilder
-from .verifier import task_requirements, verify_observation
+from .gui.candidates import ActionCandidateBuilder
+from .gui.compile import gui_action
+from .gui.proposals import focused_candidates
+from .gui.targets import A11yTargetBuilder
+from .models.jev import JevOmniPolicy
+from .planning.planner import plan_step
+from .planning.stage_planner import plan_stage
+from .verification.verifier import task_requirements, verify_observation
 
 
 @dataclass
@@ -35,7 +35,7 @@ class Components:
 def build_default(*, client, endpoint: str, config: SessionConfig,
                   image_stage: tuple[str, str] | None = None) -> Components:
     if config.fast_backend == "kev":
-        from .selector_kev import KevPolicy
+        from .models.kev import KevPolicy
 
         selector = KevPolicy(endpoint, timeout_seconds=config.fast_timeout_seconds)
     else:

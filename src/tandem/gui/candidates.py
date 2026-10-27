@@ -1,4 +1,4 @@
-"""UITarget → ActionSpace 候选构建。从旧仓库 gui/action_candidate_builder.py 按契约移植。"""
+"""UITarget → ActionSpace 候选构建；从旧仓库 gui/action_candidate_builder.py 按契约移植。"""
 
 from __future__ import annotations
 

@@ -8,7 +8,7 @@ import pytest
 
 from tandem.config import SessionConfig
 from tandem.protocol.models import CliAction, FailAction, FinishAction, GuiAction, WaitAction
-from tandem.session import TandemSession
+from tandem.runtime.session import TandemSession
 
 from .conftest import (
     FixedSelector,
@@ -253,9 +253,9 @@ def test_cli_timeout_clamped_to_protocol_limit():
 
 def test_truncated_reasoning_raises_actionable_error(tmp_path, monkeypatch):
     """finish_reason=length（推理吃满 max_tokens、正文为空）必须报可定位的错误。"""
-    import tandem.providers as providers_module
+    import tandem.models.slow as providers_module
     from tandem.config import SessionConfig
-    from tandem.providers import SlowModelClient
+    from tandem.models.slow import SlowModelClient
 
     monkeypatch.setattr(providers_module.time, "sleep", lambda seconds: None)
 
@@ -299,7 +299,7 @@ def test_kimi_payload_controls_reasoning_and_tokens(tmp_path):
     import urllib.request
 
     from tandem.config import SessionConfig
-    from tandem.providers import SlowModelClient
+    from tandem.models.slow import SlowModelClient
 
     captured = {}
 
@@ -367,7 +367,7 @@ def test_kimi_retries_escalate_reasoning_effort_on_empty_content(tmp_path):
     import urllib.request
 
     from tandem.config import SessionConfig
-    from tandem.providers import SlowModelClient
+    from tandem.models.slow import SlowModelClient
 
     payloads = []
     responses = iter([
@@ -391,7 +391,7 @@ def test_kimi_retries_escalate_reasoning_effort_on_empty_content(tmp_path):
         def read(self):
             return json.dumps(next(responses)).encode()
 
-    import tandem.providers as providers_mod
+    import tandem.models.slow as providers_mod
     providers_mod.time.sleep = lambda seconds: None
 
     def fake_urlopen(request, timeout=None):
@@ -412,7 +412,7 @@ def test_kimi_retries_escalate_reasoning_effort_on_empty_content(tmp_path):
 
 
 def test_extract_json_object_salvages_prose_wrapped_answers():
-    from tandem.providers import extract_json_object
+    from tandem.models.slow import extract_json_object
 
     assert extract_json_object('```json\n{"done": true}\n```') == {"done": True}
     assert extract_json_object('Sure! Here is my plan:\n{"done": false, "route": "cli"}') == {
@@ -426,7 +426,7 @@ def test_kimi_accepts_prose_wrapped_json(tmp_path):
     import urllib.request
 
     from tandem.config import SessionConfig
-    from tandem.providers import SlowModelClient
+    from tandem.models.slow import SlowModelClient
 
     class _Resp:
         status, headers = 200, {}

@@ -1,4 +1,4 @@
-"""慢模型（大脑）的 JSON 传输客户端——OpenAI 兼容 /chat/completions 口径，
+"""慢模型的 JSON 传输客户端——OpenAI 兼容 /chat/completions 口径，
 当前实现用 OpenAI 兼容方言（reasoning_effort / enable_thinking）——Kimi 与 MiniMax 都吃这套。含脱敏审计。
 从旧仓库 providers.py 按契约移植。
 全量请求/响应落盘（llm_calls.jsonl）属于 M2 的 recorder，此处保持审计日志。"""

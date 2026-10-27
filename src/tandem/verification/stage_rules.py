@@ -1,4 +1,4 @@
-"""Observable stage postconditions. Unknown or ambiguous evidence never proves success."""
+"""Observable stage postconditions; unknown or ambiguous evidence never proves success."""
 
 from __future__ import annotations
 

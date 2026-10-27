@@ -1,4 +1,4 @@
-"""planner 提案 → 聚焦候选空间。从旧仓库 gui/actions.py focused_candidates 按契约移植。"""
+"""planner 提案 → 聚焦候选空间；从旧仓库 gui/actions.py focused_candidates 按契约移植。"""
 
 from __future__ import annotations
 

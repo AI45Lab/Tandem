@@ -12,7 +12,7 @@
 
 1. **运行时依赖白名单只有 Pillow。** 新增依赖必须在 PR 里单独论证并过维护者确认（共享 venv 冻结，worker 内不能装包）。
 2. **每个公开函数必须有主路径调用者或测试调用者**，否则不合并。不留"以后会用"的函数。
-3. **单模块 ≤300 行**，超过必须拆分职责。
+3. **单模块尽量 ≤300 行，硬上限 500 行**；按职责拆分，不为凑行数机械拆文件。
 4. **一个 PR = 一个组件改动 + 单测 + smoke 结果链接**（真机 smoke 已可用：`--benchmark mock` 走 mock 链路；真实基准走 OSW1/OSW2）。
 5. **ruff + pytest + 契约测试三件套从第一天齐上**：本地提交前 `ruff check src tests && pytest` 必须绿。
 
@@ -87,6 +87,11 @@
 
 ```
 src/tandem/              harness 主体（组件、协议、CLI）
+src/tandem/runtime/      会话状态机、回执处理、阶段推进与停止条件
+src/tandem/planning/     单步规划与阶段规划
+src/tandem/gui/          A11y 目标、动作候选、聚焦剪枝与声明式动作编译
+src/tandem/models/       慢模型客户端、JEV/Kev 选择器与共用排序结构
+src/tandem/verification/ 需求抽取、模型验证与阶段规则验证
 src/tandem/protocol/     消息层协议：schema/ 真源、validate/ 校验、samples/ golden
 src/tandem_eval/         worker 侧 6 文件（entry/env/runner/recorder/scoring/manifest）
                          + 开发机侧 rjob.py / rjob_spec.py / rjob_status.py 生命周期客户端
@@ -102,6 +107,10 @@ demo/                    轨迹回放与对比站点（adapter/metrics/frames/re
 docs/                    RESULT_DIR_CONTRACT.md（eval↔demo 唯一接口）
                          CLUSTER_RUNTIME.md（内部集群运行手册：rjob/共享资源/已知坑）
 ```
+
+`src/tandem/` 根目录只保留包信息、CLI、`config.py` 和 `components.py`。
+组件继续经 `Components` / `build_default` 装配；不要在 runtime 中硬编码新的模型后端。
+真实执行、环境生命周期、评分与结果落盘仍归 `tandem_eval`。
 
 ## 结果目录纪律
 

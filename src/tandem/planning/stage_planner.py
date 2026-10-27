@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 import json
 
-from .focus import input_and_menu_context
+from ..gui.focus import input_and_menu_context
 
 OPERATIONS = {"click", "double_click", "type_text", "keypress", "scroll_up", "scroll_down",
               "set_slider", "wait"}

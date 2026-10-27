@@ -18,6 +18,10 @@ worker 入口、共享资源与已知坑。
 | `infra/worker.sh` | worker 入口 | rjob worker 内被调用，按 benchmark 分 mock / 真机两条路 |
 | `scripts/` | 批量脚本 | `run_osw2_20x5.sh` 等批量运行 |
 
+Harness 内部已按 `runtime` / `planning` / `gui` / `models` / `verification` / `protocol`
+分包，见 [README 的内部分层](../README.md#harness-内部分层)。
+这次目录整理不改变本手册中的启动命令、配置字段、worker 生命周期或结果目录。
+
 原则（AGENTS.md 配置纪律）：
 
 - **只有一个配置文件** `infra/config.json` —— 禁止环境档案、占位符展开、多配置文件；

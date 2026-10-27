@@ -1,4 +1,4 @@
-"""selector：快模型 omni 选择策略（HTTP 排序服务）。从旧仓库 gui/jev_omni_policy.py 按契约移植；
+"""JEV：快模型 omni 选择策略（HTTP 排序服务）。从旧仓库 gui/jev_omni_policy.py 按契约移植；
 唯一接口差异：opener 可注入（测试），默认行为不变。"""
 
 from __future__ import annotations
@@ -9,87 +9,11 @@ import shutil
 import time
 import urllib.error
 import urllib.request
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .candidates import OPERATION_DESCRIPTIONS, ActionCandidate
-from .targets import UITarget
-
-
-@dataclass(slots=True)
-class Ranking:
-    winner: ActionCandidate | None
-    action_ranked: list[dict[str, Any]]
-    operation_ranked: list[dict[str, Any]]
-    operation_margin: float
-    target_margin: float
-    latency_ms: float
-    used_image: bool
-    confident: bool = True
-    operation_request: dict[str, Any] | None = None
-    action_request: dict[str, Any] | None = None
-
-
-def build_choice_requests(
-    *,
-    stage_goal: str,
-    intent: str,
-    active_window: str,
-    targets: list[UITarget],
-    action_space,
-    recent_actions: list[dict[str, Any]],
-) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
-    candidates = action_space.candidates()
-    offered_target_ids = {candidate.target_id for candidate in candidates}
-    controls = {
-        target.id: {key: value for key, value in target.compact().items() if key not in {"id", "snapshot_id"}}
-        for target in targets
-        if target.id in offered_target_ids
-    }
-    state = json.dumps(
-        {
-            "local_goal": intent,
-            "active_window": active_window,
-            "current_ui_controls": list(controls.values()),
-            "recent_semantic_actions": recent_actions[-10:],
-            "stage_goal": stage_goal,
-        },
-        ensure_ascii=False,
-        separators=(",", ":"),
-    )
-    operations = list(dict.fromkeys(candidate.operation for candidate in candidates))
-    operation_request = {
-        "state": state,
-        "question": "Which operation should be performed next?",
-        "option_ids": operations,
-        "options": [
-            f"Choose operation {operation}: {OPERATION_DESCRIPTIONS.get(operation, operation)}"
-            for operation in operations
-        ],
-    }
-    action_requests = {}
-    for operation in operations:
-        selected = [candidate for candidate in candidates if candidate.operation == operation]
-        options = []
-        for candidate in selected:
-            description = candidate.description
-            target = controls.get(candidate.target_id)
-            if target:
-                context = " > ".join(target.get("parent_context", [])[-2:])
-                description += (
-                    f" Parent context: {context};"
-                    f" screen box ({target.get('x')}, {target.get('y')},"
-                    f" {target.get('width')}, {target.get('height')})."
-                )
-            options.append(description)
-        action_requests[operation] = {
-            "state": state,
-            "question": "Which concrete action should be performed for the selected operation?",
-            "option_ids": [candidate.id for candidate in selected],
-            "options": options,
-        }
-    return operation_request, action_requests
+from ..gui.targets import UITarget
+from .ranking import Ranking, build_choice_requests
 
 
 class JevOmniPolicy:
@@ -225,19 +149,3 @@ class JevOmniPolicy:
             operation_request=operation_request,
             action_request=action_request,
         )
-
-
-def ranking_dict(value: Ranking) -> dict[str, Any]:
-    return {
-        "action_ranked": value.action_ranked,
-        "operation_ranked": value.operation_ranked,
-        "winner": value.winner.compact() if value.winner else None,
-        "operation_margin": value.operation_margin,
-        "target_margin": value.target_margin,
-        "latency_ms": value.latency_ms,
-        "used_image": value.used_image,
-        "score_type": "fast_model_choice_softmax",
-        "score_is_calibrated_correctness_probability": False,
-        "operation_request": value.operation_request,
-        "action_request": value.action_request,
-    }

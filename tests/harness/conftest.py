@@ -8,10 +8,12 @@ from pathlib import Path
 
 import pytest
 
-from tandem.candidates import ActionCandidateBuilder
-from tandem.compile import gui_action
 from tandem.components import Components
-from tandem.proposals import focused_candidates
+from tandem.gui.candidates import ActionCandidateBuilder
+from tandem.gui.compile import gui_action
+from tandem.gui.proposals import focused_candidates
+from tandem.gui.targets import A11yTargetBuilder
+from tandem.models.ranking import Ranking
 from tandem.protocol.models import (
     AccessibilityTree,
     Budget,
@@ -19,8 +21,6 @@ from tandem.protocol.models import (
     Receipt,
     Screenshot,
 )
-from tandem.selector import Ranking
-from tandem.targets import A11yTargetBuilder
 
 SHA = "0123456789abcdef" * 4
 

@@ -7,7 +7,7 @@ import json
 import re
 from pathlib import Path
 
-from .focus import input_and_menu_context
+from ..gui.focus import input_and_menu_context
 
 
 def plan_step(

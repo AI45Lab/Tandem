@@ -8,8 +8,11 @@ import pytest
 
 from tandem.components import build_default
 from tandem.config import SessionConfig
-from tandem.selector import ranking_dict
-from tandem.selector_kev import KevPolicy
+from tandem.models.jev import JevOmniPolicy
+from tandem.models.kev import KevPolicy
+from tandem.models.ranking import ranking_dict
+from tandem.planning.planner import plan_step
+from tandem.planning.stage_planner import plan_stage
 
 from ..harness.conftest import build_space, build_targets
 
@@ -94,7 +97,7 @@ def test_rank_single_candidate_skips_action_request(tmp_path):
 
 
 def test_missing_probability_counts_as_zero(tmp_path):
-    from tandem.candidates import ActionCandidate
+    from tandem.gui.candidates import ActionCandidate
 
     policy, _ = _policy(tmp_path, [_answer({"type_text": 1.0})])
     targets = build_targets()
@@ -127,3 +130,20 @@ def test_config_and_build_default_backend_switch(tmp_path):
     jev_components = build_default(client=NullClient(), endpoint="http://jev:8891",
                                    config=SessionConfig())
     assert not isinstance(jev_components.selector, KevPolicy)
+
+
+@pytest.mark.parametrize("mode,planner", [("step", plan_step), ("stage", plan_stage)])
+@pytest.mark.parametrize("backend,policy", [("jev", JevOmniPolicy), ("kev", KevPolicy)])
+def test_factory_preserves_planning_and_backend_choices(mode, planner, backend, policy):
+    """分包后仍通过原工厂独立选择执行模式与快模型，不发起真实 API 请求。"""
+    client = object()
+    components = build_default(
+        client=client,
+        endpoint="http://model-fake",
+        config=SessionConfig(execution_mode=mode, fast_backend=backend),
+    )
+    assert components.planner.func is planner
+    assert components.planner.args == (client,)
+    assert isinstance(components.selector, policy)
+    assert components.verifier.args == (client,)
+    assert components.requirements.args == (client,)

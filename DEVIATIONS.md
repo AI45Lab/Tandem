@@ -93,3 +93,12 @@
     默认 `step` 路径不变，动作/观察/回执协议不变。
     此为旧阶段执行实验的组件化移植，不包含其传输重试、部署或环境准备逻辑。
     详细实现边界见 [STAGE_EXECUTION.md](docs/STAGE_EXECUTION.md)。
+
+## Harness 按职责分包（2026-10-27）
+
+29. 【重构，无运行行为变化】`src/tandem/` 的平铺模块迁入 `runtime`、`planning`、
+    `gui`、`models`、`verification`；`protocol` 结构不变。
+    Python 导入路径随目录迁移更新，不保留旧模块兼容壳。
+    `Ranking`、`build_choice_requests` 和 `ranking_dict` 从原 JEV 模块移到
+    `models/ranking.py`，供 JEV/Kev 共用；现有函数体、prompt 和排序语义保持不变。
+    配置字段、启动命令、消息协议、结果目录以及 step/stage 执行行为均不变。
