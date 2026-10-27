@@ -32,10 +32,14 @@
     ]);
   }
 
-  /* ------------------------------------------- 2. 机制（滚动时内容切换） */
+  /* ------------------------------------------- 2. 机制（流程图 + 滚动切换） */
   function mechanism(episode, taskLabel) {
     var steps = buildMechanismSteps(episode);
-    var layout = TD.el("div", { class: "mech-layout" });
+    var facts = buildFacts(episode);
+    var active = 0;
+
+    var diagram = TD.flow.concept(steps, facts.concept, function (index) { setStep(index, true); });
+
     var sticky = TD.el("div", { class: "mech-sticky" });
     var column = TD.el("div", { class: "mech-steps" });
 
@@ -46,22 +50,42 @@
           TD.el("b", { text: step.title }),
           TD.el("span", { class: "mech-role", text: step.role })
         ]),
-        TD.el("pre", { class: "text", text: step.body })
+        step.diagram ? step.diagram : null,
+        TD.el("pre", { class: "text", text: step.body }),
+        step.meta ? TD.el("div", { class: "mech-card-meta", text: step.meta }) : null
       ]);
       sticky.appendChild(card);
       return card;
     });
 
-    steps.forEach(function (step, index) {
-      var block = TD.el("div", { class: "mech-step" + (index === 0 ? " active" : "") }, [
-        TD.el("div", { class: "mech-step-no", text: String(index + 1).padStart(2, "0") }),
-        TD.el("h3", { text: step.title }),
-        TD.el("p", { text: step.desc })
+    var chainItems = steps.map(function (step, index) {
+      var item = TD.el("div", {
+        class: "mech-step" + (index === 0 ? " active" : ""),
+        onclick: function () { setStep(index, false); }
+      }, [
+        TD.el("div", { class: "mech-node" }, [
+          TD.el("span", { class: "mech-dot", text: String(index + 1) }),
+          TD.el("div", {}, [
+            TD.el("h3", { text: step.title }),
+            TD.el("p", { text: step.desc })
+          ])
+        ])
       ]);
-      column.appendChild(block);
+      column.appendChild(item);
+      return item;
     });
 
-    /* 滚动到哪一步，粘性卡片就切到哪一步 */
+    function setStep(index, scrollIntoView) {
+      active = index;
+      cards.forEach(function (card, i) { card.classList.toggle("active", i === index); });
+      chainItems.forEach(function (item, i) { item.classList.toggle("active", i === index); });
+      diagram.setActive(index);
+      if (scrollIntoView && chainItems[index]) {
+        chainItems[index].scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }
+
+    /* 滚到哪一步，粘性卡片就切到哪一步 */
     function syncActive() {
       var blocks = column.querySelectorAll(".mech-step");
       var best = 0;
@@ -71,13 +95,25 @@
         var distance = Math.abs(rect.top - 140);
         if (distance < bestDistance) { bestDistance = distance; best = index; }
       });
-      blocks.forEach(function (block, index) { block.classList.toggle("active", index === best); });
-      cards.forEach(function (card, index) { card.classList.toggle("active", index === best); });
+      if (best !== active) setStep(best, false);
     }
     window.addEventListener("scroll", syncActive, { passive: true });
     window.addEventListener("resize", syncActive);
     setTimeout(syncActive, 60);
 
+    /* ← / → 切换步骤。监听挂在 document 上，所以必须可清理：
+       否则每次重渲染都会叠加一个监听器，还会劫持别的页面（轨迹浏览）的方向键。 */
+    if (TD._mechCleanup) { TD._mechCleanup(); TD._mechCleanup = null; }
+    function onKey(event) {
+      if (event.key === "ArrowLeft") { setStep(Math.max(0, active - 1), true); }
+      else if (event.key === "ArrowRight") { setStep(Math.min(steps.length - 1, active + 1), true); }
+      else return;
+      event.preventDefault();
+    }
+    document.addEventListener("keydown", onKey);
+    TD._mechCleanup = function () { document.removeEventListener("keydown", onKey); };
+
+    var layout = TD.el("div", { class: "mech-layout" });
     layout.appendChild(sticky);
     layout.appendChild(column);
 
@@ -86,7 +122,17 @@
       TD.el("h2", { class: "section-title", text: "一次决策，经过两个模型" }),
       TD.el("p", { class: "section-lede", html:
         "下面是真实跑批里的一条链路（" + (taskLabel || "") + "）：慢模型写规划，快模型排候选，" +
-        "动作执行后由核验判定要不要重规划。往下滚动，每一步展开。" }),
+        "动作执行后由核验判定要不要重规划。<b>点流程图节点</b>或用 <b>← / →</b> 切换环节。" }),
+      TD.el("div", { class: "flow-wrap" }, [
+        diagram.node,
+        TD.el("div", { class: "flow-legend" }, [
+          TD.el("span", {}, [TD.el("i", { style: "background:var(--series-4)" }), document.createTextNode("慢模型")]),
+          TD.el("span", {}, [TD.el("i", { style: "background:var(--series-2)" }), document.createTextNode("快模型")]),
+          TD.el("span", {}, [TD.el("i", { style: "background:var(--series-1)" }), document.createTextNode("动作/候选")]),
+          TD.el("span", {}, [TD.el("i", { style: "background:var(--good)" }), document.createTextNode("核验通过")]),
+          TD.el("span", {}, [TD.el("i", { style: "background:var(--warn)" }), document.createTextNode("重规划回路")])
+        ])
+      ]),
       layout
     ]);
     if (TD.sections && TD.sections.swimlane) {
@@ -95,75 +141,135 @@
     return section;
   }
 
-  /* 从真实 episode 的 timeline 里抽出五个环节 */
-  function buildMechanismSteps(episode) {
+  /* 从真实 episode 里抽出五个环节 + 各自的迷你图 */
+  function buildFacts(episode) {
     var timeline = (episode && episode.timeline) || [];
-    var planner = null;
-    var ranked = null;
-    var executed = null;
-    var verified = null;
-    var replanned = null;
+    var frames = (episode && episode.frames) || [];
+    var steps = (episode && episode.steps_detail) || [];
+    var facts = {
+      planner: null, ranked: null, executed: null, verified: null, replanned: null,
+      bars: [], nodes: 0, gui: null, candidates: 0
+    };
     timeline.forEach(function (entry) {
-      // timeline 里的 kind 是「这一步执行了什么」（gui/cli），不是事件类型；
+      // timeline 的 kind 是「这一步执行了什么」（gui/cli），不是事件类型；
       // 规划原文要看 slow.text（该步窗口里慢模型吐出来的内容）
-      if (!planner && (entry.slow || {}).text) planner = entry;
-      if (!ranked && entry.fast && entry.fast.n_candidates) ranked = entry;
-      if (!executed && entry.action && entry.kind === "gui") executed = entry;
-      if (!verified && entry.outcome) verified = entry;
-      if (!replanned && entry.replan) replanned = entry;
+      if (!facts.planner && (entry.slow || {}).text) facts.planner = entry;
+      if (!facts.ranked && entry.fast && entry.fast.n_candidates) facts.ranked = entry;
+      if (!facts.executed && entry.action && entry.kind === "gui") facts.executed = entry;
+      if (!facts.verified && entry.outcome) facts.verified = entry;
+      if (!facts.replanned && entry.replan) facts.replanned = entry;
     });
+    steps.forEach(function (step) {
+      if (!facts.gui && step.kind === "gui" && step.ranking) facts.gui = step;
+    });
+    frames.forEach(function (frame) {
+      if ((frame.node_count || 0) > facts.nodes) facts.nodes = frame.node_count;
+    });
+    if (facts.gui) {
+      facts.bars = (facts.gui.ranking && facts.gui.ranking.operation_ranked) || [];
+      facts.candidates = facts.gui.n_candidates || 0;
+    }
+    /* 流程图节点上显示的真实数字（不是文案，是这条 case 的实际值） */
+    facts.concept = {
+      observed: frames.length ? (frames.length + " 帧观察") : "当前屏幕",
+      plan: facts.planner
+        ? (TD.int(facts.planner.slow.prompt_tokens) + " in / " + TD.int(facts.planner.slow.completion_tokens) + " out")
+        : "目标 + 预期结果",
+      candidates: facts.candidates ? (facts.candidates + " 个候选") : "候选动作",
+      rank: facts.ranked ? (facts.ranked.fast.latency_ms + " ms") : "operation → target",
+      action: facts.ranked ? (facts.ranked.fast.winner || "动作") : "送进 VM",
+      verify: facts.verified ? facts.verified.outcome : "达成 / 未达成",
+      replan: facts.replanned ? ("重规划：" + facts.replanned.replan) : "核验不通过 → 重规划"
+    };
+    return facts;
+  }
+
+  function buildMechanismSteps(episode) {
+    var facts = buildFacts(episode);
+    var requirements = (episode && episode.requirements) || [];
     var steps = [];
+
     steps.push({
       title: "慢模型写规划",
       role: "slow_model",
       desc: "慢模型看着当前屏幕与任务状态，输出这一步的目标、预期结果与候选动作提案。",
-      body: planner
-        ? ((planner.slow.text || "").slice(0, 900) || "（无原文）")
+      diagram: TD.flow.funnel({
+        nodes: facts.nodes || "—",
+        candidates: facts.candidates || "—",
+        winner: facts.ranked ? (facts.ranked.fast.winner || "?") : "—"
+      }),
+      meta: facts.planner
+        ? ("token " + TD.int(facts.planner.slow.prompt_tokens) + " in / " +
+           TD.int(facts.planner.slow.completion_tokens) + " out · " +
+           ((facts.planner.elapsed_ms || 0) / 1000).toFixed(1) + "s · $" +
+           (facts.planner.cost_usd || 0).toFixed(5))
+        : "",
+      body: facts.planner
+        ? ((facts.planner.slow.text || "").slice(0, 900) || "（无原文）")
         : "（这一题没有记录到规划原文）"
     });
+
     steps.push({
       title: "快模型排候选",
       role: "fast_model",
       desc: "候选空间交给小脑排序：先选 operation，再选 target；分数是 softmax 的相对强度，不是校准概率。",
-      body: ranked
-        ? ("候选 " + ranked.fast.n_candidates + " 个 → 赢家 " + (ranked.fast.winner || "?") +
-           "\noperation margin " + ranked.fast.operation_margin +
-           " · target margin " + ranked.fast.target_margin +
-           "\n排序耗时 " + ranked.fast.latency_ms + " ms" +
-           (ranked.fast.used_image ? "（用了截图）" : "（只用结构）"))
+      diagram: TD.flow.rank(facts.bars),
+      meta: facts.ranked
+        ? ("候选 " + facts.ranked.fast.n_candidates + " 个 · margin " +
+           facts.ranked.fast.operation_margin + " / " + facts.ranked.fast.target_margin +
+           " · " + facts.ranked.fast.latency_ms + " ms" +
+           (facts.ranked.fast.used_image ? " · 用了截图" : " · 只用结构"))
+        : "",
+      body: facts.ranked
+        ? ("候选 " + facts.ranked.fast.n_candidates + " 个 → 赢家 " + (facts.ranked.fast.winner || "?") +
+           "\noperation margin " + facts.ranked.fast.operation_margin +
+           " · target margin " + facts.ranked.fast.target_margin +
+           "\n排序耗时 " + facts.ranked.fast.latency_ms + " ms" +
+           (facts.ranked.fast.used_image ? "（用了截图）" : "（只用结构）"))
         : "（没有排序事件）"
     });
+
     steps.push({
       title: "执行动作",
       role: "action",
       desc: "赢家被编译成可执行动作送进 VM；动作有没有真的生效，由下一步的核验说话。",
-      body: executed
-        ? (JSON.stringify(executed.action || {}, null, 2).slice(0, 700) +
-           "\n本步花费 $" + (executed.cost_usd || 0).toFixed(5) +
-           " · 用时 " + ((executed.elapsed_ms || 0) / 1000).toFixed(1) + "s")
+      meta: facts.executed
+        ? ("$" + (facts.executed.cost_usd || 0).toFixed(5) + " · " +
+           ((facts.executed.elapsed_ms || 0) / 1000).toFixed(1) + "s · step " + facts.executed.step)
+        : "",
+      body: facts.executed
+        ? (JSON.stringify(facts.executed.action || {}, null, 2).slice(0, 700) +
+           "\n本步花费 $" + (facts.executed.cost_usd || 0).toFixed(5) +
+           " · 用时 " + ((facts.executed.elapsed_ms || 0) / 1000).toFixed(1) + "s")
         : "（没有动作事件）"
     });
+
     steps.push({
       title: "核验结果",
       role: "verify",
       desc: "核验给出 achieved / not_achieved 与逐条要求的达成情况；不达成就回到规划。",
-      body: verified
-        ? ("outcome = " + verified.outcome +
-           "\n要求核验 " + (((episode || {}).requirements) || []).length + " 条" +
-           ((episode || {}).requirements || []).slice(0, 4).map(function (req) {
+      diagram: TD.flow.requirements(requirements),
+      meta: facts.verified ? ("outcome = " + facts.verified.outcome) : "",
+      body: facts.verified
+        ? ("outcome = " + facts.verified.outcome +
+           "\n要求核验 " + requirements.length + " 条" +
+           requirements.slice(0, 4).map(function (req) {
              return "\n  " + req.id + " → " + req.status;
            }).join(""))
         : "（没有核验事件）"
     });
+
     steps.push({
       title: "必要时重规划",
       role: "replan",
       desc: "stage 模式下重规划是原生事件：带着失败原因换一个新目标继续，而不是原地重试。",
-      body: replanned
-        ? ("reason = " + replanned.replan +
-           "\n新的 stage_goal：\n" + String((replanned.slow || {}).text || "").slice(0, 500))
+      meta: facts.replanned ? ("reason = " + facts.replanned.replan) : "",
+      body: facts.replanned
+        ? ("reason = " + facts.replanned.replan +
+           "\n新的 stage_goal：\n" + String((facts.replanned.slow || {}).text || "").slice(0, 500))
         : "（这一题没有触发重规划）"
     });
+
     return steps;
   }
 
@@ -195,10 +301,10 @@
         finish();
         return;
       }
-      TD.loadEpisode(row.run_id || "", row.task, function (episode) {
+      TD.loadEpisode(row.run_id || "", row.task, function (episode, error) {
         if (!episode) {
           TD.clear(placeholder);
-          placeholder.appendChild(TD.el("p", { class: "section-lede", text: "载入机制样例失败。" }));
+          placeholder.appendChild(TD.el("p", { class: "section-lede", text: "载入机制样例失败：" + (error || "未知错误") }));
           finish();
           return;
         }
