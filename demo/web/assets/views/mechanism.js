@@ -74,6 +74,22 @@
   }
 
   TD.sections = TD.sections || {};
+  /* 泳道现在融进粘性卡片，所以对外提供"返回节点"的接口 */
+  TD.sections.swimlaneNode = function (episode, taskLabel) {
+    var grid = swimlane(episode);
+    if (!grid) return null;
+    var totals = episode.timeline_totals || {};
+    var wrap = TD.el("div", { class: "swim-wrap" }, [
+      TD.el("div", { class: "swim-head-bar" }, [
+        TD.el("b", { text: "真实 case 泳道 · " + (taskLabel || "") }),
+        TD.el("span", { class: "dim", text:
+          totals.steps + " 步 · 合计 $" + (totals.cost_usd || 0).toFixed(4) +
+          " · " + ((totals.elapsed_ms || 0) / 1000).toFixed(0) + "s" })
+      ]),
+      grid
+    ]);
+    return wrap;
+  };
   TD.sections.swimlane = function (container, episode, taskLabel) {
     var grid = swimlane(episode);
     if (!grid) return;

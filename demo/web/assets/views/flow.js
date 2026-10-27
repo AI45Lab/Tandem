@@ -1,11 +1,16 @@
-/* 机制段的图形层：概念流程图 + 迷你数据图（纯 SVG，无依赖）。
+/* 机制段的图形层：子任务循环流程图 + 迷你数据图（纯 SVG，无依赖）。
  *
- * 概念流程图讲的是"双模怎么接力"：
- *   观察 → 慢模型规划 → 候选空间 → 快模型排序 → 执行动作 → 核验
- *                                                     ↑ 不通过
- *                                          重规划 ←───┘
- * 节点上带**这条真实 case 的数字**（候选数 / margin / 延迟 / 步号 / 核验结论），
- * 节点可 hover、点击（点击切到右侧对应步骤）。
+ * 流程图讲的是**子任务循环**（这是 stage 模式真正的结构）：
+ *
+ *   慢模型·规划 ──► 快模型·完成子任务 ──► 快模型·排序 ──┐
+ *        ▲                                          │
+ *        │ 不符合预期 → 重规划/纠错                慢模型·验证
+ *        └──────────────────────────────────────────┤
+ *                                     子任务达成 ────┴──► 下一个子任务/任务完成
+ *                                                          └──► 回到「完成子任务」
+ *
+ * 节点上的小字是**这条真实 case 的数字**（子任务数、候选数、排序延迟、核验结论、
+ * 重规划原因），不是文案。节点可 hover、点击（点击切到右侧对应环节）。
  */
 (function () {
   "use strict";
@@ -34,15 +39,14 @@
       "aria-label": label + (sub ? "：" + sub : ""),
       onclick: function () { onSelect(index); },
       onkeydown: function (event) {
-        if (event.key === "Enter" || event.key === " ") { onSelect(index); }
+        if (event.key === "Enter" || event.key === " ") onSelect(index);
       }
     });
     group.appendChild(svg("rect", { class: "fnode-box", x: x, y: y, width: width, height: height, rx: 12 }));
-    group.appendChild(svg("text", { class: "fnode-label", x: x + width / 2, y: y + 26, "text-anchor": "middle", text: label }));
+    group.appendChild(svg("text", { class: "fnode-label", x: x + width / 2, y: y + 25, "text-anchor": "middle", text: label }));
     if (sub) {
-      group.appendChild(svg("text", { class: "fnode-sub", x: x + width / 2, y: y + 46, "text-anchor": "middle", text: sub }));
+      group.appendChild(svg("text", { class: "fnode-sub", x: x + width / 2, y: y + 45, "text-anchor": "middle", text: sub }));
     }
-    group.appendChild(svg("text", { class: "fnode-idx", x: x + 10, y: y + 18, text: String(index + 1).padStart(2, "0") }));
     return group;
   }
 
@@ -53,147 +57,153 @@
     return group;
   }
 
-  /* 概念流程图：返回 { node, setActive }，setActive(index) 高亮对应节点 */
-  function concept(steps, facts, onSelect) {
+  function edgeLabel(x, y, text, tone) {
+    var group = svg("g", { class: "fedge-label " + (tone || "") });
+    group.appendChild(svg("rect", { x: x - 4, y: y - 11, width: text.length * 7 + 14, height: 22, rx: 11 }));
+    group.appendChild(svg("text", { x: x + 3, y: y + 4, "text-anchor": "middle", text: text }));
+    return group;
+  }
+
+  /* 子任务循环流程图。返回 { node, setActive } */
+  function concept(facts, onSelect) {
     var width = 1240;
-    var height = 260;
-    var boxW = 168;
-    var boxH = 68;
-    var gap = (width - 60 - boxW * 6) / 5;
-    var y = 52;
-    var x0 = 30;
+    var height = 300;
+    var boxW = 250;
+    var boxH = 74;
+    var topY = 34;
+    var botY = 196;
+    var xs = [30, 340, 650, 960];
+    var midY = topY + boxH / 2;
 
     var svgNode = svg("svg", {
       class: "flow",
       viewBox: "0 0 " + width + " " + height,
       preserveAspectRatio: "xMidYMid meet",
       role: "img",
-      "aria-label": "快慢双模协同流程图"
+      "aria-label": "快慢双模子任务循环流程图"
     });
 
-    /* 背景网格 */
     var grid = svg("g", { class: "fgrid" });
-    for (var gx = 0; gx <= width; gx += 40) {
-      grid.appendChild(svg("line", { x1: gx, y1: 0, x2: gx, y2: height }));
-    }
-    for (var gy = 0; gy <= height; gy += 40) {
-      grid.appendChild(svg("line", { x1: 0, y1: gy, x2: width, y2: gy }));
-    }
+    for (var gx = 0; gx <= width; gx += 40) grid.appendChild(svg("line", { x1: gx, y1: 0, x2: gx, y2: height }));
+    for (var gy = 0; gy <= height; gy += 40) grid.appendChild(svg("line", { x1: 0, y1: gy, x2: width, y2: gy }));
     svgNode.appendChild(grid);
 
-    var positions = [];
-    for (var i = 0; i < 6; i += 1) {
-      positions.push(x0 + i * (boxW + gap));
-    }
-    var midY = y + boxH / 2;
-
-    /* 主链 */
-    for (var e = 0; e < positions.length - 1; e += 1) {
-      var x1 = positions[e] + boxW;
-      var x2 = positions[e + 1];
-      var mid = (x1 + x2) / 2;
-      svgNode.appendChild(edge("M " + x1 + " " + midY + " C " + mid + " " + midY + ", " + mid + " " + midY + ", " + x2 + " " + midY));
-    }
-
-    /* 节点（数据来自真实 case） */
-    var labels = [
-      { label: "观察", sub: facts.observed || "当前屏幕 + 任务状态" },
-      { label: "慢模型 · 规划", sub: facts.plan || "目标 + 预期结果 + 提案" },
-      { label: "候选空间", sub: facts.candidates || "候选动作" },
-      { label: "快模型 · 排序", sub: facts.rank || "operation → target" },
-      { label: "执行动作", sub: facts.action || "送进 VM" },
-      { label: "核验", sub: facts.verify || "达成 / 未达成" }
+    /* 节点：每个节点对应一个「环节」（点击切到粘性卡片对应环节） */
+    var plan = facts.concept || {};
+    var nodes = [
+      { x: xs[0], y: topY, label: "慢模型 · 规划", sub: plan.plan || "拆解子任务 + 定目标", tone: "slow", step: 0 },
+      { x: xs[1], y: topY, label: "快模型 · 完成子任务", sub: "候选空间：a11y 解析 + 慢模型", tone: "fast", step: 1 },
+      { x: xs[2], y: topY, label: "快模型 · 排序", sub: plan.rank || "选出一个动作", tone: "fast", step: 1 },
+      { x: xs[3], y: topY, label: "慢模型 · 验证", sub: plan.verify || "子任务是否达成", tone: "slow", step: 2 },
+      { x: xs[0], y: botY, label: "重规划 / 纠错", sub: plan.replan || "换个目标再来", tone: "fix", step: 3 },
+      { x: xs[2], y: botY, label: "下一个子任务 → 任务完成", sub: plan.next || "循环直到任务完成", tone: "done", step: 1 }
     ];
-    var tones = ["", "slow", "wide", "fast", "act", "verify"];
+
+    /* 连线 */
+    svgNode.appendChild(edge("M " + (xs[0] + boxW) + " " + midY + " L " + xs[1] + " " + midY));
+    svgNode.appendChild(edge("M " + (xs[1] + boxW) + " " + midY + " L " + xs[2] + " " + midY));
+    svgNode.appendChild(edge("M " + (xs[2] + boxW) + " " + midY + " L " + xs[3] + " " + midY));
+    /* 验证 → 重规划（不符合预期） */
+    svgNode.appendChild(edge(
+      "M " + (xs[3] + boxW / 2) + " " + (topY + boxH) +
+      " C " + (xs[3] + boxW / 2) + " " + (botY - 36) + ", " + (xs[0] + boxW / 2) + " " + (botY - 36) +
+      ", " + (xs[0] + boxW / 2) + " " + botY, "warn"));
+    /* 重规划 → 规划 */
+    svgNode.appendChild(edge(
+      "M " + (xs[0] + boxW / 2) + " " + botY +
+      " C " + (xs[0] + boxW / 2) + " " + (botY - 50) + ", " + (xs[0] + boxW / 2) + " " + (topY + boxH + 30) +
+      ", " + (xs[0] + boxW / 2) + " " + (topY + boxH), "warn"));
+    /* 验证 → 下一个子任务（达成） */
+    svgNode.appendChild(edge(
+      "M " + (xs[3] + boxW / 2) + " " + (topY + boxH) +
+      " C " + (xs[3] + boxW / 2) + " " + (topY + boxH + 40) + ", " + (xs[2] + boxW / 2) + " " + (topY + boxH + 40) +
+      ", " + (xs[2] + boxW / 2) + " " + botY));
+    /* 下一个子任务 → 完成子任务 */
+    svgNode.appendChild(edge(
+      "M " + xs[2] + " " + (botY + boxH / 2) +
+      " C " + (xs[1] + boxW + 20) + " " + (botY + boxH / 2) + ", " + (xs[1] + boxW / 2) + " " + (botY + 20) +
+      ", " + (xs[1] + boxW / 2) + " " + (topY + boxH), "loopback"));
+
+    svgNode.appendChild(edgeLabel(xs[3] + boxW / 2 - 70, topY + boxH + 26, "不符合预期", "warn"));
+    svgNode.appendChild(edgeLabel(xs[2] + boxW / 2 + 90, topY + boxH + 26, "子任务达成", "good"));
+    svgNode.appendChild(edgeLabel(xs[1] - 40, botY - 26, "下一个子任务", "accent"));
+    svgNode.appendChild(edgeLabel(xs[0] + boxW / 2 + 66, botY - 26, "重规划 / 纠错", "warn"));
+
     var groups = [];
-    labels.forEach(function (item, index) {
-      var group = nodeBox(positions[index], y, boxW, boxH, item.label, item.sub, tones[index], index, onSelect);
+    nodes.forEach(function (item, index) {
+      var group = nodeBox(item.x, item.y, boxW, boxH, item.label, item.sub, item.tone, item.step, onSelect);
       groups.push(group);
       svgNode.appendChild(group);
     });
 
-    /* 回环：核验不通过 → 重规划 → 回到慢模型 */
-    var loopY = y + boxH + 78;
-    var loopX = positions[4] + boxW / 2;
-    var loopGroup = svg("g", { class: "fedge loop" });
-    loopGroup.appendChild(svg("path", {
-      class: "fedge-line dashed",
-      d: "M " + loopX + " " + (y + boxH) + " C " + loopX + " " + loopY + ", " + (positions[1] + boxW / 2) + " " + loopY + ", " + (positions[1] + boxW / 2) + " " + (y + boxH)
-    }));
-    loopGroup.appendChild(svg("path", {
-      class: "fedge-flow",
-      d: "M " + loopX + " " + (y + boxH) + " C " + loopX + " " + loopY + ", " + (positions[1] + boxW / 2) + " " + loopY + ", " + (positions[1] + boxW / 2) + " " + (y + boxH)
-    }));
-    svgNode.appendChild(loopGroup);
-    var loopLabel = svg("g", { class: "floop" });
-    loopLabel.appendChild(svg("rect", { x: positions[3] + 20, y: loopY - 20, width: 150, height: 34, rx: 17 }));
-    loopLabel.appendChild(svg("text", {
-      x: positions[3] + 95, y: loopY + 2, "text-anchor": "middle", text: facts.replan || "核验不通过 → 重规划"
-    }));
-    svgNode.appendChild(loopLabel);
-
     return {
       node: svgNode,
       setActive: function (index) {
-        groups.forEach(function (group, i) { group.classList.toggle("on", i === index); });
+        groups.forEach(function (group, i) { group.classList.toggle("on", nodes[i].step === index); });
       }
     };
   }
 
-  /* 迷你图：候选空间漏斗（a11y 节点 → 候选 → 赢家） */
-  function funnel(facts) {
-    var svgNode = svg("svg", { class: "mini", viewBox: "0 0 300 132", role: "img", "aria-label": "候选空间漏斗" });
-    var rows = [
-      { label: "a11y 节点", value: facts.nodes, color: "var(--surface-3)", wide: 1 },
-      { label: "候选动作", value: facts.candidates, color: "var(--series-2)", wide: 0.42 },
-      { label: "赢家", value: facts.winner, color: "var(--series-1)", wide: 0.16 }
-    ];
-    rows.forEach(function (row, index) {
-      var y = 8 + index * 42;
-      var w = 260 * (row.wide || 0.2);
-      svgNode.appendChild(svg("rect", { class: "fbar", x: 20, y: y, width: w, height: 26, rx: 6, fill: row.color }));
-      svgNode.appendChild(svg("text", { class: "flabel", x: 28, y: y + 18, text: row.label }));
-      svgNode.appendChild(svg("text", { class: "fvalue", x: 20 + w + 10, y: y + 18, text: String(row.value) }));
-    });
-    return svgNode;
-  }
-
-  /* 迷你图：两阶段 softmax 排序条 */
-  function rank(bars) {
-    var svgNode = svg("svg", { class: "mini", viewBox: "0 0 300 132", role: "img", "aria-label": "快模型排序强度" });
+  /* 迷你图：快模型的候选选择方块（赢家高亮） */
+  function choiceBlocks(bars, winner) {
+    var wrap = TD.el("div", { class: "choices" });
     if (!bars || !bars.length) {
-      svgNode.appendChild(svg("text", { class: "flabel", x: 20, y: 40, text: "（没有排序明细）" }));
-      return svgNode;
+      wrap.appendChild(TD.el("div", { class: "hint", text: "（没有排序明细）" }));
+      return wrap;
     }
+    var max = Math.max.apply(null, bars.map(function (bar) { return bar.score || 0; })) || 1;
     bars.slice(0, 6).forEach(function (bar, index) {
-      var y = 8 + index * 20;
-      var w = Math.max(4, 200 * (bar.score || 0));
-      svgNode.appendChild(svg("text", { class: "flabel", x: 20, y: y + 12, text: (bar.operation || "?") }));
-      svgNode.appendChild(svg("rect", { class: "fbar", x: 92, y: y, width: w, height: 14, rx: 4, fill: index === 0 ? "var(--series-1)" : "var(--series-2)" }));
-      svgNode.appendChild(svg("text", { class: "fvalue", x: 92 + w + 8, y: y + 12, text: (bar.score || 0).toFixed(3) }));
+      var picked = index === 0 || (winner && bar.operation === winner);
+      var width = 18 + 82 * ((bar.score || 0) / max);
+      wrap.appendChild(TD.el("div", { class: "choice" + (picked ? " picked" : "") }, [
+        TD.el("div", { class: "choice-name", text: bar.operation || "?" }),
+        TD.el("div", { class: "choice-bar" }, [
+          TD.el("i", { style: "width:" + width.toFixed(1) + "%" })
+        ]),
+        TD.el("div", { class: "choice-score", text: (bar.score || 0).toFixed(3) }),
+        picked ? TD.el("div", { class: "choice-pick", text: "✔ 选中" }) : null
+      ]));
     });
-    return svgNode;
+    return wrap;
   }
 
-  /* 迷你图：逐条要求达成 */
-  function requirements(requirements) {
-    var svgNode = svg("svg", { class: "mini", viewBox: "0 0 300 132", role: "img", "aria-label": "要求达成情况" });
-    if (!requirements || !requirements.length) {
-      svgNode.appendChild(svg("text", { class: "flabel", x: 20, y: 40, text: "（没有 requirement_checks）" }));
-      return svgNode;
+  /* 迷你图：截图条（Task 001 的帧） */
+  function frameStrip(frames, current) {
+    var strip = TD.el("div", { class: "strip" });
+    var list = (frames || []).slice(0, 12);
+    if (!list.length) {
+      strip.appendChild(TD.el("div", { class: "hint", text: "（这一题没有落盘帧）" }));
+      return strip;
     }
-    requirements.slice(0, 6).forEach(function (req, index) {
-      var y = 8 + index * 20;
-      var ok = req.status === "achieved" || req.status === "pass";
-      svgNode.appendChild(svg("text", { class: "flabel", x: 20, y: y + 12, text: String(req.id || "").slice(0, 18) }));
-      svgNode.appendChild(svg("rect", {
-        class: "fbar", x: 140, y: y, width: 120, height: 12, rx: 4,
-        fill: ok ? "var(--good)" : "var(--bad)", opacity: ok ? 0.85 : 0.7
-      }));
-      svgNode.appendChild(svg("text", { class: "fvalue", x: 268, y: y + 12, text: String(req.status || "?") }));
+    list.forEach(function (frame) {
+      var img = TD.el("img", {
+        src: frame.src, alt: "step " + frame.step_idx,
+        title: "step " + frame.step_idx + " · a11y 节点 " + (frame.node_count || "?")
+      });
+      if (current !== undefined && frame.step_idx === current) img.className = "current";
+      strip.appendChild(img);
     });
-    return svgNode;
+    return strip;
   }
 
-  TD.flow = { concept: concept, funnel: funnel, rank: rank, requirements: requirements, svg: svg };
+  /* 迷你图：子任务拆解（慢模型规划的里程碑） */
+  function milestones(milestones) {
+    var wrap = TD.el("div", { class: "choices" });
+    if (!milestones || !milestones.length) {
+      wrap.appendChild(TD.el("div", { class: "hint", text: "（这一步没有拆出子任务）" }));
+      return wrap;
+    }
+    milestones.slice(0, 5).forEach(function (item, index) {
+      wrap.appendChild(TD.el("div", { class: "choice" }, [
+        TD.el("div", { class: "choice-name", text: "子任务 " + (index + 1) }),
+        TD.el("div", { class: "choice-note", text: String(item.current_goal || item.command || "").slice(0, 80) })
+      ]));
+    });
+    return wrap;
+  }
+
+  TD.flow = {
+    concept: concept, choiceBlocks: choiceBlocks, frameStrip: frameStrip,
+    milestones: milestones, svg: svg
+  };
 })();

@@ -163,14 +163,16 @@ console.log('ok route (#/)');
 realSetTimeout(function () {
   const flows = document.querySelectorAll('.flow');
   const nodes = document.querySelectorAll('.fnode');
-  const mini = document.querySelectorAll('.mini');
+  const choices = document.querySelectorAll('.choice');
   const cards = document.querySelectorAll('.mech-card');
-  if (!flows.length) { console.error('FAIL: 概念流程图没渲染出来'); process.exit(1); }
+  const swim = document.querySelectorAll('.swim');
+  if (!flows.length) { console.error('FAIL: 流程图没渲染出来'); process.exit(1); }
   if (nodes.length < 6) { console.error('FAIL: 流程图节点不足：' + nodes.length); process.exit(1); }
-  if (!mini.length) { console.error('FAIL: 迷你图没渲染出来'); process.exit(1); }
-  if (cards.length < 5) { console.error('FAIL: 环节卡片不足：' + cards.length); process.exit(1); }
+  if (!choices.length) { console.error('FAIL: 候选选择方块没渲染出来'); process.exit(1); }
+  if (cards.length < 4) { console.error('FAIL: 环节卡片不足：' + cards.length); process.exit(1); }
+  if (!swim.length) { console.error('FAIL: 真实 case 泳道没融进粘性卡片'); process.exit(1); }
   console.log('ok flow: ' + flows.length + ' 图 / ' + nodes.length + ' 节点 / ' +
-              mini.length + ' 迷你图 / ' + cards.length + ' 卡片');
+              choices.length + ' 选择方块 / ' + cards.length + ' 环节卡 / ' + swim.length + ' 泳道');
 
   global.location.hash = '#/browser';
   window.TD.render();
