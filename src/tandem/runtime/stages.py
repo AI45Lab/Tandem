@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from .stage_rules import rule_verification
+from ..verification.stage_rules import rule_verification
 
 
 class StageExecution:

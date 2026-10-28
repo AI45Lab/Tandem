@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from tandem.targets import A11yTargetBuilder
+from tandem.gui.targets import A11yTargetBuilder
 
 from .conftest import A11Y_XML
 

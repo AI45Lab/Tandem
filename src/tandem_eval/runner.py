@@ -8,7 +8,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from tandem.protocol.models import Observation
-from tandem.session import TandemSession
+from tandem.runtime.session import TandemSession
 
 from .env import budget_of
 from .manifest import TaskRef, write_resolved

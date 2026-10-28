@@ -80,7 +80,7 @@ def test_failed_task_marks_unscored_and_run_continues(tmp_path):
     spec = _spec(tmp_path)
     env = FlakyEnv(base_dir=tmp_path / "run" / "mock_env")
     from tandem.config import SessionConfig
-    from tandem.session import TandemSession
+    from tandem.runtime.session import TandemSession
 
     planner = ScriptedPlanner([{"done": True, "task_status": "completed",
                                 "current_goal": "g", "expected_observation": ""}])

@@ -14,8 +14,8 @@ from pathlib import Path
 
 from tandem.components import Components
 from tandem.config import SessionConfig
-from tandem.selector import Ranking
-from tandem.session import TandemSession
+from tandem.models.ranking import Ranking
+from tandem.runtime.session import TandemSession
 
 from .env import MockEnv
 from .manifest import resolve_manifest
@@ -147,10 +147,10 @@ class _FirstCandidateSelector:
 
 
 def mock_components(*, stage_mode=False) -> Components:
-    from tandem.candidates import ActionCandidateBuilder
-    from tandem.compile import gui_action
-    from tandem.proposals import focused_candidates
-    from tandem.targets import A11yTargetBuilder
+    from tandem.gui.candidates import ActionCandidateBuilder
+    from tandem.gui.compile import gui_action
+    from tandem.gui.proposals import focused_candidates
+    from tandem.gui.targets import A11yTargetBuilder
 
     return Components(
         planner=_ScriptedPlanner(stage_mode=stage_mode), verifier=_ScriptedVerifier(),
@@ -167,7 +167,7 @@ def build_session(spec: dict, *, llm_tap: LlmTap | None = None) -> TandemSession
         return TandemSession(mock_components(stage_mode=config.execution_mode == "stage"), config=config)
     if benchmark in {"osworld1", "osworld2", "osworld21"}:
         from tandem.components import build_default
-        from tandem.providers import SlowModelClient
+        from tandem.models.slow import SlowModelClient
 
         secrets = spec["secrets"]
         credentials = dict(secrets["slow_model"])

@@ -6,9 +6,9 @@ pyautogui 代码生成移到 tandem_eval 的执行层（M2）。坐标计算逻�
 
 from __future__ import annotations
 
+from ..protocol.models import GuiAction, WaitAction
 from .candidates import ActionCandidate
 from .focus import KEYS
-from .protocol.models import GuiAction, WaitAction
 from .targets import UITarget
 
 

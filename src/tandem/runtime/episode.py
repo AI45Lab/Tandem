@@ -11,8 +11,8 @@ import json
 import shlex
 from pathlib import Path
 
-from .focus import action_key, toggle_transition
-from .protocol.models import CliAction, FailAction, FinishAction, Observation
+from ..gui.focus import action_key, toggle_transition
+from ..protocol.models import CliAction, FailAction, FinishAction, Observation
 from .stopping import NO_ACTION_LIMIT
 
 

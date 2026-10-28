@@ -20,7 +20,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-from .selector import Ranking, build_choice_requests
+from .ranking import Ranking, build_choice_requests
 
 RECOVERY_DEADLINE_SECONDS = 1200
 

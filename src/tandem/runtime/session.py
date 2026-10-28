@@ -1,7 +1,7 @@
 """TandemSession：planner_led 决策状态机（obs → action）。
 
 旧仓库 runtime.run_episode 的决策循环按消息层协议重表达：环境生命周期/预算强制/落盘/
-评分归 tandem_eval（M2）；回执验证与终态裁决在 episode.py。行为对齐旧实现，
+评分归 tandem_eval；回执验证与终态裁决在同包 episode.py。行为对齐旧实现，
 差异见 DEVIATIONS.md。
 """
 
@@ -11,12 +11,12 @@ import time
 import urllib.error
 from pathlib import Path
 
-from .components import Components
-from .config import SessionConfig
+from ..components import Components
+from ..config import SessionConfig
+from ..gui.focus import prune_stalled
+from ..models.ranking import ranking_dict
+from ..protocol.models import Action, CliAction, FailAction, GuiAction, Observation, WaitAction
 from .episode import handle_done, resolve_done_probe, verify_pending
-from .focus import prune_stalled
-from .protocol.models import Action, CliAction, FailAction, GuiAction, Observation, WaitAction
-from .selector import ranking_dict
 from .stages import StageExecution
 from .stopping import NO_ACTION_LIMIT, budget_exhausted
 

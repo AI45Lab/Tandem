@@ -1,4 +1,4 @@
-"""a11y tree → UITarget 列表。从旧仓库 gui/ui_target.py + a11y_target_builder.py 按契约移植。"""
+"""a11y tree → UITarget 列表；从旧仓库 gui/ui_target.py + a11y_target_builder.py 按契约移植。"""
 
 from __future__ import annotations
 

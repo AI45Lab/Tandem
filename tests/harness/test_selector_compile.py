@@ -7,9 +7,10 @@ from pathlib import Path
 
 import pytest
 
-from tandem.compile import gui_action
+from tandem.gui.compile import gui_action
+from tandem.models.jev import JevOmniPolicy
+from tandem.models.ranking import ranking_dict
 from tandem.protocol.models import GuiAction, WaitAction
-from tandem.selector import JevOmniPolicy, ranking_dict
 
 from .conftest import build_space, build_targets
 
@@ -107,7 +108,7 @@ def _target_by_name(name):
 
 
 def test_compile_click_uses_target_center():
-    from tandem.candidates import ActionCandidate
+    from tandem.gui.candidates import ActionCandidate
 
     target = _target_by_name("确定")
     winner = ActionCandidate(
@@ -121,7 +122,7 @@ def test_compile_click_uses_target_center():
 
 
 def test_compile_slider_maps_to_fractional_click():
-    from tandem.candidates import ActionCandidate
+    from tandem.gui.candidates import ActionCandidate
 
     target = _target_by_name("缩放")
     winner = ActionCandidate(
@@ -134,7 +135,7 @@ def test_compile_slider_maps_to_fractional_click():
 
 
 def test_compile_keypress_sequence_and_named_key():
-    from tandem.candidates import ActionCandidate
+    from tandem.gui.candidates import ActionCandidate
 
     seq = ActionCandidate(
         id="KEY_SEQUENCE:ctrl+l", operation="keypress",
@@ -148,7 +149,7 @@ def test_compile_keypress_sequence_and_named_key():
 
 
 def test_compile_scroll_and_type_and_wait():
-    from tandem.candidates import ActionCandidate
+    from tandem.gui.candidates import ActionCandidate
 
     up = ActionCandidate(
         id="SCROLL_UP", operation="scroll", description="上滚",
@@ -178,7 +179,7 @@ def test_compile_scroll_and_type_and_wait():
 
 
 def test_compile_unsupported_returns_none():
-    from tandem.candidates import ActionCandidate
+    from tandem.gui.candidates import ActionCandidate
 
     fallback = ActionCandidate(
         id="VISUAL_FALLBACK", operation="visual_fallback", description="视觉回退", metadata={}

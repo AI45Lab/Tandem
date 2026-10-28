@@ -55,7 +55,7 @@
 |  | 慢模型（大脑） | 快模型（小脑） |
 |---|---|---|
 | 角色 | 需求抽取 / 一步规划 / 独立验证 | 在候选空间里排序选择 |
-| 实现 | `planner.py`、`verifier.py`、`providers.py`（`SlowModelClient`，OpenAI 兼容方言） | `selector.py`（JEV）、`selector_kev.py`（Kev） |
+| 实现 | `planning/planner.py`、`verification/verifier.py`、`models/slow.py`（`SlowModelClient`，OpenAI 兼容方言） | `models/jev.py`（JEV）、`models/kev.py`（Kev） |
 | 当前默认 | `minimax-m3.1-flash`（可切 `kimi-k3`） | `jev`（可切 `kev`） |
 | 输入 | 指令 + 截图 + a11y 树 + 历史动作 + 需求清单 | 当前目标 + 候选动作（自带上下文描述）+ 截图（仅 JEV 需要） |
 | 输出 | 结构化 plan：当前目标 / 预期观察 / 路由 / 动作提案 | 排序结果：winner + operation/action 两级分数 + margin + 延迟 |
@@ -64,9 +64,9 @@
 
 **关键设计**：快模型拿到的候选集合已经被裁剪过两道——
 
-1. **慢模型的提案聚焦**（`proposals.focused_candidates`）：planner 给出要操作的元素与操作类型，
+1. **慢模型的提案聚焦**（`gui.proposals.focused_candidates`）：planner 给出要操作的元素与操作类型，
    候选空间据此收敛；
-2. **历史剪枝**（`focus.prune_stalled`）：连续两步对同一动作都没有引起状态变化，就把该动作
+2. **历史剪枝**（`gui.focus.prune_stalled`）：连续两步对同一动作都没有引起状态变化，就把该动作
    从候选空间剔除，避免原地打转；上一步已判定达成（achieved）的操作也不再重复提议。
 
 剩下的每个候选都带语义描述（角色、名称、坐标、上下文）。这让一个体量很小的 System One 模型
@@ -75,24 +75,24 @@
 
 ## 一次决策的链路
 
-`TandemSession.act(observation)` 是唯一的决策入口，状态机语义（`session.py`）：
+`TandemSession.act(observation)` 是唯一的决策入口，状态机语义（`runtime/session.py`）：
 
 1. **读观察**：`Observation` 含截图引用（path + sha256）、a11y 树引用、预算、上一轮回执。
-2. **建目标**：a11y 树解析成 `UITarget` 列表（角色 / 名称 / 坐标 / 边界框，`targets.py`）。
-3. **慢模型规划**：`planner.plan_step` 产出 plan——`current_goal`、`expected_observation`、
+2. **建目标**：a11y 树解析成 `UITarget` 列表（角色 / 名称 / 坐标 / 边界框，`gui/targets.py`）。
+3. **慢模型规划**：`planning.planner.plan_step` 产出 plan——`current_goal`、`expected_observation`、
    `route`（gui/cli）、`action_proposals`、`task_status`、`done`。
 4. **终态分支**：planner 声称完成 → `handle_done`：若需求带 `output_path`，先发一条 CLI
    存在性探针（`done_probe`）核对交付物文件是否真的存在，探针通过后才进入终态裁决
    （`terminal_decision`）；未通过则回到规划重来。
 5. **CLI 路由**：`route == "cli"` → 直接下发 `CliAction`（bash -lc，cwd=/home/user，1 条 CLI 计 1 步）。
-6. **建候选空间**：`candidates.py` 由目标展开动作（click / double_click / type / scroll / hotkey…），
+6. **建候选空间**：`gui/candidates.py` 由目标展开动作（click / double_click / type / scroll / hotkey…），
    再经 `focused_candidates` 聚焦 + `prune_stalled` 剪枝。
 7. **快模型排序**：两阶段——先选 **operation**（点击还是输入），再在胜出 operation 内选 **action**（具体哪个目标）。
    结果带 `operation_margin`（两级置信度差）与 `latency_ms`。
-8. **编译动作**：`compile.py` 把 winner + 目标编译成**声明式** `GuiAction`
+8. **编译动作**：`gui/compile.py` 把 winner + 目标编译成**声明式** `GuiAction`
    （kind / action_type / parameters / target_id），不做代码生成。
 9. **执行与验证**（tandem_eval 层）：环境执行后回传 `Receipt`；下一轮进入
-   `episode.verify_pending`——用新观察独立核验上一步，更新 verified_focus、failed_toggles、
+   `runtime.episode.verify_pending`——用新观察独立核验上一步，更新 verified_focus、failed_toggles、
    以及**逐条需求的核验状态**（`requirement_checks`）。
 10. **停止条件**：步数/墙钟预算耗尽 → `FailAction`；连续 3 次无可执行动作 → `FailAction(no_action_limit)`。
 
@@ -112,14 +112,14 @@
 
 | 字段 | 职责 | 默认实现 |
 |---|---|---|
-| `planner` | 一步规划 | `planner.plan_step` |
-| `verifier` | 独立验证 | `verifier.verify_observation` |
-| `requirements` | 需求抽取 | `verifier.task_requirements` |
-| `selector` | 排序后端 | `selector.JevOmniPolicy` / `selector_kev.KevPolicy` |
-| `target_builder` | a11y 树 → 目标 | `targets.A11yTargetBuilder` |
-| `candidate_builder` | 目标 → 动作候选 | `candidates.ActionCandidateBuilder` |
-| `focus_candidates` | 提案聚焦 + 剪枝 | `proposals.focused_candidates` |
-| `compile_gui` | winner → 声明式动作 | `compile.gui_action` |
+| `planner` | 单步或阶段规划 | `planning.planner.plan_step` / `planning.stage_planner.plan_stage` |
+| `verifier` | 独立验证 | `verification.verifier.verify_observation` |
+| `requirements` | 需求抽取 | `verification.verifier.task_requirements` |
+| `selector` | 排序后端 | `models.jev.JevOmniPolicy` / `models.kev.KevPolicy` |
+| `target_builder` | a11y 树 → 目标 | `gui.targets.A11yTargetBuilder` |
+| `candidate_builder` | 目标 → 动作候选 | `gui.candidates.ActionCandidateBuilder` |
+| `focus_candidates` | 提案聚焦 + 剪枝 | `gui.proposals.focused_candidates` |
+| `compile_gui` | winner → 声明式动作 | `gui.compile.gui_action` |
 | `grounder` | 视觉兜底 | **None**（按重构计划延后，session 侧判空跳过） |
 
 换排序后端、换 LLM、换候选策略都只改这里，不碰状态机。
@@ -175,10 +175,10 @@ ruff check src tests && pytest && tandem check
 ```python
 from tandem.components import build_default
 from tandem.config import SessionConfig
-from tandem.session import TandemSession
+from tandem.runtime.session import TandemSession
 
 components = build_default(
-    client=slow_client,                       # providers.SlowModelClient（慢模型客户端）
+    client=slow_client,                       # models.slow.SlowModelClient（慢模型客户端）
     endpoint="http://<排序服务>/rank",
     config=SessionConfig(fast_backend="jev"),
 )
@@ -226,7 +226,7 @@ tandem-eval rjob run --run-id <name> --benchmark osworld2 --tasks <task-id> \
 > **MiniMax 忽略该字段**（仍返回 `reasoning_content`），只有 `reasoning_effort` 生效
 > （`low`/`medium`/`high`）——想少思考就把 `reasoning_effort` 调低，别指望 `off`。
 
-慢模型的调用纪律（`providers.py`）：
+慢模型的调用纪律（`models/slow.py`）：
 
 - 思考强度默认 `low`（实测 97 → 22 token）；空正文（全留在思考通道）→ 下一次重试自动升档；
 - 叙述文字包裹 JSON → 自动剥围栏取首个平衡 `{…}` 抢救；

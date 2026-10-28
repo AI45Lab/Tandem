@@ -1,4 +1,4 @@
-"""a11y 上下文提取与候选修剪。从旧仓库 gui/actions.py 按契约移植（visual grounding 部分除外）。"""
+"""a11y 上下文提取与候选修剪；从旧仓库 gui/actions.py 按契约移植（visual grounding 部分除外）。"""
 
 from __future__ import annotations
 
