@@ -54,7 +54,7 @@ def _bind_proposal(proposal, targets):
     return compatible[0] if len(compatible) == 1 else None
 
 
-def _recovery_scopes(proposals, targets) -> set[str]:
+def recovery_scopes(proposals, targets) -> set[str]:
     scopes = set()
     for proposal in proposals:
         role = str(proposal.get("target_role") or "").replace("-", "_")
@@ -132,7 +132,7 @@ class StageExecution:
                     proposal["target_id"] = target.id
                 bound.append(proposal)
             if not bound:
-                scopes = _recovery_scopes(unbound, targets)
+                scopes = recovery_scopes(unbound, targets)
                 details = {
                     "unbound_proposals": unbound,
                     "available_targets": _target_summaries(targets, scopes),

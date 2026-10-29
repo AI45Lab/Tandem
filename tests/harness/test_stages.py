@@ -111,3 +111,22 @@ def test_unbound_stage_reaches_selector_instead_of_failing_before_jev(tmp_path):
     assert isinstance(action, GuiAction)
     assert selector.calls
     assert "return_to_planner" in selector.calls[0]["operations"]
+
+
+def test_bound_but_unexecutable_scroll_gets_keyboard_recovery(tmp_path):
+    proposals = [{"operation": "scroll_down", "target_name": "File", "target_role": "menu"}]
+    planner = ScriptedPlanner([_plan_with(proposals)])
+    selector = FixedSelector()
+    session = TandemSession(
+        make_components(planner, ScriptedVerifier([]), selector),
+        config=SessionConfig(execution_mode="stage"),
+    )
+    session.begin("Open Desktop", [])
+    action = session.act(make_observation(tmp_path, 0, tree_xml=FILES_XML))
+    assert isinstance(action, GuiAction)
+    gui = next(event for event in session.events if event.get("route") == "gui")
+    assert gui["plan"]["recovery_reason"] == "no_executable_candidate"
+    candidate_ids = {candidate["id"] for candidate in gui["candidates"]}
+    assert "KEYPRESS_PAGE_DOWN" in candidate_ids
+    assert "KEY_SEQUENCE:down" in candidate_ids
+    assert "RETURN_TO_PLANNER" in candidate_ids

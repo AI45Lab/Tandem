@@ -18,7 +18,7 @@ from ..gui.focus import prune_stalled
 from ..models.ranking import ranking_dict
 from ..protocol.models import Action, CliAction, FailAction, GuiAction, Observation, WaitAction
 from .episode import handle_done, resolve_done_probe, verify_pending
-from .stages import StageExecution
+from .stages import StageExecution, recovery_scopes
 from .stopping import NO_ACTION_LIMIT, budget_exhausted
 
 
@@ -160,6 +160,29 @@ class TandemSession:
                     space.controls.pop("visual_fallback", None)
         else:
             space.controls.pop("visual_fallback", None)
+        if not plan.get("recovery") and not self._has_executable_candidate(space, targets):
+            scopes = recovery_scopes(plan["action_proposals"], targets)
+            recovery_direction = self._recovery_direction(plan)
+            plan = {
+                **plan,
+                "recovery": True,
+                "recovery_scopes": sorted(scopes),
+                "recovery_reason": "no_executable_candidate",
+            }
+            space = self.components.candidate_builder.build(
+                targets, 96, action_inputs=[], context=local_goal
+            )
+            space = self.components.focus_candidates(
+                space,
+                targets,
+                tree if tree is not None else "<empty/>",
+                [],
+                blocked_action,
+                self.verified_focus,
+                recovery=True,
+                recovery_scopes=scopes,
+                recovery_direction=recovery_direction,
+            )
         prune_stalled(space, self.recent)
         ranking = None
         for service_retry in range(3):
@@ -232,6 +255,27 @@ class TandemSession:
             return Path(a11y.path).read_text(encoding="utf-8")
         except OSError:
             return None
+
+    def _has_executable_candidate(self, space, targets) -> bool:
+        by_id = {target.id: target for target in targets}
+        return any(
+            self.components.compile_gui(candidate, by_id.get(candidate.target_id))
+            for candidate in space.candidates()
+        )
+
+    @staticmethod
+    def _recovery_direction(plan) -> str | None:
+        operations = {proposal.get("operation") for proposal in plan["action_proposals"]}
+        if "scroll_up" in operations:
+            return "up"
+        if "scroll_down" in operations:
+            return "down"
+        goal = str(plan.get("current_goal") or "").lower()
+        if any(text in goal for text in ("upward", "scroll up", "move up")):
+            return "up"
+        if any(text in goal for text in ("downward", "scroll down", "move down")):
+            return "down"
+        return None
 
     def _read_browser_snapshot(self, observation: Observation) -> dict | None:
         reference = observation.browser_snapshot

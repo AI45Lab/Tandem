@@ -56,3 +56,27 @@ def test_invalid_scroll_gets_field_level_repair_feedback(tmp_path):
     feedback = client.messages[-1]["content"]
     assert "milestones[0].action_proposals[0].target_name" in feedback
     assert "never emit a bare scroll operation" in feedback
+
+
+def test_cli_proposal_gets_milestone_level_repair_feedback(tmp_path):
+    screenshot = tmp_path / "s.png"
+    screenshot.write_bytes(b"img")
+    client = Client()
+    plan_stage(client, "Search", screenshot, build_targets(), [], A11Y_XML)
+    assert "CLI milestones never use action_proposals" in client.messages[0]["content"]
+    invalid = {
+        "done": False,
+        "stage_goal": "Build",
+        "milestones": [{
+            "route": "cli",
+            "current_goal": "Build output",
+            "expected_observation": "Output exists",
+            "action_proposals": [{"operation": "cli", "command": "python3 build.py", "timeout_s": 90}],
+            "checks": [],
+        }],
+    }
+    assert client.validator(invalid) is False
+    feedback = client.messages[-1]["content"]
+    assert "milestones[0].command" in feedback
+    assert "not action_proposals with operation=cli" in feedback
+    assert "Move operation=cli out of action_proposals" in feedback

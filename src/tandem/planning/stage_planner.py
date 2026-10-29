@@ -107,6 +107,17 @@ def _stage_error(value, *, allow_cli=True, route_policy="auto") -> str | None:
             if not isinstance(item.get(key), str) or not item[key].strip():
                 return f"{path}.{key}: required non-empty string"
         proposals = item.get("action_proposals")
+        if item.get("route") == "cli":
+            if not isinstance(item.get("command"), str) or not item["command"].strip():
+                if isinstance(proposals, list) and any(
+                    isinstance(proposal, dict) and proposal.get("operation") == "cli"
+                    for proposal in proposals
+                ):
+                    return (
+                        f"{path}.command: CLI milestone requires a top-level command, "
+                        "not action_proposals with operation=cli"
+                    )
+                return f"{path}.command: required non-empty string for route=cli"
         if item.get("route") == "gui" and not isinstance(proposals, list):
             return f"{path}.action_proposals: expected a list containing 1-4 items"
         for proposal_index, proposal in enumerate(proposals or []):
@@ -176,8 +187,12 @@ be exactly one of ["visible","value","checked","selected","focused","expanded"],
 Use property="value" with expected:string for exact text, otherwise expected:boolean, on an exact target
 {name,role,parent_contains?}. Check the RESULT, not the pre-existing button being clicked.
 Unknown or duplicate controls cannot prove success. Do not invent conditions to bypass verification.
-For CLI use route=cli, command (bounded Bash script in /home/user), current_goal, expected_observation,
-checks:[]. Actual stdout/stderr will be verified; exit=0 or printed success alone proves nothing.
+For CLI use route=cli with command at the MILESTONE level, current_goal, expected_observation,
+checks:[], for example {"route":"cli","command":"python3 script.py","current_goal":"one concrete result",
+"expected_observation":"specific evidence","checks":[]}.
+CLI milestones never use action_proposals. Do not encode CLI as
+action_proposals:[{"operation":"cli","command":"..."}].
+Actual stdout/stderr will be verified; exit=0 or printed success alone proves nothing.
 When CLI is allowed under auto routing, prefer it for deterministic public-file/data edits or audits;
 use GUI for application state and inspect the real application after CLI document edits.
 Honor allow_cli/route_policy. Never inspect evaluators, reference answers, rewards, unrelated secrets,
@@ -208,13 +223,19 @@ Completion is independently verified; a stage finishing is NOT proof of task com
         error = _stage_error(value, allow_cli=allow_cli, route_policy=route_policy)
         if error:
             # Give the next attempt a precise correction, not the same generic rejection.
+            correction = (
+                "CLI milestones require a top-level command and no action_proposals. "
+                "Move operation=cli out of action_proposals and set route=cli with command."
+                if "operation=cli" in error
+                else "scroll_up/scroll_down require target_name and target_role copied from "
+                "visible_controls; never emit a bare scroll operation."
+            )
             messages.extend([
                 {"role": "assistant", "content": json.dumps(value, ensure_ascii=False)},
                 {"role": "user", "content": (
-                    f"Invalid stage schema at {error}. Return the corrected complete stage JSON. "
-                    "scroll_up/scroll_down require target_name and target_role copied from "
-                    "visible_controls; never emit a bare scroll operation. Preserve the ORIGINAL task "
-                    "scope and all other valid milestones."
+                    f"Invalid stage schema at {error}. {correction} "
+                    "Return the corrected complete stage JSON, preserving the ORIGINAL task scope "
+                    "and all other valid milestones."
                 )},
             ])
         return error is None

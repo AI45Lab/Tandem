@@ -11,7 +11,7 @@ from .focus import KEY_ALIASES, MODIFIERS, SINGLE_KEYS, input_and_menu_context
 
 def focused_candidates(
     space, targets, accessibility_tree, proposals, blocked_action, verified_focus=None,
-    *, recovery=False, recovery_scopes=None,
+    *, recovery=False, recovery_scopes=None, recovery_direction=None,
 ):
     cp = "https://accessibility.ubuntu.example.org/ns/component"
     regions = {}
@@ -324,6 +324,24 @@ def focused_candidates(
             candidate for candidate in space.target_heads.get("keypress", [])
             if candidate.id in {"KEYPRESS_ENTER", "KEYPRESS_ESCAPE"}
         )
+        if recovery_direction in {"up", "down"}:
+            direction = recovery_direction.upper()
+            chosen.extend([
+                ActionCandidate(
+                    id=f"KEYPRESS_PAGE_{direction}",
+                    operation="keypress",
+                    description=f"Press PAGE {direction} to navigate or scroll {recovery_direction}.",
+                    source="global",
+                    metadata={"key_sequence": [[f"page{recovery_direction}"]]},
+                ),
+                ActionCandidate(
+                    id=f"KEY_SEQUENCE:{recovery_direction}",
+                    operation="keypress",
+                    description=f"Press the {recovery_direction} arrow key in the current menu or list.",
+                    source="global",
+                    metadata={"key_sequence": [[recovery_direction]]},
+                ),
+            ])
     proposed_scopes = {
         by_id[candidate.target_id].scope
         for candidate in chosen

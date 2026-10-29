@@ -13,5 +13,7 @@
 目标绑定先尝试精确 name/role/parent，再尝试规范化名称和兼容 role；只有唯一匹配才绑定。
 全部提案无法唯一绑定时，不再于 JEV 前直接累计 no_action，而是生成当前 scope 内的
 有限恢复候选（click、double-click、Enter/Escape）以及 RETURN_TO_PLANNER。
+提案已绑定但无法编译为动作时，也进入同一恢复流程；滚动场景额外提供
+PageDown/PageUp 和上/下方向键，覆盖菜单内导航。
 `stage_replan` 同时记录 `unbound_proposals`、`available_targets` 和 `recovery_scopes`，
 供慢模型在下一次修复中选择不同目标或方法。多个匹配仍然不会被静默猜测。
