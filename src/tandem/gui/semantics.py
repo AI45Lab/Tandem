@@ -210,7 +210,11 @@ def enrich_targets(
             label_source=source,
         )
         enriched.append(replace(item, semantic_key=_key(item)))
-    if browser_snapshot and chrome_active:
+    chrome_targets = any(
+        "chrome" in target.application.lower() or "chromium" in target.application.lower()
+        for target in targets
+    )
+    if browser_snapshot and (chrome_active or chrome_targets):
         snapshot_id = targets[0].snapshot_id if targets else "dom"
         for raw in browser_snapshot.get("elements", []):
             dom = _dom_target(raw, snapshot_id)

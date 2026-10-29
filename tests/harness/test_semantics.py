@@ -12,7 +12,7 @@ CHROME_XML = """<application name="Google Chrome" active="true"
  xmlns:cp="https://accessibility.ubuntu.example.org/ns/component"
  xmlns:attr="https://accessibility.ubuntu.example.org/ns/attributes"
  xmlns:st="https://accessibility.ubuntu.example.org/ns/state">
- <frame name="ExpenseFlow - Google Chrome" st:active="true">
+ <frame name="ExpenseFlow" st:active="true">
   <push_button name="Minimise" cp:screencoord="(1802,27)" cp:size="(30,35)"/>
   <push_button name="New Tab" cp:screencoord="(824,27)" cp:size="(28,41)"/>
   <entry name="Address and search bar" cp:screencoord="(286,78)" cp:size="(1506,24)"/>
