@@ -73,6 +73,8 @@ def test_dom_enriches_matching_a11y_target_and_adds_dom_only_controls():
     assert merged.id == date.id and merged.source == "a11y+dom"
     assert merged.value == "11/12/2025" and merged.operations == ("click", "type_text")
     assert _named(targets, "Upload receipt").source == "dom"
+    click = next(c for c in _space(targets).target_heads["click"] if c.target_id == merged.id)
+    assert click.source == "a11y+dom"
 
 
 def test_web_proposal_does_not_reintroduce_browser_shell_candidates():

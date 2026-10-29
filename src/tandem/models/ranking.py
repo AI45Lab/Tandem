@@ -37,7 +37,7 @@ def build_choice_requests(
     offered_target_ids = {candidate.target_id for candidate in candidates}
     control_fields = {
         "id", "role", "name", "description", "value", "focused", "checked", "selected", "application",
-        "scope", "nearby_text", "parent_context", "x", "y", "width", "height",
+        "scope", "nearby_text", "parent_context", "x", "y", "width", "height", "source", "label_source",
     }
     controls = {
         target.id: {

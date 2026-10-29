@@ -105,6 +105,7 @@ def focused_candidates(
                         id=f"type_text:{target.id}:{index}",
                         operation="type_text",
                         target_id=target.id,
+                        source=target.source,
                         description=f"{'Replace text in' if mode == 'replace' else 'Insert text into'} "
                         f'the {target.role.replace("_", " ")} "{target.name}" with {text[:160]!r}.',
                         metadata={
@@ -180,6 +181,7 @@ def focused_candidates(
                         id=f"set_slider:{target.id}:{value}",
                         operation="set_slider",
                         target_id=target.id,
+                        source=target.source,
                         description=f'Set the "{target.name}" slider to {value:.0%}.',
                         metadata={"semantic_key": target.semantic_key, "fraction": value},
                     )
@@ -199,6 +201,7 @@ def focused_candidates(
                             ActionCandidate(
                                 id=f"SCROLL_{direction.upper()}:{target.id}",
                                 operation="scroll",
+                                source=target.source,
                                 description=f'Scroll {direction} inside the {region[0]} to reveal "{target.name}".',
                                 metadata={"scroll_x": x + width // 2, "scroll_y": y + height // 2},
                             )
@@ -211,6 +214,7 @@ def focused_candidates(
                     id=f"{operation}:{target.id}:{index}",
                     operation=operation,
                     target_id=target.id,
+                    source=target.source,
                     description=f'{verb} the visible {target.role.replace("_", " ")} "{target.name}".',
                     metadata=metadata,
                 )
@@ -228,6 +232,7 @@ def focused_candidates(
                     ActionCandidate(
                         id=f"SCROLL_{direction.upper()}:{target.id}",
                         operation="scroll",
+                        source=target.source,
                         description=f'Scroll {direction} inside the {kind} containing "{target.name}".',
                         metadata={"scroll_x": x + width // 2, "scroll_y": y + height // 2},
                     )
@@ -238,6 +243,7 @@ def focused_candidates(
                     ActionCandidate(
                         id=f"SCROLL_{direction.upper()}:{target.id}",
                         operation="scroll",
+                        source=target.source,
                         description=f'Scroll {direction} over the visible {target.role.replace("_", " ")} "{target.name}".',
                         metadata={
                             "scroll_x": target.x + target.width // 2,

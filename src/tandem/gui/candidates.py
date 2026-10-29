@@ -150,6 +150,7 @@ class ActionCandidateBuilder:
                     operation=operation,
                     target_id=target.id,
                     description=description.format(role=target.role.replace("_", " "), name=target.name),
+                    source=target.source,
                     metadata={"semantic_key": target.semantic_key},
                 )
                 for target in values[:max_candidates]
@@ -189,6 +190,7 @@ class ActionCandidateBuilder:
                             f'Replace text in the {target.role.replace("_", " ")} '
                             f'"{target.name}" with {value!r}.'
                         ),
+                        source=target.source,
                         metadata={
                             "semantic_key": target.semantic_key,
                             "input_id": input_id,
