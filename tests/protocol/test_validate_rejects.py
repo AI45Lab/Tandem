@@ -95,7 +95,7 @@ def _observation(**overrides):
         ("receipt-stdout-too-long", receipt_from_dict, {**VALID_RECEIPT, "stdout": "x" * 12001}, "12000"),
         ("receipt-stdout-int", receipt_from_dict, {**VALID_RECEIPT, "stdout": 123}, "必须是 string"),
         # --- Observation ---
-        ("obs-bad-version", observation_from_dict, _observation(protocol_version="0.2"), "protocol_version"),
+    ("obs-bad-version", observation_from_dict, _observation(protocol_version="0.1"), "protocol_version"),
         ("obs-negative-step", observation_from_dict, _observation(step_idx=-1), "必须 >="),
         ("obs-unknown-top-field", observation_from_dict, _observation(extra=1), "未知字段"),
         (
@@ -170,6 +170,20 @@ def test_rejects_a11y_absent_with_leftovers():
             "node_count": 7,
             "path": None,
         }
+    )
+    with pytest.raises(ProtocolValidationError, match="必须为 null"):
+        observation_from_dict(bad)
+
+
+def test_rejects_cdp_present_without_required_references():
+    bad = _observation(browser_snapshot={"present": True, "source": "cdp"})
+    with pytest.raises(ProtocolValidationError, match="digest/node_count/path"):
+        observation_from_dict(bad)
+
+
+def test_rejects_cdp_absent_with_leftovers():
+    bad = _observation(
+        browser_snapshot={"present": False, "source": "none", "path": "obs_stage/t/dom.json"}
     )
     with pytest.raises(ProtocolValidationError, match="必须为 null"):
         observation_from_dict(bad)

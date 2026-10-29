@@ -98,7 +98,9 @@ def plan_stage(client, instruction, screenshot, targets, recent, accessibility_t
         "visible_controls": [
             {"name": target.name, "role": target.role, "value": target.value,
              "parents": target.parent_context, "focused": target.focused,
-             "checked": target.checked, "selected": target.selected} for target in targets
+             "checked": target.checked, "selected": target.selected,
+             "description": target.description, "scope": target.scope,
+             "nearby_text": target.nearby_text} for target in targets
         ],
         "focused_inputs": [verified_focus] if verified_focus else inputs,
         "menu_paths": menus, "recent_actions_and_evidence": recent[-6:],

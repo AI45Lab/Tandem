@@ -25,5 +25,6 @@
     "acknowledged": true,
     "full_output_ref": null
   },
-  "protocol_version": "0.1"
+  "browser_snapshot": null,
+  "protocol_version": "0.2"
 }

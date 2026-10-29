@@ -19,6 +19,33 @@ def focused_candidates(
     focused_inputs = [item for item in focused_inputs if item["role"] != "table"] or focused_inputs
     if verified_focus:
         focused_inputs = [verified_focus]
+    else:
+        enriched_focus = []
+        for item in focused_inputs:
+            target = next(
+                (
+                    candidate
+                    for candidate in targets
+                    if candidate.role == item["role"]
+                    and [candidate.x, candidate.y, candidate.width, candidate.height] == item["bounds"]
+                ),
+                None,
+            )
+            enriched_focus.append(
+                {
+                    **item,
+                    **(
+                        {
+                            "name": target.name,
+                            "label_source": target.label_source,
+                            "scope": target.scope,
+                        }
+                        if target
+                        else {}
+                    ),
+                }
+            )
+        focused_inputs = enriched_focus
 
     def bounds(element):
         origin = element.attrib.get(f"{{{cp}}}screencoord", "")
@@ -96,6 +123,12 @@ def focused_candidates(
                 )
             elif not proposal.get("target_id") and len(focused_inputs) == 1:
                 focus = focused_inputs[0]
+                if (
+                    name
+                    and focus["name"].casefold() != name.casefold()
+                    and focus.get("label_source") not in {None, "unresolved", "synthetic"}
+                ):
+                    continue
                 if focus["role"] == "terminal" and mode != "insert":
                     continue
                 if mode == "replace" and focus["role"] not in EDITABLE_ROLES | {"combo_box", "paragraph"}:
@@ -262,7 +295,12 @@ def focused_candidates(
         elif operation == "wait":
             chosen.append(space.controls["wait"])
     proposed_operations = {candidate.operation for candidate in chosen}
-    for operation in ("click", "double_click", "keypress"):
+    proposed_scopes = {
+        by_id[candidate.target_id].scope
+        for candidate in chosen
+        if candidate.target_id in by_id
+    }
+    for operation in ("click", "double_click"):
         if operation not in proposed_operations:
             continue
         offered_targets = {
@@ -270,11 +308,18 @@ def focused_candidates(
             for candidate in chosen
             if candidate.operation == operation and candidate.target_id
         }
-        for candidate in space.target_heads.get(operation, [])[:8]:
-            if candidate.target_id and candidate.target_id in offered_targets:
+        added = 0
+        for candidate in space.target_heads.get(operation, []):
+            if added >= 4:
+                break
+            if not candidate.target_id or candidate.target_id in offered_targets:
+                continue
+            target = by_id.get(candidate.target_id)
+            if target is None or proposed_scopes and target.scope not in proposed_scopes:
                 continue
             chosen.append(candidate)
-    distinct = list({candidate.id: candidate for candidate in chosen}.values())[:18]
+            added += 1
+    distinct = list({candidate.id: candidate for candidate in chosen}.values())[:12]
     space.target_heads = {"focused": distinct}
     space.controls = {
         key: value for key, value in space.controls.items() if key in {"visual_fallback", "return_to_planner"}

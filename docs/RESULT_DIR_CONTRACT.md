@@ -1,7 +1,7 @@
 # 结果目录契约（Result Directory Contract）
 
 > eval ↔ demo/分析 的唯一接口。demo/分析工具只读本契约描述的目录；任何一侧改动必须先改本文档。
-> 契约版本：`v0.2`（M3 后）。tandem_eval.recorder 是唯一写入者。
+> 契约版本：`v0.3`。tandem_eval.recorder 是唯一写入者。
 
 ## run 目录（`rjob_logs/<run_id>/`，唯一落盘位置）
 
@@ -27,11 +27,12 @@ OSWorld 2.1 显式配置替代 judge/用户模拟器时，`code_version.json.res
 | 文件 | 内容 | 写入时机 |
 |------|------|---------|
 | `task.json` | 任务定义完整副本 | episode 开始 |
-| `traj.jsonl` | 每执行步一行：`{step_idx, wall_time, protocol_version, observation{screenshot(sha256/path/w/h), accessibility_tree(present/source/digest/node_count), budget(steps_remaining, wall_seconds_remaining), last_receipt}, action{kind, …}}` | 每步 env.execute 后 |
+| `traj.jsonl` | 每执行步一行：`{step_idx, wall_time, protocol_version, observation{screenshot(sha256/path/w/h), accessibility_tree(present/source/digest/node_count), browser_snapshot(present/source/digest/node_count/path 或 null), budget(...), last_receipt}, action{kind, …}}` | 每步 env.execute 后 |
 | `llm_calls.jsonl` | 全量 LLM 请求/响应，每行 `{role, time, request{payload, messages}, response, attempt}`；Bearer/api_key 脱敏 | 慢模型客户端成功响应时（llm_sink → LlmTap → 本文件） |
 | `events.jsonl` | harness 决策事件（route 字段区分）：`planner`（发给 LLM 的计划全文 + 有效响应）/ `gui`（候选列表 + ranking{operation_request, action_request, operation_ranked, action_ranked, winner, margins, latency_ms, used_image} + 编译后动作）/ `cli`（路由决策 + 命令）/ `gui_verified` / `cli_verified`（验证裁决 + 回执）/ `terminal`（终态双确认）/ `action`（runner 写的执行记录，与 session 事件穿插） | session.act() 后增量排水 |
 | `a11y_digests.jsonl` | 每步 a11y sha256 + 节点数（`{step_idx, sha256, node_count}`） | 每步（全量 xml 默认关闭，record.a11y_full=true 时另写 `a11y/step_XX.xml`） |
 | `screenshots/step_XX.png` | 逐步截图（**契约正本**） | 每步 env.execute 后 |
+| `browser/step_XX.json` | CDP DOM 语义快照（启用且成功时）；traj 的 browser_snapshot.path 指向此正本 | 每步 env.execute 后 |
 | `deliverables/` | finish 时从 VM 导出的交付物文件（含 export_paths） | episode 终态 |
 | `artifacts.json` | deliverables 导出记录（`[{vm_path, exported, local_path, bytes}]`） | episode 终态 |
 | `evaluation.json` | 官方评分（`{source: "official_benchmark_evaluator", raw, score}`） | episode 终态（评分成功时） |

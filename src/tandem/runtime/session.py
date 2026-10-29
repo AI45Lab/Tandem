@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import json
 import time
 import urllib.error
 from pathlib import Path
@@ -58,12 +59,18 @@ class TandemSession:
         if reason:
             return FailAction(reason=reason)
         screenshot = Path(observation.screenshot.path)
-        targets = (
+        raw_targets = (
             self.components.target_builder.build(
                 tree, f"t{observation.step_idx}", 128, infer_button_labels=True, include_sliders=True
             )
             if tree is not None
             else []
+        )
+        targets = self.components.semantic_enricher(
+            raw_targets,
+            tree,
+            (observation.screenshot.width, observation.screenshot.height),
+            self._read_browser_snapshot(observation),
         )
         # 同一观察内最多重规划 NO_ACTION_LIMIT+3 次：完成被拒/无候选会递增 no_action 并重规划，
         # 与旧循环 continue 语义一致（旧版重取 obs，本帧无动作时内容等价）。
@@ -149,6 +156,8 @@ class TandemSession:
                 space.target_heads["visual"] = visual
                 if visual:
                     space.controls.pop("visual_fallback", None)
+        else:
+            space.controls.pop("visual_fallback", None)
         prune_stalled(space, self.recent)
         ranking = None
         for service_retry in range(3):
@@ -221,3 +230,13 @@ class TandemSession:
             return Path(a11y.path).read_text(encoding="utf-8")
         except OSError:
             return None
+
+    def _read_browser_snapshot(self, observation: Observation) -> dict | None:
+        reference = observation.browser_snapshot
+        if reference is None or not reference.present or not reference.path:
+            return None
+        try:
+            value = json.loads(Path(reference.path).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        return value if isinstance(value, dict) else None

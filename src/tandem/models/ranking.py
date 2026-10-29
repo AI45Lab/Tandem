@@ -35,17 +35,33 @@ def build_choice_requests(
 ) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
     candidates = action_space.candidates()
     offered_target_ids = {candidate.target_id for candidate in candidates}
+    control_fields = {
+        "id", "role", "name", "description", "value", "focused", "checked", "selected", "application",
+        "scope", "nearby_text", "parent_context", "x", "y", "width", "height",
+    }
     controls = {
-        target.id: {key: value for key, value in target.compact().items() if key not in {"id", "snapshot_id"}}
+        target.id: {
+            key: value
+            for key, value in target.compact().items()
+            if key in control_fields and not (key == "value" and target.role == "password_text")
+        }
         for target in targets
         if target.id in offered_target_ids
     }
+    recent = [
+        {
+            key: item[key]
+            for key in ("operation", "target", "goal", "outcome", "state_changed")
+            if key in item
+        }
+        for item in recent_actions[-10:]
+    ]
     state = json.dumps(
         {
             "local_goal": intent,
             "active_window": active_window,
             "current_ui_controls": list(controls.values()),
-            "recent_semantic_actions": recent_actions[-10:],
+            "recent_semantic_actions": recent,
             "stage_goal": stage_goal,
         },
         ensure_ascii=False,
@@ -70,8 +86,19 @@ def build_choice_requests(
             target = controls.get(candidate.target_id)
             if target:
                 context = " > ".join(target.get("parent_context", [])[-2:])
+                details = []
+                if target.get("description"):
+                    details.append(f"Details: {target['description'][:160]}")
+                nearby = target.get("nearby_text", "")
+                if nearby and nearby.casefold() != target.get("name", "").casefold():
+                    details.append(f"Nearby: {nearby[:240]}")
+                if target.get("value"):
+                    details.append(f"Current value: {str(target['value'])[:160]}")
+                if target.get("scope"):
+                    details.append(f"Scope: {target['scope']}")
                 description += (
-                    f" Parent context: {context};"
+                    (" " + "; ".join(details) + ";" if details else "")
+                    + f" Parent context: {context};"
                     f" screen box ({target.get('x')}, {target.get('y')},"
                     f" {target.get('width')}, {target.get('height')})."
                 )

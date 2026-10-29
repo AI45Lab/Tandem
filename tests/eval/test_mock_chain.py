@@ -58,7 +58,7 @@ def test_full_mock_chain_produces_renderable_result_dir(tmp_path, mode):
     assert (episode_dir / "screenshots" / "step_00.png").is_file()
 
     traj = [json.loads(line) for line in (episode_dir / "traj.jsonl").read_text().splitlines()]
-    assert traj and traj[0]["protocol_version"] == "0.1"
+    assert traj and traj[0]["protocol_version"] == "0.2"
     assert traj[0]["action"]["kind"] == "gui"
     episode = json.loads((episode_dir / "episode.json").read_text())
     assert episode["stop_reason"] == "done" and episode["score"] == 1.0

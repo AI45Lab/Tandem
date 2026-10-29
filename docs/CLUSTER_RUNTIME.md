@@ -295,3 +295,15 @@ worker 侧各段日志：
 
 - `--benchmark mock` 走 mock 链路（不起 VM、不碰共享资源），可本地跑；
 - 真实基准走 OSW1 / OSW2 / OSW2.1，按本文 §3–§7。
+
+## 11. 浏览器 CDP 语义快照
+
+- `tandem_eval.browser` 在 VM 内通过 loopback 依次探测 `1337` / `9222`，只调用
+  `GET /json/list` 与 `Runtime.evaluate`，不重启 Chrome、不激活 tab、不执行页面 mutation。
+  多 tab 时选择 `document.visibilityState=visible` 的页面。
+- 任务必须已由环境以远程调试参数启动 Chrome；Task 008 的 setup 已显式启用 `1337`。
+  其他任务未启用、端口被拒绝或快照异常时只记录诊断并回退 a11y，不让整题失败。
+- 快照经协议 `browser_snapshot` 文件引用进入 harness；episode 正本保存在
+  `episodes/<task>/browser/step_XX.json`。密码、隐藏和文件输入元素不进入快照。
+- 2026-10-29 Task 008 真机 probe 已验证 `1337`、WebSocket 和 DOM 序列化可用，
+  无需额外权限。首次有效快照含 4 个元素；9222 被其他环境组件占用时不影响 1337 采集。

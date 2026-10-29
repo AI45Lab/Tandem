@@ -1,4 +1,4 @@
-"""协议 v0.1 消息模型。
+"""协议 v0.2 消息模型。
 
 schema/ 下同名 JSON Schema 是唯一真源；本文件是它的 Python 包装层。
 约束（MCP-ready，自第一天生效）：
@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-PROTOCOL_VERSION = "0.1"
+PROTOCOL_VERSION = "0.2"
 
 # GUI 动作类型枚举。v0.1 为暂定集，M1 移植 compile 语义时如有出入以移植结果为准并 bump 版本。
 GUI_ACTION_TYPES = (
@@ -56,6 +56,26 @@ class AccessibilityTree:
 
     present: bool
     source: str  # "vm" | "jev" | "none"
+    digest: str | None = None
+    node_count: int | None = None
+    path: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "present": self.present,
+            "source": self.source,
+            "digest": self.digest,
+            "node_count": self.node_count,
+            "path": self.path,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class BrowserSnapshot:
+    """可选的浏览器 DOM 快照引用；CDP 不可用时为 None。"""
+
+    present: bool
+    source: str  # "cdp" | "none"
     digest: str | None = None
     node_count: int | None = None
     path: str | None = None
@@ -115,6 +135,7 @@ class Observation:
     screenshot: Screenshot
     accessibility_tree: AccessibilityTree
     last_receipt: Receipt | None
+    browser_snapshot: BrowserSnapshot | None = None
     protocol_version: str = PROTOCOL_VERSION
 
     def to_dict(self) -> dict[str, Any]:
@@ -126,6 +147,7 @@ class Observation:
             "screenshot": self.screenshot.to_dict(),
             "accessibility_tree": self.accessibility_tree.to_dict(),
             "last_receipt": self.last_receipt.to_dict() if self.last_receipt is not None else None,
+            "browser_snapshot": self.browser_snapshot.to_dict() if self.browser_snapshot else None,
             "protocol_version": self.protocol_version,
         }
 

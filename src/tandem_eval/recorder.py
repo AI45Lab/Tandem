@@ -1,7 +1,7 @@
 """结果目录契约执行者（契约文档：docs/RESULT_DIR_CONTRACT.md）。
 
 episode 目录自包含：task.json 副本、traj.jsonl、llm_calls.jsonl（全量请求/响应，脱敏）、
-screenshots/、a11y/、events.jsonl、deliverables/、evaluation.json、result.txt、
+screenshots/、a11y/、browser/、events.jsonl、deliverables/、evaluation.json、result.txt、
 episode.json、timing.json。run 级：summary.json、heartbeat.json、code_version.json。
 """
 
@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import shutil
 import time
 import traceback
 from pathlib import Path
@@ -64,6 +65,13 @@ class EpisodeRecorder:
 
     # ------------------------------------------------------------------ 逐步记录
     def traj(self, observation: Observation, action: Action, receipt: Receipt | None) -> None:
+        browser_snapshot = observation.browser_snapshot
+        browser_record = browser_snapshot.to_dict() if browser_snapshot else None
+        if browser_snapshot and browser_snapshot.present and browser_snapshot.path:
+            target = self.dir / "browser" / f"step_{observation.step_idx - 1:02d}.json"
+            target.parent.mkdir(exist_ok=True)
+            shutil.copyfile(browser_snapshot.path, target)
+            browser_record["path"] = str(target)
         record = {
             "step_idx": observation.step_idx,
             "wall_time": round(time.time(), 3),
@@ -71,6 +79,7 @@ class EpisodeRecorder:
             "observation": {
                 "screenshot": observation.screenshot.to_dict(),
                 "accessibility_tree": observation.accessibility_tree.to_dict(),
+                "browser_snapshot": browser_record,
                 "budget": observation.budget.to_dict(),
                 "last_receipt": receipt.to_dict() if receipt else None,
             },

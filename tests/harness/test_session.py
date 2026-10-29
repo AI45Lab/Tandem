@@ -245,6 +245,15 @@ def test_wait_candidate_emits_wait_action(tmp_path):
     assert isinstance(action, WaitAction)
 
 
+def test_unavailable_visual_fallback_is_not_offered_to_selector(tmp_path):
+    selector = FixedSelector()
+    session, _, _ = _session([_gui_plan()], [], selector=selector)
+    session.begin("整理", [])
+    action = session.act(make_observation(tmp_path, 0))
+    assert isinstance(action, GuiAction)
+    assert "visual_fallback" not in selector.calls[0]["operations"]
+
+
 def test_cli_timeout_clamped_to_protocol_limit():
     with pytest.raises(ValueError, match="cli_timeout_seconds"):
         SessionConfig(cli_timeout_seconds=200)

@@ -102,3 +102,12 @@
     `Ranking`、`build_choice_requests` 和 `ranking_dict` 从原 JEV 模块移到
     `models/ranking.py`，供 JEV/Kev 共用；现有函数体、prompt 和排序语义保持不变。
     配置字段、启动命令、消息协议、结果目录以及 step/stage 执行行为均不变。
+
+## 共享语义感知（2026-10-29）
+
+30. 【行为】a11y/DOM 先形成慢模型与快模型共用的语义元素表：恢复邻近标签、分离
+    `browser_chrome` / `web_content` / `dialog` / `menu` / `native`，当前输入值不再冒充
+    控件名称。CDP 是 Task 008 等已启用远程调试的 Chrome 的可选增强，失败时回退 a11y；
+    协议新增 `browser_snapshot` 文件引用并升至 0.2。候选备选只在提案 scope 内生成，
+    不再补入全局 click/keypress；无 grounder 时不提供 visual_fallback。JEV 近期历史只保留
+    动作、目标、结果和状态变化，不再携带完整 verification。

@@ -27,6 +27,12 @@ class UITarget:
     semantic_key: str
     parent_context: tuple[str, ...]
     source: str = "a11y"
+    application: str = ""
+    description: str = ""
+    nearby_text: str = ""
+    scope: str = "native"
+    label_source: str = "a11y"
+    operations: tuple[str, ...] = ()
 
     def compact(self) -> dict:
         return {key: value for key, value in asdict(self).items() if value not in (None, "", (), False)}
@@ -106,13 +112,17 @@ class A11yTargetBuilder:
         root = ET.fromstring(raw_tree)
         targets: list[UITarget] = []
 
-        def visit(element: ET.Element, active: bool, parents: tuple[str, ...]) -> None:
+        def visit(element: ET.Element, active: bool, parents: tuple[str, ...], app_name: str) -> None:
             active = active or _state(element, "active") is True
             role = _local(element.tag)
-            name = str(element.attrib.get("name") or "").strip()
+            raw_name = str(element.attrib.get("name") or "").strip()
+            name = raw_name
+            if role == "application":
+                app_name = name
+            label_source = "a11y" if name else "unresolved"
             value = (
                 str(element.text or "").strip()
-                if role in {"text", "textbox", "entry", "searchbox", "password_text", "spin_button"}
+                if role in {"text", "textbox", "entry", "searchbox", "spin_button"}
                 else ""
             )
             position = _pair(_attribute(element, "screencoord"))
@@ -121,23 +131,14 @@ class A11yTargetBuilder:
                 labels = {
                     str(child.attrib.get("name") or "").strip()
                     for child in element.iter()
-                    if _local(child.tag) == "label" and child.attrib.get("name")
+                    if _local(child.tag) in {"label", "static"} and child.attrib.get("name")
                 }
                 if len(labels) == 1:
                     name = labels.pop()
+                    label_source = "a11y_descendant"
             enabled = _state(element, "enabled")
             visible = _state(element, "visible")
             showing = _state(element, "showing")
-            if (
-                not name
-                and active
-                and role in {"textbox", "text", "entry", "searchbox", "password_text", "spin_button"}
-                and _state(element, "editable") is True
-                and _state(element, "focused") is True
-                and position
-                and size
-            ):
-                name = f"Focused {role.replace('_', ' ')}" + (f" (current: {value})" if value else "")
             context = parents + ((name,) if name else ())
             interactive_text = role != "text" or (
                 _state(element, "editable") is True or _state(element, "focusable") is True
@@ -158,7 +159,7 @@ class A11yTargetBuilder:
             if (
                 (active or system_target)
                 and (role in SUPPORTED_ROLES or safe_label or (include_sliders and role == "slider"))
-                and name
+                and (name or role in SUPPORTED_ROLES)
                 and interactive_text
                 and enabled is not False
                 and visible is not False
@@ -190,10 +191,17 @@ class A11yTargetBuilder:
                         height=size[1],
                         semantic_key="|".join((role, normalized_name, *[p.lower() for p in parent_context])),
                         parent_context=parent_context,
+                        application=app_name,
+                        description=(
+                            _attribute(element, "description")
+                            or _attribute(element, "placeholder")
+                            or _attribute(element, "placeholder-text")
+                        ),
+                        label_source=label_source,
                     )
                 )
             for child in element:
-                visit(child, active, context[-4:])
+                visit(child, active, context[-4:], app_name)
 
-        visit(root, False, ())
+        visit(root, False, (), "")
         return targets
