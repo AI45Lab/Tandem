@@ -20,6 +20,8 @@ import os
 import subprocess
 from pathlib import Path
 
+from tandem.models.key_pool import validate_key_ids
+
 from .config_schema import select_api
 
 
@@ -65,7 +67,10 @@ def _secrets_section(benchmark: str, config: dict, slow_api: dict, fast_api: dic
     if benchmark not in {"osworld1", "osworld2", "osworld21"}:
         return {}
     secrets = {
-        "slow_model": {key: slow_api[key] for key in ("base_url", "api_key", "model")},
+        "slow_model": {
+            "base_url": slow_api["base_url"], "api_key": slow_api.get("api_key", ""),
+            "model": slow_api["model"],
+        },
         # 快模型部署在闲时 GPU，ip/端口随重新部署变化：endpoint 为空时由 worker
         # 从 endpoint_file（部署后写入的 {"base_url": ...}）自动发现
         "fast_model": {
@@ -74,6 +79,8 @@ def _secrets_section(benchmark: str, config: dict, slow_api: dict, fast_api: dic
         },
         "registry": config["eval"].get("registry"),
     }
+    if not slow_api.get("api_key") and slow_api.get("key_pool"):
+        secrets["slow_model"]["key_pool"] = dict(slow_api["key_pool"])
     if benchmark == "osworld21":
         section = config["eval"]["benchmarks"][benchmark]
         environment = {}
@@ -111,7 +118,7 @@ def _harness_config_section(config: dict, slow_api: dict, fast_api: dict) -> dic
         "cli_timeout_seconds": int(route.get("cli_timeout_seconds", 90)),
         "slow_max_tokens": int(slow_api.get("max_tokens", 16384)),
         "slow_timeout_seconds": float(slow_api.get("timeout_seconds", 120)),
-        "slow_reasoning_effort": slow_api.get("reasoning_effort", "low"),
+        "slow_reasoning_effort": slow_api.get("reasoning_effort"),
         "slow_direct_api": bool(slow_api.get("direct_api", False)),
         "fast_backend": fast_api.get("backend", "jev"),
         "fast_timeout_seconds": float(fast_api.get("timeout_seconds", 300)),
@@ -153,6 +160,13 @@ def build_job_spec(*, config: dict, run_id: str, repo_root: Path,
     requested = dict(overrides.pop("models", {}) or {})
     slow_name, slow_api = select_api(config, "slow_model", requested.get("slow"))
     fast_name, fast_api = select_api(config, "fast_model", requested.get("fast"))
+    key_ids = overrides.pop("slow_key_ids", None)
+    if key_ids is not None:
+        validate_key_ids(key_ids)
+        if key_ids and (slow_api.get("api_key") or not slow_api.get("key_pool")):
+            raise ValueError("slow_key_ids requires key_pool without a manual api_key")
+        if slow_api.get("key_pool"):
+            slow_api["key_pool"] = {**slow_api["key_pool"], "key_ids": key_ids}
 
     inner_image = config["eval"]["inner_image"]
     if benchmark == "osworld21":
