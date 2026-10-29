@@ -20,7 +20,7 @@ class SessionConfig:
     slow_max_tokens: int = 16384
     slow_timeout_seconds: float = 120
     slow_direct_api: bool = False
-    slow_reasoning_effort: str = "low"  # off=enable_thinking:false | low/medium/high=reasoning_effort
+    slow_reasoning_effort: str | None = None  # None=服务端默认；off=enable_thinking:false
     fast_backend: str = "jev"  # "jev"（qwen-jev-choice /rank）| "kev"（Kev System One）
     fast_timeout_seconds: float = 300
 
@@ -35,5 +35,5 @@ class SessionConfig:
             raise ValueError("cli_timeout_seconds must be within 1..120 (协议上限)")
         if self.fast_backend not in {"jev", "kev"}:
             raise ValueError("fast_backend must be jev or kev")
-        if self.slow_reasoning_effort not in {"off", "low", "medium", "high"}:
-            raise ValueError("slow_reasoning_effort must be off/low/medium/high")
+        if self.slow_reasoning_effort not in {None, "off", "low", "medium", "high", "max"}:
+            raise ValueError("slow_reasoning_effort must be null/off/low/medium/high/max")

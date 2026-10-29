@@ -325,7 +325,7 @@ def test_kimi_payload_controls_reasoning_and_tokens(tmp_path):
     original = urllib.request.urlopen
     urllib.request.urlopen = fake_urlopen
     try:
-        config = SessionConfig()
+        config = SessionConfig(slow_reasoning_effort="low")
         client = SlowModelClient({"base_url": "http://x"}, config, tmp_path / "a.jsonl")
         client.json_request([{"role": "user", "content": "hi"}], lambda v: True, role="r")
         assert captured["payload"]["max_tokens"] == 16384
@@ -401,7 +401,8 @@ def test_kimi_retries_escalate_reasoning_effort_on_empty_content(tmp_path):
     original = urllib.request.urlopen
     urllib.request.urlopen = fake_urlopen
     try:
-        client = SlowModelClient({"base_url": "http://x"}, SessionConfig(), tmp_path / "a.jsonl")
+        client = SlowModelClient({"base_url": "http://x"}, SessionConfig(slow_reasoning_effort="low"),
+                                tmp_path / "a.jsonl")
         value = client.json_request([{"role": "user", "content": "hi"}],
                                     lambda v: v == {"done": True}, role="plan_step")
         assert value == {"done": True}

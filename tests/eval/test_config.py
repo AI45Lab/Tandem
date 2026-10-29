@@ -40,7 +40,9 @@ def test_slow_model_entries_use_known_knobs():
     config = load_config(CONFIG_PATH)
     for name, api in config["harness"]["slow_model"]["apis"].items():
         assert api["base_url"].startswith("http"), f"{name}: base_url"
-        assert api["reasoning_effort"] in {"off", "low", "medium", "high"}, f"{name}: reasoning_effort"
+        assert api["reasoning_effort"] in {
+            None, "off", "low", "medium", "high", "max",
+        }, f"{name}: reasoning_effort"
         assert api["max_tokens"] > 0 and api["timeout_seconds"] > 0, f"{name}: 旋钮必须为正"
 
 
