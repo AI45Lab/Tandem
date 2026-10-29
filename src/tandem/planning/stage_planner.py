@@ -89,6 +89,50 @@ def valid_stage(value, *, allow_cli=True, route_policy="auto"):
     return True
 
 
+def _stage_error(value, *, allow_cli=True, route_policy="auto") -> str | None:
+    """Locate common schema failures without weakening valid_stage."""
+    if valid_stage(value, allow_cli=allow_cli, route_policy=route_policy):
+        return None
+    if not isinstance(value, dict):
+        return "stage: expected a JSON object"
+    if type(value.get("done")) is not bool:
+        return "done: expected a boolean"
+    if not isinstance(value.get("milestones"), list):
+        return "milestones: expected a list containing 1-8 items"
+    for index, item in enumerate(value["milestones"]):
+        path = f"milestones[{index}]"
+        if not isinstance(item, dict):
+            return f"{path}: expected an object"
+        for key in ("current_goal", "expected_observation"):
+            if not isinstance(item.get(key), str) or not item[key].strip():
+                return f"{path}.{key}: required non-empty string"
+        proposals = item.get("action_proposals")
+        if item.get("route") == "gui" and not isinstance(proposals, list):
+            return f"{path}.action_proposals: expected a list containing 1-4 items"
+        for proposal_index, proposal in enumerate(proposals or []):
+            proposal_path = f"{path}.action_proposals[{proposal_index}]"
+            if not isinstance(proposal, dict):
+                return f"{proposal_path}: expected an object"
+            operation = proposal.get("operation")
+            if operation in {"click", "double_click", "scroll_up", "scroll_down", "set_slider"}:
+                for key in ("target_name", "target_role"):
+                    if not isinstance(proposal.get(key), str) or not proposal[key]:
+                        return f"{proposal_path}.{key}: required non-empty string for {operation}"
+            if operation == "type_text" and (
+                not isinstance(proposal.get("text"), str)
+                or proposal.get("input_mode") not in {"insert", "replace"}
+            ):
+                return f"{proposal_path}: type_text requires text and input_mode insert/replace"
+            if operation == "keypress" and not isinstance(proposal.get("key_sequence"), list):
+                return f"{proposal_path}.key_sequence: expected 1-8 lists of 1-4 strings"
+        checks = item.get("checks", [])
+        if isinstance(checks, list):
+            for check_index, check in enumerate(checks):
+                if not isinstance(check, dict) or not isinstance(check.get("target"), dict):
+                    return f"{path}.checks[{check_index}].target: expected an object"
+    return "stage response does not match the required schema"
+
+
 def plan_stage(client, instruction, screenshot, targets, recent, accessibility_tree,
                verified_focus=None, requirements=None, remaining_steps=None, *,
                allow_cli=True, route_policy="auto"):
@@ -123,6 +167,8 @@ milestone that expects filtered results or opens a matching result.
 Future targets need exact semantic names/roles, optional parent_contains for duplicate names, never
 cached target_id or coordinates. Targets are rebound from each new observation. GUI operations:
 click, double_click, scroll_up, scroll_down, type_text, keypress, set_slider, wait.
+scroll_up/scroll_down require target_name and target_role copied from visible_controls; never emit
+{"operation":"scroll_down"} or {"operation":"scroll_up"} without those fields.
 type_text requires exact text and input_mode insert/replace. Omit target fields only for a confirmed
 keyboard-focused input. keypress requires key_sequence, e.g. [["ctrl","l"]]. set_slider needs value 0..1.
 checks are optional; use [] when independent model verification is needed. The property field must
@@ -140,6 +186,10 @@ After CLI document edits, reopen/reload and inspect the real application before 
 On a repair request, use the fresh observation and recorded failure, preserve verified work, and
 replace only remaining work. Do not repeat a failed method unchanged. Missing candidates do not
 make a task infeasible. An unexpected UI requires a revised grounded plan, not invented controls.
+When a recent stage_replan contains unbound_proposals and available_targets, use that evidence:
+do not repeat the failed name/role unchanged. Choose an offered visible target or a different method.
+Normalized names and compatible roles are rebound only when unique; otherwise a bounded recovery
+candidate set and RETURN_TO_PLANNER are offered instead of guessing.
 Preserve the user's exact scope and literal values. Do not introduce unrequested matching modes,
 word boundaries, selection filters, case restrictions, or exceptions. A narrower self-chosen goal
 cannot satisfy a broader original requirement. Check commands against the original instruction,
@@ -155,18 +205,18 @@ Completion is independently verified; a stage finishing is NOT proof of task com
          + base64.b64encode(screenshot.read_bytes()).decode("ascii")}},
     ]}]
     def validate(value):
-        valid = valid_stage(value, allow_cli=allow_cli, route_policy=route_policy)
-        if not valid:
-            # Use the client's existing attempts; do not truncate, coerce or execute invalid plans.
+        error = _stage_error(value, allow_cli=allow_cli, route_policy=route_policy)
+        if error:
+            # Give the next attempt a precise correction, not the same generic rejection.
             messages.extend([
                 {"role": "assistant", "content": json.dumps(value, ensure_ascii=False)},
                 {"role": "user", "content": (
-                    "Invalid stage schema. Return only the current stage with 1-8 milestones, respecting "
-                    "allow_cli/route_policy. Each check property must be exactly visible, value, checked, "
-                    "selected, focused or expanded (not 'exact value'). Preserve the ORIGINAL task scope. "
-                    "Correct the JSON using the field names and types specified above."
+                    f"Invalid stage schema at {error}. Return the corrected complete stage JSON. "
+                    "scroll_up/scroll_down require target_name and target_role copied from "
+                    "visible_controls; never emit a bare scroll operation. Preserve the ORIGINAL task "
+                    "scope and all other valid milestones."
                 )},
             ])
-        return valid
+        return error is None
 
     return client.json_request(messages, validate, role="plan_stage")

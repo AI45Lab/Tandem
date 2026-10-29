@@ -99,6 +99,18 @@ def test_shell_proposal_does_not_reintroduce_web_candidates():
     assert "Inbox 2" not in names and "Save" not in names
 
 
+def test_recovery_candidates_stay_inside_requested_scope():
+    targets = _targets()
+    space = focused_candidates(
+        _space(targets), targets, CHROME_XML, [], None,
+        recovery=True, recovery_scopes={"web_content"},
+    )
+    names = {target.name for target in targets if target.id in {c.target_id for c in space.candidates()}}
+    assert "Inbox 2" in names and "Save" in names
+    assert "Minimise" not in names and "New Tab" not in names
+    assert any(candidate.operation == "return_to_planner" for candidate in space.candidates())
+
+
 def test_focused_typing_rejects_a_different_named_field():
     targets = _targets()
     proposal = {"operation": "type_text", "target_name": "Receipt Amount",

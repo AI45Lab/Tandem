@@ -10,7 +10,8 @@ from .focus import KEY_ALIASES, MODIFIERS, SINGLE_KEYS, input_and_menu_context
 
 
 def focused_candidates(
-    space, targets, accessibility_tree, proposals, blocked_action, verified_focus=None
+    space, targets, accessibility_tree, proposals, blocked_action, verified_focus=None,
+    *, recovery=False, recovery_scopes=None,
 ):
     cp = "https://accessibility.ubuntu.example.org/ns/component"
     regions = {}
@@ -301,13 +302,35 @@ def focused_candidates(
         elif operation == "wait":
             chosen.append(space.controls["wait"])
     proposed_operations = {candidate.operation for candidate in chosen}
+    if recovery:
+        scopes = set(recovery_scopes or [])
+        added = 0
+        for candidate in space.target_heads.get("click", []):
+            if added >= 4:
+                break
+            target = by_id.get(candidate.target_id)
+            if target is not None and target.scope in scopes:
+                chosen.append(candidate)
+                added += 1
+        added = 0
+        for candidate in space.target_heads.get("double_click", []):
+            if added >= 2:
+                break
+            target = by_id.get(candidate.target_id)
+            if target is not None and target.scope in scopes:
+                chosen.append(candidate)
+                added += 1
+        chosen.extend(
+            candidate for candidate in space.target_heads.get("keypress", [])
+            if candidate.id in {"KEYPRESS_ENTER", "KEYPRESS_ESCAPE"}
+        )
     proposed_scopes = {
         by_id[candidate.target_id].scope
         for candidate in chosen
         if candidate.target_id in by_id
     }
     for operation in ("click", "double_click"):
-        if operation not in proposed_operations:
+        if recovery or operation not in proposed_operations:
             continue
         offered_targets = {
             candidate.target_id
@@ -328,6 +351,7 @@ def focused_candidates(
     distinct = list({candidate.id: candidate for candidate in chosen}.values())[:12]
     space.target_heads = {"focused": distinct}
     space.controls = {
-        key: value for key, value in space.controls.items() if key in {"visual_fallback", "return_to_planner"}
+        key: value for key, value in space.controls.items()
+        if key == "return_to_planner" or key == "visual_fallback" and not recovery
     }
     return space

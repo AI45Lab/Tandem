@@ -141,6 +141,8 @@ class TandemSession:
             plan["action_proposals"],
             blocked_action,
             self.verified_focus,
+            recovery=plan.get("recovery", False),
+            recovery_scopes=plan.get("recovery_scopes"),
         )
         # visual fallback（grounder）按计划延后：组件存在时才走视觉分支（DEVIATIONS.md #1）。
         if self.components.grounder is not None:

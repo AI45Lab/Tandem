@@ -79,7 +79,7 @@ OSWorld 2.1 显式配置替代 judge/用户模拟器时，`code_version.json.res
 | `terminal` | 终态裁决（planner 声称完成后的 verifier 双确认全文） |
 | `stage_local` | 消费已生成的阶段计划；含 stage_goal、milestone 和当帧重绑定后的 plan，不代表新的模型调用 |
 | `stage_progress` | 里程碑推进，含 stage_goal、milestone、验证 source |
-| `stage_replan` | 阶段修复请求，含原因及当前里程碑；不等于调用已经完成 |
+| `stage_replan` | 阶段修复请求，含原因及当前里程碑；target_unbound 时另含 `unbound_proposals`、`available_targets`、`recovery_scopes`；不等于调用已经完成 |
 | `action`（kind 字段） | runner 写的执行记录 `{step, kind: "action", action: {…协议动作…}}` |
 
 stage 模式的 planner 事件只在真实规划调用时写入，增加 mode、reason、seconds；

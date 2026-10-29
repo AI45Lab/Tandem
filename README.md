@@ -88,6 +88,8 @@
 5. **CLI 路由**：`route == "cli"` → 直接下发 `CliAction`（bash -lc，cwd=/home/user，1 条 CLI 计 1 步）。
 6. **建候选空间**：`gui/candidates.py` 由目标展开动作，再经 `focused_candidates`
    按慢模型提案和元素 scope 聚焦，经 `prune_stalled` 剪枝；网页提案不会补入浏览器外壳候选。
+   全部提案无法唯一绑定时，使用当前 scope 内的有限恢复候选和 `RETURN_TO_PLANNER`，
+   不在调用快模型前直接计为 no_action。
 7. **快模型排序**：两阶段——先选 **operation**（点击还是输入），再在胜出 operation 内选 **action**（具体哪个目标）。
    结果带 `operation_margin`（两级置信度差）与 `latency_ms`。
 8. **编译动作**：`gui/compile.py` 把 winner + 目标编译成**声明式** `GuiAction`

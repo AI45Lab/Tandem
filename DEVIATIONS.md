@@ -113,3 +113,6 @@
     动作、目标、结果和状态变化，不再携带完整 verification。
 31. 【修复】慢模型对端提前断开（`RemoteDisconnected` / `ConnectionError`）纳入现有
     有界重试，不再把一次 transient 断连直接记为整题异常；重试次数和退避策略不变。
+32. 【行为】阶段目标绑定增加规范化名称和兼容 role 的唯一匹配；全部提案未绑定时，
+    改为当前 scope 内的有限恢复候选 + RETURN_TO_PLANNER，不再在 JEV 前直接计 no_action。
+    `stage_replan` 记录失败提案和可用目标。滚动提案的 schema 重试反馈定位到具体字段。
