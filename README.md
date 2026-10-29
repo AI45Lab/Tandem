@@ -220,21 +220,38 @@ tandem-eval rjob run --run-id <name> --benchmark osworld2 --tasks <task-id> \
 | `slow_max_tokens` | `16384` | 慢模型单次响应上限 |
 | `slow_timeout_seconds` | `120` | 慢模型超时 |
 | `slow_direct_api` | `False` | 直连 API（不经代理） |
-| `slow_reasoning_effort` | `"low"` | `off`（归零思考）/ `low` / `medium` / `high` |
+| `slow_reasoning_effort` | `None` | 服务端默认，或 `off` / `low` / `medium` / `high` / `max` |
 | `fast_backend` | `"jev"` | `jev`（`/rank`，需截图）/ `kev`（System One，纯文本） |
 
 **换慢模型厂商**：在 `infra/config.json` 的 `harness.slow_model.apis` 里登记多套 API，
 启动时用 `--slow-model <名字>` 挑（缺省取 `default`），不改代码。
 
-> 厂商方言有差异（2026-10-23 实测）：Kimi 认 `enable_thinking=false` 关思考；
-> **MiniMax 忽略该字段**（仍返回 `reasoning_content`），只有 `reasoning_effort` 生效
-> （`low`/`medium`/`high`）——想少思考就把 `reasoning_effort` 调低，别指望 `off`。
+集群内使用模板配置时，`api_key` 留空会使用默认号池，也可以手动填写自己的 `api_key`。
+
+需要指定号池中的 key 时，在原启动命令后追加：
+
+```bash
+--slow-key-ids 1,2,3,4
+```
+
+也可以在所选慢模型条目的 `key_pool` 中配置，命令行参数优先：
+
+```json
+{"key_ids": [1, 2, 3, 4]}
+```
+
+编号对应凭据列表中的第 1、2、3、4 把 key，不是密钥内容：
+
+- 不填编号或配置 `[]`：使用默认优先级。
+- 填一个编号：只使用这一把。
+- 填多个编号：这些 key 按同级轮询分配给 worker，正常请求固定使用分配到的 key；故障仅在指定集合内切换。
+
+不同实验可指定不重叠的编号集合。这里均分的是 worker，不保证请求量严格相等；编号选择与手填完整 `api_key` 二选一。
 
 慢模型的调用纪律（`models/slow.py`）：
 
-- 思考强度默认 `low`（实测 97 → 22 token）；空正文（全留在思考通道）→ 下一次重试自动升档；
+- 思考强度取所选 API 的配置；空正文（全留在思考通道）→ 下一次重试自动升档；
 - 叙述文字包裹 JSON → 自动剥围栏取首个平衡 `{…}` 抢救；
-- 403（TPM 配额限流）→ 指数退避 60/120/240/480s，总计 5 次尝试；
 - `finish_reason=length` → 明确报错，提示调大 `slow_max_tokens`。
 
 ## 排序后端

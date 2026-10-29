@@ -11,6 +11,8 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+from .key_pool import ApiKeyPool, PoolExhausted, classify_api_error, retry_after_seconds
+
 # 空正文（全留在思考通道）或截断时，下一次重试升档思考强度，避免原样重发重复失败
 _REASON_EFFORT_LADDER = {"low": "medium", "medium": "high"}
 
@@ -50,12 +52,24 @@ def extract_json_object(text: str):
     return None
 
 
+def _api_failure(status: int, raw: dict):
+    error = raw.get("error")
+    base = raw.get("base_resp") or {}
+    if status < 400 and not error and not base.get("status_code"):
+        return None
+    if isinstance(error, dict):
+        return error.get("code") or error.get("type"), str(error.get("message", ""))
+    return base.get("status_code"), str(error or base.get("status_msg") or json.dumps(raw))
+
+
 class SlowModelClient:
     def __init__(self, credential_file, config, audit_path: Path, llm_sink=None):
         if isinstance(credential_file, dict):
             self.credentials = dict(credential_file)
         else:
             self.credentials = json.loads(Path(credential_file).read_text(encoding="utf-8"))
+        self.key_pool = ApiKeyPool(self.credentials)
+        self._call_id = 0
         self.config = config
         self.audit_path = audit_path
         # llm_sink(role=..., request=..., response=..., **meta)：全量请求/响应落盘钩子，
@@ -64,25 +78,28 @@ class SlowModelClient:
 
     def json_request(self, messages, validate, *, role):
         credentials = self.credentials
+        self._call_id += 1
+        call_id = self._call_id
         payload = {
             "model": credentials.get("model") or "unknown",
             "messages": messages,
             "stream": False,
             "max_tokens": self.config.slow_max_tokens,
         }
-        effort = getattr(self.config, "slow_reasoning_effort", "low")
+        effort = self.config.slow_reasoning_effort
         if effort == "off":
             payload["enable_thinking"] = False
-        else:
+        elif effort is not None:
             payload["reasoning_effort"] = effort
+
         def build_request():
             return urllib.request.Request(
                 credentials["base_url"].rstrip("/") + "/chat/completions",
                 data=json.dumps(payload).encode("utf-8"),
                 headers={
                     **(
-                        {"Authorization": "Bearer " + credentials["api_key"]}
-                        if credentials.get("api_key")
+                        {"Authorization": "Bearer " + key["api_key"]}
+                        if key["api_key"]
                         else {}
                     ),
                     "Content-Type": "application/json",
@@ -99,14 +116,18 @@ class SlowModelClient:
             record = {
                 "event": event,
                 "provider": "slow_model",
+                "api_provider": self.key_pool.provider,
                 "role": role,
-                "attempt": attempt + 1,
+                "call_id": call_id,
+                "key_id": key["id"],
+                "key_priority": key["priority"],
+                "attempt": attempt,
                 "time": time.time(),
                 "elapsed_seconds": round(time.perf_counter() - started, 3),
                 "request_bytes": len(request.data),
                 **details,
             }
-            text = json.dumps(record, ensure_ascii=False)
+            text = json.dumps(self.key_pool.redact(record), ensure_ascii=False)
             print(text, flush=True)
             with self.audit_path.open("a", encoding="utf-8") as log:
                 log.write(text + "\n")
@@ -124,44 +145,87 @@ class SlowModelClient:
                 "x-trace-id",
                 "x-envoy-upstream-service-time",
             }
-            return {key: value for key, value in headers.items() if key.lower() in allowed}
+            return {name.lower(): value for name, value in headers.items() if name.lower() in allowed}
 
-        def redact(text):
-            key = credentials.get("api_key")
-            return text.replace(key, "[REDACTED]") if key else text
-
-        for attempt in range(5):
+        excluded: set[str] = set()
+        key = self.key_pool.select()
+        attempt = 0
+        failures = 0
+        while True:
+            attempt += 1
             started = time.perf_counter()
             request = build_request()  # 每次重试重建：升档思考强度需重新序列化
             audit("request_start", started, attempt)
             try:
-                with opener(request, timeout=self.config.slow_timeout_seconds) as response:
-                    raw = json.load(response)
-                    if self.llm_sink is not None:
-                        self.llm_sink(
-                            role=role,
-                            request={"payload": payload, "messages": messages},
-                            response=raw,
-                            attempt=attempt + 1,
-                        )
-                    audit(
-                        "http_response",
-                        started,
-                        attempt,
-                        http_status=response.status,
-                        headers=public_headers(response.headers),
-                        finish_reason=raw["choices"][0].get("finish_reason"),
-                        usage=raw.get("usage"),
+                try:
+                    with opener(request, timeout=self.config.slow_timeout_seconds) as response:
+                        status = response.status
+                        headers = public_headers(response.headers)
+                        raw = json.load(response)
+                except urllib.error.HTTPError as error:
+                    status = error.code
+                    headers = public_headers(error.headers)
+                    body = self.key_pool.redact(error.read().decode("utf-8", errors="replace"))
+                    try:
+                        raw = json.loads(body)
+                    except ValueError:
+                        raw = {"error": {"message": body[:2000]}}
+                if not isinstance(raw, dict):
+                    raise ValueError("slow model response must be a JSON object")
+                if self.llm_sink is not None:
+                    self.llm_sink(
+                        role=role,
+                        request=self.key_pool.redact({"payload": payload, "messages": messages}),
+                        response=self.key_pool.redact(raw),
+                        attempt=attempt, call_id=call_id,
+                        key_id=key["id"], key_priority=key["priority"],
+                        http_status=status,
+                        elapsed_seconds=round(time.perf_counter() - started, 3),
                     )
-                    content = raw["choices"][0]["message"]["content"].strip()
-                    finish_reason = raw["choices"][0].get("finish_reason")
+                failure = _api_failure(status, raw)
+                if failure is not None:
+                    code, message = failure
+                    category, cooldown = classify_api_error(self.key_pool.provider, status, code, message)
+                    audit("api_error", started, attempt, http_status=status, headers=headers,
+                          error_code=code, category=category, error=message[:2000], usage=raw.get("usage"))
+                    error = RuntimeError(self.key_pool.redact(
+                        f"slow model API error: status={status}, code={code}, message={message[:2000]}"
+                    ))
+                    if cooldown:
+                        cooldown = retry_after_seconds(headers.get("retry-after"), cooldown)
+                        self.key_pool.cooldown(key["id"], cooldown, category)
+                        excluded.add(key["id"])
+                        audit("key_cooldown", started, attempt, category=category,
+                              cooldown_seconds=cooldown)
+                        try:
+                            key = self.key_pool.select(excluded)
+                        except PoolExhausted as exhausted:
+                            raise exhausted from error
+                        continue
+                    if category != "transient":
+                        raise error
+                    failures += 1
+                    if failures >= 3:
+                        raise error
+                    delay = retry_after_seconds(headers.get("retry-after"), 30)
+                    audit("retry_wait", started, attempt, retry_wait_seconds=delay)
+                    time.sleep(delay)
+                    continue
+                choices = raw.get("choices") or []
+                if not choices:
+                    raise ValueError("slow model response contains no choices")
+                choice = choices[0]
+                finish_reason = choice.get("finish_reason")
+                content = (choice.get("message", {}).get("content") or "").strip()
+                audit("http_response", started, attempt, http_status=status, headers=headers,
+                      finish_reason=finish_reason, usage=raw.get("usage"))
                 if finish_reason == "length":
                     completion_tokens = (raw.get("usage") or {}).get("completion_tokens")
                     raise ValueError(
                         f"slow model response truncated by max_tokens (finish_reason=length, "
                         f"completion_tokens={completion_tokens}); raise slow_max_tokens"
                     )
-                if not content and raw["choices"][0]["message"].get("reasoning_content"):
+                if not content and choice.get("message", {}).get("reasoning_content"):
                     raise ValueError(
                         "slow model returned empty content (all completion tokens stayed in the "
                         "reasoning channel); escalating reasoning_effort for the next attempt"
@@ -172,33 +236,20 @@ class SlowModelClient:
                 if not validate(value):
                     raise ValueError("slow model response is missing required fields")
                 return value
-            except urllib.error.HTTPError as error:
-                body = redact(error.read().decode("utf-8", errors="replace"))
-                audit(
-                    "http_error",
-                    started,
-                    attempt,
-                    http_status=error.code,
-                    headers=public_headers(error.headers),
-                    response=body[:2000],
-                )
-                if attempt == (4 if error.code == 403 else 2):
-                    raise
-                # 403 多为 TPM/风控限流：指数退避（60/120/240/480s）等配额恢复
-                time.sleep(60 * (2 ** attempt) if error.code == 403 else 30)
             except (urllib.error.URLError, ConnectionError, TimeoutError, ValueError) as error:
                 audit(
                     "transport_or_validation_error",
                     started,
                     attempt,
                     error_type=type(error).__name__,
-                    error=redact(str(error))[:1000],
+                    error=self.key_pool.redact(str(error))[:1000],
                 )
-                if attempt == 2:
+                failures += 1
+                if failures >= 3:
                     raise
                 # 内容级失败（空正文/截断/非法 JSON）时升档思考强度后重试，不原样重发
                 current_effort = payload.get("reasoning_effort")
                 if current_effort in _REASON_EFFORT_LADDER:
                     payload["reasoning_effort"] = _REASON_EFFORT_LADDER[current_effort]
+                audit("retry_wait", started, attempt, retry_wait_seconds=30)
                 time.sleep(30)
-        raise RuntimeError("Model request retries exhausted; no valid JSON response")
