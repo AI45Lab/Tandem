@@ -31,10 +31,15 @@ def _a11y_context(root: ET.Element | None) -> tuple[list[dict], bool]:
         return [], True
     labels = []
     chrome_active = False
-    for app in root:
-        app_active = app.attrib.get("active") == "true" or any(
-            child.attrib.get("active") == "true" for child in app
+
+    def active(element: ET.Element) -> bool:
+        return any(
+            key.rsplit("}", 1)[-1] == "active" and value == "true"
+            for key, value in element.attrib.items()
         )
+
+    for app in root:
+        app_active = active(app) or any(active(child) for child in app)
         chrome_active = chrome_active or (
             app_active and "chrome" in app.attrib.get("name", "").lower()
         )
