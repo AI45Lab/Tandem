@@ -111,3 +111,5 @@
     协议新增 `browser_snapshot` 文件引用并升至 0.2。候选备选只在提案 scope 内生成，
     不再补入全局 click/keypress；无 grounder 时不提供 visual_fallback。JEV 近期历史只保留
     动作、目标、结果和状态变化，不再携带完整 verification。
+31. 【修复】慢模型对端提前断开（`RemoteDisconnected` / `ConnectionError`）纳入现有
+    有界重试，不再把一次 transient 断连直接记为整题异常；重试次数和退避策略不变。

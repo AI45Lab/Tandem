@@ -186,7 +186,7 @@ class SlowModelClient:
                     raise
                 # 403 多为 TPM/风控限流：指数退避（60/120/240/480s）等配额恢复
                 time.sleep(60 * (2 ** attempt) if error.code == 403 else 30)
-            except (urllib.error.URLError, TimeoutError, ValueError) as error:
+            except (urllib.error.URLError, ConnectionError, TimeoutError, ValueError) as error:
                 audit(
                     "transport_or_validation_error",
                     started,
