@@ -118,6 +118,8 @@ Do not append the rest of the task or extra audits beyond that limit. Stop at an
 inventing unseen UI. Each milestone is one action, except a bounded scroll-until-visible transition.
 action_proposals are alternatives executable from the SAME before-state, never an ordered sequence.
 Opening an input, typing into it, and submitting are separate milestones, not three proposals in one.
+A populated search field alone is not an applied search. Add a separate submit milestone before any
+milestone that expects filtered results or opens a matching result.
 Future targets need exact semantic names/roles, optional parent_contains for duplicate names, never
 cached target_id or coordinates. Targets are rebound from each new observation. GUI operations:
 click, double_click, scroll_up, scroll_down, type_text, keypress, set_slider, wait.

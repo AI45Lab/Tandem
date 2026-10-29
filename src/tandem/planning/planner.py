@@ -107,6 +107,7 @@ def plan_step(
                 "F1-F12, Shift+F10, Ctrl+Plus and Ctrl+Equal are supported. Use one key at a time for "
                 "navigation; up to eight bounded navigation/chord presses are supported. "
                 "For scrolling identify a visible item in the scrollable region. "
+                "A populated search field alone is not an applied search: submit it before expecting filtered results. "
                 "If the target is not listed, do not invent an ID or choose a near match; "
                 "propose visual_fallback. For a menu or submenu without an ID, copy its name, role and "
                 "menu_path from menu_paths so its exact keyboard path can be used. "

@@ -1,0 +1,33 @@
+"""Stage planning keeps search submission ahead of result expectations."""
+
+from tandem.planning.stage_planner import plan_stage
+
+from .conftest import A11Y_XML, build_targets
+
+
+class Client:
+    def __init__(self):
+        self.messages = None
+
+    def json_request(self, messages, validate, *, role):
+        self.messages = messages
+        value = {
+            "done": False,
+            "stage_goal": "Search",
+            "milestones": [{
+                "route": "gui",
+                "current_goal": "Submit search",
+                "expected_observation": "Results",
+                "action_proposals": [{"operation": "keypress", "key_sequence": [["enter"]]}],
+            }],
+        }
+        assert validate(value)
+        return value
+
+
+def test_stage_prompt_requires_submit_before_filtered_results(tmp_path):
+    screenshot = tmp_path / "s.png"
+    screenshot.write_bytes(b"img")
+    client = Client()
+    plan_stage(client, "Search", screenshot, build_targets(), [], A11Y_XML)
+    assert "A populated search field alone is not an applied search" in client.messages[0]["content"]
