@@ -35,14 +35,14 @@ class Components:
 
 
 def build_default(*, client, endpoint: str, config: SessionConfig,
-                  image_stage: tuple[str, str] | None = None) -> Components:
+                  image_stage: tuple[str, str] | None = None, endpoint_provider=None) -> Components:
     if config.fast_backend == "kev":
         from .models.kev import KevPolicy
 
         selector = KevPolicy(endpoint, timeout_seconds=config.fast_timeout_seconds)
     else:
         selector = JevOmniPolicy(endpoint, timeout_seconds=config.fast_timeout_seconds,
-                                 image_stage=image_stage)
+                                 image_stage=image_stage, endpoint_provider=endpoint_provider)
     return Components(
         planner=partial(
             plan_stage if config.execution_mode == "stage" else plan_step,

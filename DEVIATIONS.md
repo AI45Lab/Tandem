@@ -118,3 +118,5 @@
     `stage_replan` 记录失败提案和可用目标。滚动提案的 schema 重试反馈定位到具体字段。
 33. 【行为】恢复条件扩展到“已绑定但不可执行”的提案；菜单滚动增加 PageDown/PageUp
     和方向键候选。CLI milestone 必须顶层携带 command，operation=cli 获得专门的重试反馈。
+34. 【修复】JEV 断线恢复支持 endpoint 重新发现、30 秒健康检查、瞬态 HTTP 状态与
+    Retry-After；恢复等待继续受 1200 秒总窗口限制，并记录 attempt/endpoint/error_type。

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import urllib.error
 from pathlib import Path
 
 import pytest
@@ -47,6 +48,95 @@ class FakeOpener:
 def _policy(tmp_path: Path, opener) -> JevOmniPolicy:
     del tmp_path
     return JevOmniPolicy("http://jev-fake", timeout_seconds=5, opener=opener)
+
+
+class ScriptedOpener:
+    def __init__(self, outcomes):
+        self.outcomes = list(outcomes)
+        self.requests = []
+
+    def open(self, url, timeout=None):
+        full_url = getattr(url, "full_url", url)
+        self.requests.append(full_url)
+        outcome = self.outcomes.pop(0)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return FakeResponse(outcome)
+
+
+def _single_candidate_space():
+    targets = build_targets()
+    space = build_space(targets)
+    space.target_heads = {"click": space.target_heads["click"][:1]}
+    space.controls = {}
+    return targets, space
+
+
+def test_rank_recovers_after_url_timeout(tmp_path, monkeypatch):
+    monkeypatch.setattr("tandem.models.jev.time.sleep", lambda seconds: None)
+    targets, space = _single_candidate_space()
+    opener = ScriptedOpener([
+        urllib.error.URLError("timed out"),
+        {"status": "ok"},
+        {"scores": [0.9], "used_image": True},
+    ])
+    ranking = _policy(tmp_path, opener).rank(
+        stage_goal="t", intent="i", active_window="", targets=targets,
+        action_space=space, recent_actions=[],
+    )
+    assert ranking.winner is not None
+    assert len(opener.requests) == 3
+
+
+def test_rank_refreshes_endpoint_during_recovery(tmp_path, monkeypatch):
+    monkeypatch.setattr("tandem.models.jev.time.sleep", lambda seconds: None)
+    targets, space = _single_candidate_space()
+    opener = ScriptedOpener([
+        urllib.error.URLError("old endpoint unavailable"),
+        {"status": "ok"},
+        {"scores": [0.8], "used_image": True},
+    ])
+    endpoints = iter(["http://jev-old", "http://jev-new"])
+    policy = JevOmniPolicy(
+        "http://jev-old", timeout_seconds=5, opener=opener,
+        endpoint_provider=lambda: next(endpoints),
+    )
+    ranking = policy.rank(
+        stage_goal="t", intent="i", active_window="", targets=targets,
+        action_space=space, recent_actions=[],
+    )
+    assert ranking.winner is not None
+    assert policy.endpoint == "http://jev-new"
+    assert opener.requests == ["http://jev-old/", "http://jev-new/", "http://jev-new/rank"]
+
+
+def test_rank_retries_transient_http_error(tmp_path, monkeypatch):
+    monkeypatch.setattr("tandem.models.jev.time.sleep", lambda seconds: None)
+    targets, space = _single_candidate_space()
+    opener = ScriptedOpener([
+        urllib.error.HTTPError("http://jev-fake/", 503, "unavailable", {}, None),
+        {"status": "ok"},
+        {"scores": [0.7], "used_image": True},
+    ])
+    ranking = _policy(tmp_path, opener).rank(
+        stage_goal="t", intent="i", active_window="", targets=targets,
+        action_space=space, recent_actions=[],
+    )
+    assert ranking.winner is not None
+    assert len(opener.requests) == 3
+
+
+def test_rank_does_not_retry_fatal_http_error(tmp_path):
+    targets, space = _single_candidate_space()
+    opener = ScriptedOpener([
+        urllib.error.HTTPError("http://jev-fake/", 401, "unauthorized", {}, None),
+    ])
+    with pytest.raises(urllib.error.HTTPError):
+        _policy(tmp_path, opener).rank(
+            stage_goal="t", intent="i", active_window="", targets=targets,
+            action_space=space, recent_actions=[],
+        )
+    assert len(opener.requests) == 1
 
 
 def test_rank_picks_highest_scored_candidate(tmp_path):

@@ -185,6 +185,7 @@ def build_session(spec: dict, *, llm_tap: LlmTap | None = None) -> TandemSession
         components = build_default(
             client=client, endpoint=endpoint, config=config,
             image_stage=image_stage,
+            endpoint_provider=lambda: resolve_fast_model_endpoint(secrets.get("fast_model") or {}),
         )
         return TandemSession(components, config=config)
     raise NotImplementedError(f"未知 benchmark: {benchmark}")

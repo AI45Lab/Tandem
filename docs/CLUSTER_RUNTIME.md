@@ -307,3 +307,13 @@ worker 侧各段日志：
   `episodes/<task>/browser/step_XX.json`。密码、隐藏和文件输入元素不进入快照。
 - 2026-10-29 Task 008 真机 probe 已验证 `1337`、WebSocket 和 DOM 序列化可用，
   无需额外权限。首次有效快照含 4 个元素；9222 被其他环境组件占用时不影响 1337 采集。
+
+## 12. JEV 断线恢复
+
+- 排序请求发生连接超时、瞬态 HTTP 408/429/500/502/503/504 或响应 JSON 错误时，
+  在 1200 秒总窗口内重试；非瞬态 HTTP 错误立即失败，不盲目重试。
+- 健康检查超时为 30 秒；`Retry-After` 优先于默认 15 秒等待。恢复事件记录
+  `attempt`、`endpoint`、`error_type`、`remaining_seconds` 和 `retry_delay_seconds`。
+- worker 建 session 时注入 endpoint provider。恢复过程中会重新读取 `endpoint_file`，
+  JEV 重新部署导致地址变化时记录 `fast_model_endpoint_changed` 并切换地址。
+  发现文件未 ready 时保留当前地址继续有界恢复，不会直接放弃整题。
