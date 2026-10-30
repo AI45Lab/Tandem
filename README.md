@@ -226,6 +226,23 @@ tandem-eval rjob run --run-id <name> --benchmark osworld2 --tasks <task-id> \
 **换慢模型厂商**：在 `infra/config.json` 的 `harness.slow_model.apis` 里登记多套 API，
 启动时用 `--slow-model <名字>` 挑（缺省取 `default`），不改代码。
 
+## 命名实验与日志目录
+
+`scripts/run_experiment.sh` 将一次实验的全部产物归档到 `rjob_logs/<experiment>/`。
+实验名只能使用小写字母、数字和连字符，且每个实验目录必须唯一。
+
+```bash
+bash scripts/run_experiment.sh \
+  --experiment kimi12-retry-20261030 \
+  --tasks 024,029,037,045,057,059,069,082,088,093,005,031 \
+  --concurrency 12 --slow-model kimi-k3 --slow-key-ids 1,2,3,4 \
+  --max-steps 500 --max-wall 14400
+```
+
+目录结构：`manifest.json`（实验参数与 git describe）、`batch.log`、
+`drivers/<task>.driver.log` 和 `<experiment>-<task>/`（worker、模型、轨迹与结果）。
+worker 的 adpc 挂载只读时仍使用 evobox 暂存，任务结束后立即归档到该实验目录。
+
 集群内使用模板配置时，`api_key` 留空会使用默认号池，也可以手动填写自己的 `api_key`。
 
 需要指定号池中的 key 时，在原启动命令后追加：

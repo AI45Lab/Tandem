@@ -120,3 +120,5 @@
     和方向键候选。CLI milestone 必须顶层携带 command，operation=cli 获得专门的重试反馈。
 34. 【修复】JEV 断线恢复支持 endpoint 重新发现、30 秒健康检查、瞬态 HTTP 状态与
     Retry-After；恢复等待继续受 1200 秒总窗口限制，并记录 attempt/endpoint/error_type。
+35. 【重构】新增 `scripts/run_experiment.sh`：按唯一实验名归档 manifest、batch、driver
+    和 task 结果到 `rjob_logs/<experiment>/`，避免不同实验日志混写。

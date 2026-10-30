@@ -317,3 +317,18 @@ worker 侧各段日志：
 - worker 建 session 时注入 endpoint provider。恢复过程中会重新读取 `endpoint_file`，
   JEV 重新部署导致地址变化时记录 `fast_model_endpoint_changed` 并切换地址。
   发现文件未 ready 时保留当前地址继续有界恢复，不会直接放弃整题。
+
+## 13. 命名实验
+
+统一使用仓库内 `scripts/run_experiment.sh`，不要直接散落调用 `tandem-eval rjob run`。
+每次实验必须指定唯一名称（小写字母、数字、连字符），所有结果归档到
+`rjob_logs/<experiment>/`：
+
+- `manifest.json`：tasks、并发、模型、key_ids、预算、watch timeout、git describe；
+- `batch.log`：批次输出；
+- `drivers/<task>.driver.log`：单个 rjob 生命周期日志；
+- `<experiment>-<task>/`：worker、模型调用、轨迹、截图和评分结果。
+
+脚本只同步一次代码，然后按指定并发提交。worker 的 adpc 挂载只读时，结果先落
+evobox 暂存，单题完成后立即 rsync 到实验目录。`--dry-run` 只生成 manifest 和 batch log，
+不提交 rjob。
