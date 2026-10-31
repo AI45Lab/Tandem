@@ -18,5 +18,6 @@
     "path": "a11y/step_00.json"
   },
   "last_receipt": null,
-  "protocol_version": "0.1"
+  "browser_snapshot": null,
+  "protocol_version": "0.2"
 }

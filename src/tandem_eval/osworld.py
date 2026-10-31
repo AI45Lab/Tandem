@@ -23,6 +23,7 @@ from typing import Any
 from tandem.protocol.models import (
     AccessibilityTree,
     Action,
+    BrowserSnapshot,
     Budget,
     CliAction,
     FailAction,
@@ -33,6 +34,8 @@ from tandem.protocol.models import (
     Screenshot,
     WaitAction,
 )
+
+from .browser import capture_browser_snapshot
 
 RECEIPT_TAIL = 12000
 
@@ -125,6 +128,8 @@ class OsWorldEnv:
         self._step_seq = 0
         self.last_screenshot: bytes = b""
         self.last_a11y: str = ""
+        self.last_browser_snapshot: dict | None = None
+        self._cdp_reported = False
 
     @property
     def name(self) -> str:
@@ -188,6 +193,18 @@ class OsWorldEnv:
             digest = hashlib.sha256(self.last_a11y.encode()).hexdigest()
             node_count = self.last_a11y.count("<")
         width, height = png_size(self.last_screenshot)
+        browser_snapshot = None
+        if self.last_browser_snapshot is not None:
+            serialized = json.dumps(self.last_browser_snapshot, ensure_ascii=False)
+            browser_path = stage / f"step_{step_idx:02d}.dom.json"
+            browser_path.write_text(serialized, encoding="utf-8")
+            browser_snapshot = BrowserSnapshot(
+                present=True,
+                source="cdp",
+                digest=hashlib.sha256(serialized.encode()).hexdigest(),
+                node_count=len(self.last_browser_snapshot.get("elements", [])),
+                path=str(browser_path),
+            )
         return Observation(
             task_id=str(task["id"]),
             instruction=str(task["instruction"]),
@@ -199,12 +216,18 @@ class OsWorldEnv:
                 present=present, source="vm" if present else "none",
                 digest=digest, node_count=node_count, path=a11y_path),
             last_receipt=receipt,
+            browser_snapshot=browser_snapshot,
         )
 
     def _capture(self) -> None:
         obs = self.env._get_obs()
         self.last_screenshot = obs["screenshot"]
         self.last_a11y = obs.get("accessibility_tree") or ""
+        self.last_browser_snapshot, diagnostic = capture_browser_snapshot(self.env.controller)
+        if not self._cdp_reported:
+            self._cdp_reported = True
+            public = {key: value for key, value in diagnostic.items() if key != "url"}
+            print(json.dumps({"event": "cdp_snapshot", **public}, ensure_ascii=False), flush=True)
 
     # ------------------------------------------------------------------ 协议
     def _seed_setup_cache(self, task_id: str) -> None:
@@ -231,6 +254,7 @@ class OsWorldEnv:
             require_a11y_tree=True, cache_dir=str(self.run_root / "evaluation_cache"),
         )
         self.env.reset(task_config=task)
+        self._cdp_reported = False
         time.sleep(self.startup_wait_seconds)
         self._capture()
         self._step_seq = 0

@@ -150,12 +150,14 @@ def mock_components(*, stage_mode=False) -> Components:
     from tandem.gui.candidates import ActionCandidateBuilder
     from tandem.gui.compile import gui_action
     from tandem.gui.proposals import focused_candidates
+    from tandem.gui.semantics import enrich_targets
     from tandem.gui.targets import A11yTargetBuilder
 
     return Components(
         planner=_ScriptedPlanner(stage_mode=stage_mode), verifier=_ScriptedVerifier(),
         requirements=lambda instruction: [], selector=_FirstCandidateSelector(),
         target_builder=A11yTargetBuilder(), candidate_builder=ActionCandidateBuilder(),
+        semantic_enricher=enrich_targets,
         focus_candidates=focused_candidates, grounder=None, compile_gui=gui_action,
     )
 
@@ -183,6 +185,7 @@ def build_session(spec: dict, *, llm_tap: LlmTap | None = None) -> TandemSession
         components = build_default(
             client=client, endpoint=endpoint, config=config,
             image_stage=image_stage,
+            endpoint_provider=lambda: resolve_fast_model_endpoint(secrets.get("fast_model") or {}),
         )
         return TandemSession(components, config=config)
     raise NotImplementedError(f"未知 benchmark: {benchmark}")

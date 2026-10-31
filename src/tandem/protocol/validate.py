@@ -1,4 +1,4 @@
-"""协议 v0.1 手写校验器（零依赖）。
+"""协议 v0.2 手写校验器（零依赖）。
 
 与 schema/*.json 的关系：schema 文件是对外（人类阅读 / 未来 MCP tool 定义）的真源；
 本文件是运行时的强制执行者。二者与 samples/ 由 tests/protocol 的 golden 测试共同锚定。
@@ -20,6 +20,7 @@ from .models import (
     WANT_OBSERVATION_VALUES,
     AccessibilityTree,
     Action,
+    BrowserSnapshot,
     Budget,
     CliAction,
     FailAction,
@@ -33,6 +34,7 @@ from .models import (
 
 RECEIPT_KINDS = ("cli", "gui", "wait")
 A11Y_SOURCES = ("vm", "jev", "none")
+BROWSER_SNAPSHOT_SOURCES = ("cdp", "none")
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
@@ -190,6 +192,26 @@ def _a11y_from_dict(data: Any, path: str) -> AccessibilityTree:
     )
 
 
+def _browser_snapshot_from_dict(data: Any, path: str) -> BrowserSnapshot | None:
+    if data is None:
+        return None
+    obj = _as_obj(data, path)
+    _take(obj, ["present", "source"], ["digest", "node_count", "path"], path)
+    present = _as_bool(obj["present"], f"{path}.present")
+    source = _as_enum(obj["source"], BROWSER_SNAPSHOT_SOURCES, f"{path}.source")
+    digest = _as_nullable(obj.get("digest"), lambda v, p: _as_str(v, p), f"{path}.digest")
+    node_count = _as_nullable(
+        obj.get("node_count"), lambda v, p: _as_int(v, p, minimum=0), f"{path}.node_count"
+    )
+    snapshot_path = _as_nullable(obj.get("path"), lambda v, p: _as_str(v, p), f"{path}.path")
+    if present:
+        if source != "cdp" or digest is None or node_count is None or snapshot_path is None:
+            _fail(path, "present=true 时 source=cdp 且 digest/node_count/path 必填")
+    elif source != "none" or any(value is not None for value in (digest, node_count, snapshot_path)):
+        _fail(path, "present=false 时 source=none 且 digest/node_count/path 必须为 null")
+    return BrowserSnapshot(present, source, digest, node_count, snapshot_path)
+
+
 def observation_from_dict(data: Any) -> Observation:
     path = "observation"
     obj = _as_obj(data, path)
@@ -205,7 +227,7 @@ def observation_from_dict(data: Any) -> Observation:
             "last_receipt",
             "protocol_version",
         ],
-        [],
+        ["browser_snapshot"],
         path,
     )
     budget_obj = _as_obj(obj["budget"], f"{path}.budget")
@@ -227,6 +249,9 @@ def observation_from_dict(data: Any) -> Observation:
         screenshot=_screenshot_from_dict(obj["screenshot"], f"{path}.screenshot"),
         accessibility_tree=_a11y_from_dict(obj["accessibility_tree"], f"{path}.accessibility_tree"),
         last_receipt=last_receipt,
+        browser_snapshot=_browser_snapshot_from_dict(
+            obj.get("browser_snapshot"), f"{path}.browser_snapshot"
+        ),
         protocol_version=_as_enum(obj["protocol_version"], (PROTOCOL_VERSION,), f"{path}.protocol_version"),
     )
 

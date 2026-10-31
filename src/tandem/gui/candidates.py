@@ -150,6 +150,7 @@ class ActionCandidateBuilder:
                     operation=operation,
                     target_id=target.id,
                     description=description.format(role=target.role.replace("_", " "), name=target.name),
+                    source=target.source,
                     metadata={"semantic_key": target.semantic_key},
                 )
                 for target in values[:max_candidates]
@@ -159,7 +160,7 @@ class ActionCandidateBuilder:
             candidates(
                 "type_text",
                 editable_targets,
-                'The {role} "{name}" is the goal-required editable field whose contents should be replaced next.',
+                'Replace text in the {role} "{name}".',
             )
             if action_inputs is None
             else []
@@ -186,9 +187,10 @@ class ActionCandidateBuilder:
                         operation="type_text",
                         target_id=target.id,
                         description=(
-                            f"The single best next action is to replace the contents of the "
-                            f'{target.role.replace("_", " ")} "{target.name}" with {value!r}.'
+                            f'Replace text in the {target.role.replace("_", " ")} '
+                            f'"{target.name}" with {value!r}.'
                         ),
+                        source=target.source,
                         metadata={
                             "semantic_key": target.semantic_key,
                             "input_id": input_id,
@@ -224,15 +226,15 @@ class ActionCandidateBuilder:
 
         target_heads = {
             "click": candidates(
-                "click",
-                click_targets,
-                'The {role} "{name}" is the observed control that should be activated next.',
+            "click",
+            click_targets,
+            'Click the visible {role} "{name}".',
             ),
             "type_text": type_candidates,
             "double_click": candidates(
-                "double_click",
-                double_targets,
-                'The {role} "{name}" is the observed file or list item that should be opened next.',
+            "double_click",
+            double_targets,
+            'Double-click the visible {role} "{name}".',
             ),
             "keypress": [
                 ActionCandidate(id=choice_id, operation="keypress", description=description, source="global")

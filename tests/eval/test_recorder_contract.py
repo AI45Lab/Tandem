@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 
+from tandem.protocol.models import BrowserSnapshot, WaitAction
 from tandem_eval.recorder import (
     EpisodeRecorder,
     write_code_version,
     write_heartbeat,
     write_summary,
 )
+from tests.harness.conftest import make_observation
 
 
 def test_episode_recorder_writes_contract_files(tmp_path):
@@ -35,6 +38,24 @@ def test_episode_recorder_writes_contract_files(tmp_path):
     assert (base / "screenshots" / "step_00.png").read_bytes() == b"png"
     assert (base / "result.txt").read_text().strip() == "1.0"
     assert episode["status"] == "scored" and episode["steps"] == 3
+
+
+def test_traj_preserves_browser_snapshot_inside_episode(tmp_path):
+    source = tmp_path / "obs_stage" / "step_01.dom.json"
+    source.parent.mkdir()
+    source.write_text('{"elements":[{"name":"Save"}]}', encoding="utf-8")
+    observation = replace(
+        make_observation(tmp_path, 1),
+        browser_snapshot=BrowserSnapshot(True, "cdp", "d" * 64, 1, str(source)),
+    )
+    recorder = EpisodeRecorder(tmp_path / "ep", {"id": "t1"})
+    recorder.traj(observation, WaitAction(), None)
+    recorder.close()
+    record = json.loads((tmp_path / "ep" / "traj.jsonl").read_text())
+    reference = record["observation"]["browser_snapshot"]
+    assert reference["present"] is True and reference["source"] == "cdp"
+    assert (tmp_path / "ep" / "browser" / "step_00.json").is_file()
+    assert reference["path"] == str(tmp_path / "ep" / "browser" / "step_00.json")
 
 
 def test_llm_calls_redacts_bearer_secrets(tmp_path):
@@ -75,7 +96,7 @@ def test_heartbeat_and_code_version(tmp_path):
     assert json.loads((tmp_path / "heartbeat.json").read_text())["current_task"] == "task-2"
     write_code_version(tmp_path, {"git_describe": "abc123", "resources": {"schema_version": "v1"}})
     info = json.loads((tmp_path / "code_version.json").read_text())
-    assert info["git_describe"] == "abc123" and info["protocol_version"] == "0.1"
+    assert info["git_describe"] == "abc123" and info["protocol_version"] == "0.2"
 
 
 def test_run_spec_masks_credentials_but_keeps_model_identity():

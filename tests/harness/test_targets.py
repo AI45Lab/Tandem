@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from tandem.gui.semantics import enrich_targets
 from tandem.gui.targets import A11yTargetBuilder
 
 from .conftest import A11Y_XML
@@ -24,7 +25,9 @@ def test_button_label_inferred_from_single_label_child():
 
 
 def test_focused_unnamed_editable_gets_synthetic_name():
-    targets = A11yTargetBuilder().build(A11Y_XML, "snap", 128)
+    targets = enrich_targets(
+        A11yTargetBuilder().build(A11Y_XML, "snap", 128), A11Y_XML, (1920, 1080)
+    )
     names = {t.name for t in targets}
     assert any(name.startswith("Focused textbox") for name in names)
 

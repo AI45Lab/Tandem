@@ -236,7 +236,7 @@ class SlowModelClient:
                 if not validate(value):
                     raise ValueError("slow model response is missing required fields")
                 return value
-            except (urllib.error.URLError, TimeoutError, ValueError) as error:
+            except (urllib.error.URLError, ConnectionError, TimeoutError, ValueError) as error:
                 audit(
                     "transport_or_validation_error",
                     started,

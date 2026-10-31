@@ -169,6 +169,20 @@ def test_reset_execute_score_lifecycle(tmp_path, env):
     assert fake.closed
 
 
+def test_browser_snapshot_is_a_hashed_observation_file(tmp_path, env, monkeypatch):
+    monkeypatch.setattr(
+        "tandem_eval.osworld.capture_browser_snapshot",
+        lambda controller: ({"elements": [{"name": "Save"}], "url": "https://example.test"},
+                            {"available": True}),
+    )
+    task = _task_file(tmp_path)
+    observation = env.reset(task)
+    reference = observation.browser_snapshot
+    assert reference is not None and reference.present and reference.source == "cdp"
+    assert reference.node_count == 1 and len(reference.digest) == 64
+    assert json.loads(Path(reference.path).read_text())["elements"][0]["name"] == "Save"
+
+
 def test_ack_discipline_requires_receipt(tmp_path, env):
     task = _task_file(tmp_path)
     env.reset(task)

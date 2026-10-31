@@ -3,9 +3,78 @@
 from __future__ import annotations
 
 import time
+import unicodedata
 from pathlib import Path
 
 from ..verification.stage_rules import rule_verification
+
+
+def _norm(value) -> str:
+    return " ".join(unicodedata.normalize("NFKC", str(value or "")).casefold().split())
+
+
+def _role_matches(actual: str, expected: str) -> bool:
+    actual, expected = actual.replace("-", "_"), expected.replace("-", "_")
+    if actual == expected:
+        return True
+    groups = (
+        {"button", "push_button", "toggle_button"},
+        {"menu", "menu_item"},
+        {"list_item", "icon", "tree_item"},
+        {"text", "link"},
+        {"entry", "textbox", "searchbox"},
+        {"table_cell", "grid_cell"},
+        {"tab", "page_tab"},
+        {"checkbox", "check_box"},
+    )
+    return any(actual in group and expected in group for group in groups)
+
+
+def _bind_proposal(proposal, targets):
+    name = proposal.get("target_name")
+    parent = proposal.get("parent_contains")
+
+    def parent_matches(target):
+        return not parent or any(_norm(parent) in _norm(item) for item in target.parent_context)
+
+    exact = [
+        target for target in targets
+        if target.name == name and target.role == proposal.get("target_role") and parent_matches(target)
+    ]
+    if len(exact) == 1:
+        return exact[0]
+    normalized = [
+        target for target in targets if _norm(target.name) == _norm(name) and parent_matches(target)
+    ]
+    if len(normalized) == 1:
+        return normalized[0]
+    compatible = [
+        target for target in normalized if _role_matches(target.role, proposal.get("target_role", ""))
+    ]
+    return compatible[0] if len(compatible) == 1 else None
+
+
+def recovery_scopes(proposals, targets) -> set[str]:
+    scopes = set()
+    for proposal in proposals:
+        role = str(proposal.get("target_role") or "").replace("-", "_")
+        if role in {"tab", "page_tab"}:
+            scopes.add("browser_chrome")
+        elif role in {"menu", "menu_item"}:
+            scopes.add("menu")
+    if not scopes:
+        if any(target.scope == "web_content" for target in targets):
+            scopes.add("web_content")
+        else:
+            scopes.update(target.scope for target in targets if target.scope != "browser_chrome")
+    return scopes
+
+
+def _target_summaries(targets, scopes) -> list[dict]:
+    return [
+        {"id": target.id, "name": target.name, "role": target.role, "scope": target.scope}
+        for target in targets if target.scope in scopes
+    ][:12]
 
 
 class StageExecution:
@@ -17,11 +86,13 @@ class StageExecution:
         self.goal = ""
         self.reason = "initial_stage"
 
-    def invalidate(self, session, reason, step):
+    def invalidate(self, session, reason, step, *, details=None):
         session.events.append({"route": "stage_replan", "step": step, "reason": reason,
-                               "stage_goal": self.goal, "milestone": self.index})
+                               "stage_goal": self.goal, "milestone": self.index,
+                               **(details or {})})
         session.recent.append({"operation": "stage_replan", "outcome": "no_action",
                                "goal": self.goal, "reason": reason,
+                               **(details or {}),
                                "verified_milestones": [item["current_goal"]
                                                        for item in self.milestones[:self.index]]})
         self.milestones = []
@@ -50,21 +121,27 @@ class StageExecution:
                 "stage_goal": self.goal, "milestone": self.index, "planner_called": called}
         if plan["route"] == "gui":
             bound = []
+            unbound = []
             for proposal in plan["action_proposals"]:
                 proposal = {key: value for key, value in proposal.items() if key != "target_id"}
                 if proposal.get("target_name") is not None and proposal["operation"] != "wait":
-                    found = [target for target in targets
-                             if target.name == proposal["target_name"]
-                             and target.role == proposal.get("target_role")
-                             and (not proposal.get("parent_contains")
-                                  or any(proposal["parent_contains"] in p for p in target.parent_context))]
-                    if len(found) != 1:
+                    target = _bind_proposal(proposal, targets)
+                    if target is None:
+                        unbound.append(proposal)
                         continue
-                    proposal["target_id"] = found[0].id
+                    proposal["target_id"] = target.id
                 bound.append(proposal)
             if not bound:
-                self.invalidate(session, "target_unbound_or_ambiguous", observation.step_idx)
-                return None
+                scopes = recovery_scopes(unbound, targets)
+                details = {
+                    "unbound_proposals": unbound,
+                    "available_targets": _target_summaries(targets, scopes),
+                    "recovery_scopes": sorted(scopes),
+                }
+                self.invalidate(session, "target_unbound_or_ambiguous", observation.step_idx, details=details)
+                plan.update(action_proposals=[], checks=[], recovery=True,
+                            recovery_scopes=sorted(scopes))
+                return plan
             plan["action_proposals"] = bound
         session.events.append({"route": "stage_local", "step": observation.step_idx,
                                "stage_goal": self.goal, "milestone": self.index, "plan": plan})

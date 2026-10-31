@@ -1,4 +1,4 @@
-"""消息层协议 v0.1：Observation / Action / Receipt。
+"""消息层协议 v0.2：Observation / Action / Receipt。
 
 真源：schema/*.json；标准样例：samples/*.json；运行时校验：validate.py。
 """
@@ -8,6 +8,7 @@ from .models import (
     PROTOCOL_VERSION,
     AccessibilityTree,
     Action,
+    BrowserSnapshot,
     Budget,
     CliAction,
     FailAction,
@@ -30,6 +31,7 @@ __all__ = [
     "PROTOCOL_VERSION",
     "GUI_ACTION_TYPES",
     "AccessibilityTree",
+    "BrowserSnapshot",
     "Action",
     "Budget",
     "CliAction",
