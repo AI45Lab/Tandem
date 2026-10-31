@@ -8,6 +8,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from tandem.protocol.models import Observation
+from tandem.runtime.goal_stage import ObservationRequired
 from tandem.runtime.session import TandemSession
 
 from .env import budget_of
@@ -25,7 +26,16 @@ def run_episode(env, session: TandemSession, recorder: EpisodeRecorder, task: di
     started = time.perf_counter()
     steps_used = 0
     stop_reason = "max_steps"
-    observation: Observation = env.reset(task)
+
+    def environment_call(phase, function, *args, **kwargs):
+        before = time.perf_counter()
+        try:
+            return function(*args, **kwargs)
+        finally:
+            recorder.event({"route": "environment_timing", "phase": phase,
+                            "seconds": time.perf_counter() - before})
+
+    observation: Observation = environment_call("setup", env.reset, task)
     outputs: list[dict] = []
     events_start = len(session.events)  # 本题事件起点：act 后增量落盘（planner/快模型/验证）
 
@@ -34,6 +44,8 @@ def run_episode(env, session: TandemSession, recorder: EpisodeRecorder, task: di
         for event in session.events[events_start:]:
             recorder.event(event)
         events_start = len(session.events)
+        if session.goal is not None:
+            recorder.task_memory(session.goal.memory.snapshot())
 
     while True:
         budget = budget_of(
@@ -50,19 +62,27 @@ def run_episode(env, session: TandemSession, recorder: EpisodeRecorder, task: di
             stop_reason = "wall_time_limit"
             break
         observation = replace(observation, budget=budget)
-        action = session.act(observation)
-        drain_events()
+        try:
+            action = session.act(observation)
+        except ObservationRequired as refresh:
+            recorder.event({"route": "observation_refresh", "step": steps_used,
+                            "reason": str(refresh), "action_replayed": False})
+            observation = environment_call("observe", env.observe, task, budget=budget, previous=observation)
+            continue
+        finally:
+            drain_events()
         recorder.event({"step": steps_used, "kind": "action", "action": action.to_dict()})
         if getattr(action, "kind", "") in TERMINAL_KINDS:
             stop_reason = "done" if action.kind == "finish" else action.reason
             # 终态仍须送达 VM（DONE/FAIL 触发评分钩子，旧 runtime 同款）
-            env.execute(action, budget=budget, task=task)
+            environment_call("execute", env.execute, action, budget=budget, task=task)
             if action.kind == "finish":
-                outputs = env.export_outputs(
+                outputs = environment_call(
+                    "export", env.export_outputs,
                     list(action.outputs) + list(extra_exports or []), recorder.dir
                 )
             break
-        receipt, observation = env.execute(action, budget=budget, task=task)
+        receipt, observation = environment_call("execute", env.execute, action, budget=budget, task=task)
         recorder.traj(observation, action, receipt)
         # 环境提供素材属性时写入 episode 目录（真实环境 M3 同样暴露 last_* 属性）
         shot = getattr(env, "last_screenshot", None)
@@ -72,7 +92,9 @@ def run_episode(env, session: TandemSession, recorder: EpisodeRecorder, task: di
         if a11y_text:
             recorder.a11y(steps_used, a11y_text)
         steps_used += 1
-    raw = env.score(task)
+    raw = environment_call("evaluate", env.score, task)
+    if session.goal is not None:
+        recorder.task_memory(session.goal.memory.snapshot())
     score = official_score(raw) if raw is not None else None
     return recorder.finalize(
         stop_reason=stop_reason,
@@ -129,6 +151,8 @@ def run(spec: dict, *, env, session: TandemSession, tasks: list[TaskRef],
                 )
             )
         finally:
+            if recorder is not None and session.goal is not None:
+                recorder.task_memory(session.goal.memory.snapshot())
             if llm_tap is not None:
                 llm_tap.current = None
             # obs_stage 是 episode 内工作区（截图正本已由 recorder 写入 episode 目录，

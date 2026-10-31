@@ -62,6 +62,30 @@ def test_png_size_parses_ihdr():
     assert png_size(_png(1920, 1080)) == (1920, 1080)
 
 
+def test_read_only_refresh_keeps_cdp_receipt_and_prior_evidence(tmp_path, env, monkeypatch):
+    snapshot = {"elements": [{"index": 1, "role": "entry", "name": "Receipt Date"}]}
+    monkeypatch.setattr("tandem_eval.osworld.capture_browser_snapshot",
+                        lambda controller: (snapshot, {"status": "ok"}))
+    task = _task_file(tmp_path)
+    first = env.reset(task)
+    budget = Budget(steps_remaining=10, wall_seconds_remaining=60)
+    receipt, previous = env.execute(GuiAction("click", {"x": 1, "y": 2}), budget=budget, task=task)
+    steps, commands = list(env.env.steps), list(env.env.controller.commands)
+    before = Path(previous.screenshot.path).read_bytes()
+    refreshed = env.observe(task, budget=budget, previous=previous)
+    assert refreshed.protocol_version == "0.2" and refreshed.last_receipt is receipt
+    assert refreshed.step_idx == previous.step_idx
+    assert env.env.steps == steps and env.env.controller.commands == commands
+    assert refreshed.browser_snapshot.source == "cdp"
+    assert json.loads(Path(refreshed.browser_snapshot.path).read_text()) == snapshot
+    assert refreshed.screenshot.path != previous.screenshot.path != first.screenshot.path
+    assert Path(previous.screenshot.path).read_bytes() == before
+
+
+def test_right_click_codegen_uses_real_mouse_button():
+    assert gui_code(GuiAction("right_click", {"x": 20, "y": 30})) == "pyautogui.rightClick(x=20, y=30)"
+
+
 # ------------------------------------------------------------------ adapter
 class FakeController:
     def __init__(self):

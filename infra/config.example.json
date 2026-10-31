@@ -63,7 +63,12 @@
     },
     "execution": {
       "mode": "step",
-      "stage_max_actions": 24
+      "stage_max_actions": 24,
+      "verify_max_tokens": 16384,
+      "verify_reasoning_effort": null,
+      "verify_max_chars": 48000,
+      "image_quality": 85,
+      "max_request_bytes": 2097152
     },
     "budget": {
       "max_steps": 30,
