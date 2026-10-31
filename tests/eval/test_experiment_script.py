@@ -5,7 +5,7 @@ import os
 import subprocess
 from pathlib import Path
 
-SCRIPT = Path("/mnt/shared-storage-user/adpc-share/chenxinquan/fastslow/tandem/scripts/run_experiment.sh")
+SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "run_experiment.sh"
 
 
 def test_dry_run_creates_manifest_and_batch_log(tmp_path):
@@ -52,3 +52,19 @@ def test_invalid_experiment_name_is_rejected(tmp_path):
     assert result.returncode == 2
     assert "invalid experiment name" in result.stderr
     assert not (tmp_path / "bad name").exists()
+
+
+def test_dry_run_uses_example_when_private_config_is_missing(tmp_path):
+    env = {
+        **os.environ,
+        "TANDEM_EXPERIMENT_ROOT": str(tmp_path),
+        "TANDEM_CONFIG_FILE": str(tmp_path / "missing.json"),
+    }
+    result = subprocess.run(
+        ["bash", str(SCRIPT), "--experiment", "ci-dry-run", "--tasks", "024", "--dry-run"],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert result.returncode == 0, result.stderr
+    assert (tmp_path / "ci-dry-run" / "manifest.json").is_file()

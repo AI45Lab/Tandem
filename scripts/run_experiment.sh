@@ -2,7 +2,7 @@
 # Run one named experiment and keep all artifacts under rjob_logs/<experiment>/.
 set -euo pipefail
 
-REPO="/mnt/shared-storage-user/adpc-share/chenxinquan/fastslow/tandem"
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO"
 
 EXPERIMENT=""
@@ -60,10 +60,20 @@ if [[ -e "$EXPERIMENT_DIR/manifest.json" ]]; then
 fi
 mkdir -p "$DRIVER_DIR"
 
-read -r STAGING < <(python3 - <<'PY'
+if [[ ! -f infra/config.json && "$DRY_RUN" -ne 1 ]]; then
+    echo "infra/config.json is required for a real run" >&2
+    exit 4
+fi
+CONFIG_FILE="${TANDEM_CONFIG_FILE:-infra/config.json}"
+if [[ ! -f "$CONFIG_FILE" ]]; then
+    CONFIG_FILE=infra/config.example.json
+fi
+
+read -r STAGING < <(python3 - "$CONFIG_FILE" <<'PY'
 import json
 from pathlib import Path
-print(json.loads(Path("infra/config.json").read_text())["log"]["results_root"])
+import sys
+print(json.loads(Path(sys.argv[1]).read_text())["log"]["results_root"])
 PY
 )
 export STAGING EXPERIMENT DRIVER_DIR TASKS CONCURRENCY SLOW_MODEL SLOW_KEY_IDS MAX_STEPS MAX_WALL
@@ -127,7 +137,7 @@ run_task() {
         --poll 60 \
         --timeout "$((MAX_WALL + 600))" \
         --repo . \
-        --config infra/config.json \
+        --config "$CONFIG_FILE" \
         --no-sync >"$driver_log" 2>&1 || rc=$?
 
     if [[ -d "$STAGING/$run_id" ]]; then
