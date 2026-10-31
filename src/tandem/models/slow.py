@@ -5,16 +5,76 @@
 
 from __future__ import annotations
 
+import base64
+import io
 import json
 import time
 import urllib.error
 import urllib.request
 from pathlib import Path
 
+from PIL import Image
+
 from .key_pool import ApiKeyPool, PoolExhausted, classify_api_error, retry_after_seconds
 
 # 空正文（全留在思考通道）或截断时，下一次重试升档思考强度，避免原样重发重复失败
 _REASON_EFFORT_LADDER = {"low": "medium", "medium": "high"}
+
+
+def _pack_images(payload, quality, max_bytes):
+    """Pack full-resolution send copies; only exactly identical decoded frames share an image.
+
+    Mutate the existing messages list so validators can still append correction turns on retry.
+    Never write source files or discard distinct evidence frames to meet the body budget.
+    """
+    frames, pixels = [], []
+    stats = {"image_count": 0, "duplicate_images": 0, "source_image_bytes": 0}
+    for message in payload["messages"]:
+        if not isinstance(message.get("content"), list):
+            continue
+        for part in message["content"]:
+            if part.get("type") != "image_url":
+                continue
+            url = part["image_url"]["url"]
+            if not url.startswith("data:image/"):
+                continue
+            raw = base64.b64decode(url.split(",", 1)[1])
+            with Image.open(io.BytesIO(raw)) as source:
+                frame = source.convert("RGB")
+            identity = (frame.size, frame.tobytes())
+            stats["image_count"] += 1
+            stats["source_image_bytes"] += len(raw)
+            if identity in pixels:
+                ordinal = pixels.index(identity) + 1
+                part.clear()
+                part.update(type="text", text=f"Same screenshot as supplied image #{ordinal} (exact pixels).")
+                stats["duplicate_images"] += 1
+            else:
+                pixels.append(identity)
+                frames.append((part, frame))
+    while frames:
+        image_bytes = 0
+        for part, frame in frames:
+            encoded = io.BytesIO()
+            frame.save(encoded, format="JPEG", quality=quality, subsampling=0, optimize=True)
+            raw = encoded.getvalue()
+            image_bytes += len(raw)
+            part["image_url"]["url"] = "data:image/jpeg;base64," + base64.b64encode(raw).decode("ascii")
+        stats.update(image_quality=quality, sent_image_bytes=image_bytes)
+        if len(json.dumps(payload).encode("utf-8")) <= max_bytes or quality == 65:
+            break
+        quality = max(65, quality - 10)
+    while frames and len(json.dumps(payload).encode("utf-8")) > max_bytes and max(
+        max(frame.size) for _, frame in frames
+    ) > 960:
+        for part, frame in frames:
+            frame.thumbnail((max(960, int(frame.width * 0.8)), max(540, int(frame.height * 0.8))))
+            encoded = io.BytesIO()
+            frame.save(encoded, format="JPEG", quality=quality, subsampling=0, optimize=True)
+            part["image_url"]["url"] = "data:image/jpeg;base64," + base64.b64encode(
+                encoded.getvalue()).decode("ascii")
+    return {**stats, "unique_images": len(frames), "sent_image_sizes": [list(f.size) for _, f in frames]}
+
 
 
 def extract_json_object(text: str):
@@ -84,13 +144,19 @@ class SlowModelClient:
             "model": credentials.get("model") or "unknown",
             "messages": messages,
             "stream": False,
-            "max_tokens": self.config.slow_max_tokens,
+            "max_tokens": (min(self.config.slow_max_tokens, self.config.slow_verify_max_tokens)
+                           if role == "verify_stage" else self.config.slow_max_tokens),
         }
         effort = self.config.slow_reasoning_effort
+        if role == "verify_stage" and self.config.slow_verify_reasoning_effort is not None:
+            effort = self.config.slow_verify_reasoning_effort
         if effort == "off":
             payload["enable_thinking"] = False
         elif effort is not None:
             payload["reasoning_effort"] = effort
+        image_stats = (_pack_images(payload, self.config.slow_image_quality,
+                                    self.config.slow_max_request_bytes)
+                       if self.config.execution_mode == "goal" else {})
 
         def build_request():
             return urllib.request.Request(
@@ -125,6 +191,7 @@ class SlowModelClient:
                 "time": time.time(),
                 "elapsed_seconds": round(time.perf_counter() - started, 3),
                 "request_bytes": len(request.data),
+                **image_stats,
                 **details,
             }
             text = json.dumps(self.key_pool.redact(record), ensure_ascii=False)

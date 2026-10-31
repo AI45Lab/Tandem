@@ -17,10 +17,14 @@ def gui_action(
 ) -> GuiAction | WaitAction | None:
     operation = winner.operation
     metadata = winner.metadata
-    if operation in {"click", "double_click"} and target is not None:
+    if operation in {"click", "double_click", "right_click"} and (
+        target is not None or metadata.get("visual_point")
+    ):
+        point = metadata.get("visual_point") if target is None else [
+            target.x + target.width // 2, target.y + target.height // 2]
         return GuiAction(
             action_type=operation,
-            parameters={"x": target.x + target.width // 2, "y": target.y + target.height // 2},
+            parameters={"x": point[0], "y": point[1]},
             target_id=winner.target_id,
             description=winner.description,
         )
@@ -56,7 +60,7 @@ def gui_action(
             description=winner.description,
         )
     if operation == "type_text":
-        click = None
+        click = metadata.get("visual_point")
         press_f2 = False
         if target is not None and not metadata.get("focused_input"):
             click = [target.x + target.width // 2, target.y + target.height // 2]

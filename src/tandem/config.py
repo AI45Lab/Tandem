@@ -18,15 +18,20 @@ class SessionConfig:
     execution_mode: str = "step"
     stage_max_actions: int = 24
     slow_max_tokens: int = 16384
+    slow_verify_max_tokens: int = 16384
+    slow_verify_reasoning_effort: str | None = None
+    stage_verify_max_chars: int = 48000
     slow_timeout_seconds: float = 120
     slow_direct_api: bool = False
     slow_reasoning_effort: str | None = None  # None=服务端默认；off=enable_thinking:false
+    slow_image_quality: int = 85
+    slow_max_request_bytes: int = 2 * 1024 * 1024
     fast_backend: str = "jev"  # "jev"（qwen-jev-choice /rank）| "kev"（Kev System One）
     fast_timeout_seconds: float = 300
 
     def __post_init__(self):
-        if self.execution_mode not in {"step", "stage"}:
-            raise ValueError("execution_mode must be step or stage")
+        if self.execution_mode not in {"step", "stage", "goal"}:
+            raise ValueError("execution_mode must be step, stage or goal")
         if type(self.stage_max_actions) is not int or self.stage_max_actions < 1:
             raise ValueError("stage_max_actions must be a positive integer")
         if self.route_policy not in {"auto", "gui", "cli"}:
@@ -37,3 +42,5 @@ class SessionConfig:
             raise ValueError("fast_backend must be jev or kev")
         if self.slow_reasoning_effort not in {None, "off", "low", "medium", "high", "max"}:
             raise ValueError("slow_reasoning_effort must be null/off/low/medium/high/max")
+        if self.slow_verify_reasoning_effort not in {None, "off", "low", "medium", "high", "max"}:
+            raise ValueError("slow_verify_reasoning_effort must be null/off/low/medium/high/max")

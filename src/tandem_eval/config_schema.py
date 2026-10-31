@@ -241,8 +241,8 @@ def validate(config: dict) -> list[str]:
     if not isinstance(execution, dict):
         problems.append("harness.execution（应为对象）")
     else:
-        if execution.get("mode", "step") not in {"step", "stage"}:
-            problems.append("harness.execution.mode（应为 step / stage）")
+        if execution.get("mode", "step") not in {"step", "stage", "goal"}:
+            problems.append("harness.execution.mode（应为 step / stage / goal）")
         limit = execution.get("stage_max_actions", 24)
         if type(limit) is not int or limit < 1:
             problems.append("harness.execution.stage_max_actions（应为正整数）")

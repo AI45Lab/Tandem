@@ -41,9 +41,10 @@ def _spec(tmp_path: Path, **overrides) -> dict:
     return base
 
 
-@pytest.mark.parametrize("mode", ["step", "stage"])
+@pytest.mark.parametrize("mode", ["step", "stage", "goal"])
 def test_full_mock_chain_produces_renderable_result_dir(tmp_path, mode):
-    episodes = run_from_spec(_spec(tmp_path, harness_config={"execution_mode": mode}))
+    episodes = run_from_spec(_spec(tmp_path, harness_config={"execution_mode": mode},
+                                   requirements=None if mode == "goal" else []))
     assert episodes and episodes[0]["status"] == "scored"
     run_root = tmp_path / "run"
     episode_dir = run_root / "episodes" / "mock-mock-000"
@@ -64,6 +65,12 @@ def test_full_mock_chain_produces_renderable_result_dir(tmp_path, mode):
     assert episode["stop_reason"] == "done" and episode["score"] == 1.0
     summary = json.loads((run_root / "summary.json").read_text())
     assert summary["scored"] == 1 and summary["average_score"] == 1.0
+    if mode == "goal":
+        memory = json.loads((episode_dir / "task_memory.json").read_text())
+        assert memory["work_items"][0]["status"] == "done"
+        events = [json.loads(line) for line in (episode_dir / "events.jsonl").read_text().splitlines()]
+        assert any(e.get("route") == "stage_verified" for e in events)
+        assert any(e.get("route") == "observation_refresh" for e in events)
 
     # 渲染（demo 占位）可离线打开
     page = render_summary.render(run_root)

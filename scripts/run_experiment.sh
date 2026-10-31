@@ -12,6 +12,8 @@ SLOW_MODEL="kimi-k3"
 SLOW_KEY_IDS="1,2,3,4"
 MAX_STEPS=500
 MAX_WALL=14400
+EXECUTION_MODE=stage
+STAGE_MAX_ACTIONS=10
 DRY_RUN=0
 
 usage() {
@@ -20,6 +22,7 @@ Usage:
   bash scripts/run_experiment.sh \
     --experiment NAME --tasks ID1,ID2,... [--concurrency N] \
     [--slow-model NAME] [--slow-key-ids 1,2,3,4] \
+    [--execution-mode step|stage|goal] [--stage-max-actions N] \
     [--max-steps N] [--max-wall SECONDS] [--dry-run]
 
 Experiment names use lowercase letters, digits and hyphens only.
@@ -36,6 +39,8 @@ while [[ $# -gt 0 ]]; do
         --slow-key-ids) SLOW_KEY_IDS="$2"; shift 2 ;;
         --max-steps) MAX_STEPS="$2"; shift 2 ;;
         --max-wall) MAX_WALL="$2"; shift 2 ;;
+        --execution-mode) EXECUTION_MODE="$2"; shift 2 ;;
+        --stage-max-actions) STAGE_MAX_ACTIONS="$2"; shift 2 ;;
         --dry-run) DRY_RUN=1; shift ;;
         -h|--help) usage; exit 0 ;;
         *) echo "unknown argument: $1" >&2; usage >&2; exit 2 ;;
@@ -47,6 +52,10 @@ if [[ ! "$EXPERIMENT" =~ ^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$ ]]; then
     exit 2
 fi
 if [[ -z "$TASKS" || "$CONCURRENCY" -lt 1 || "$MAX_STEPS" -lt 1 || "$MAX_WALL" -lt 1 ]]; then
+    usage >&2
+    exit 2
+fi
+if [[ ! "$EXECUTION_MODE" =~ ^(step|stage|goal)$ || "$STAGE_MAX_ACTIONS" -lt 1 ]]; then
     usage >&2
     exit 2
 fi
@@ -77,6 +86,7 @@ print(json.loads(Path(sys.argv[1]).read_text())["log"]["results_root"])
 PY
 )
 export STAGING EXPERIMENT DRIVER_DIR TASKS CONCURRENCY SLOW_MODEL SLOW_KEY_IDS MAX_STEPS MAX_WALL
+export EXECUTION_MODE STAGE_MAX_ACTIONS
 python3 - <<'PY'
 import json
 import os
@@ -93,6 +103,8 @@ args = {
     "slow_key_ids": [int(item) for item in os.environ["SLOW_KEY_IDS"].split(",")],
     "max_steps": int(os.environ["MAX_STEPS"]),
     "max_wall_seconds": float(os.environ["MAX_WALL"]),
+    "execution_mode": os.environ["EXECUTION_MODE"],
+    "stage_max_actions": int(os.environ["STAGE_MAX_ACTIONS"]),
     "watch_timeout_seconds": float(os.environ["MAX_WALL"]) + 600,
     "git_describe": subprocess.check_output(
         ["git", "describe", "--always", "--dirty"], text=True
@@ -124,12 +136,12 @@ run_task() {
     local driver_log="${DRIVER_DIR}/${task}.driver.log"
     local rc=0
 
-    tandem-eval rjob run \
+    env PYTHONPATH=src python3 -m tandem_eval rjob run \
         --run-id "$run_id" \
         --benchmark osworld21 \
         --tasks "$task" \
-        --execution-mode stage \
-        --stage-max-actions 10 \
+        --execution-mode "$EXECUTION_MODE" \
+        --stage-max-actions "$STAGE_MAX_ACTIONS" \
         --slow-model "$SLOW_MODEL" \
         --slow-key-ids "$SLOW_KEY_IDS" \
         --max-steps "$MAX_STEPS" \
