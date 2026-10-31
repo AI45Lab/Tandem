@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import json
 import time
 import urllib.error
 from pathlib import Path
@@ -17,7 +18,7 @@ from ..gui.focus import prune_stalled
 from ..models.ranking import ranking_dict
 from ..protocol.models import Action, CliAction, FailAction, GuiAction, Observation, WaitAction
 from .episode import handle_done, resolve_done_probe, verify_pending
-from .stages import StageExecution
+from .stages import StageExecution, recovery_scopes
 from .stopping import NO_ACTION_LIMIT, budget_exhausted
 
 
@@ -58,12 +59,18 @@ class TandemSession:
         if reason:
             return FailAction(reason=reason)
         screenshot = Path(observation.screenshot.path)
-        targets = (
+        raw_targets = (
             self.components.target_builder.build(
                 tree, f"t{observation.step_idx}", 128, infer_button_labels=True, include_sliders=True
             )
             if tree is not None
             else []
+        )
+        targets = self.components.semantic_enricher(
+            raw_targets,
+            tree,
+            (observation.screenshot.width, observation.screenshot.height),
+            self._read_browser_snapshot(observation),
         )
         # 同一观察内最多重规划 NO_ACTION_LIMIT+3 次：完成被拒/无候选会递增 no_action 并重规划，
         # 与旧循环 continue 语义一致（旧版重取 obs，本帧无动作时内容等价）。
@@ -134,6 +141,8 @@ class TandemSession:
             plan["action_proposals"],
             blocked_action,
             self.verified_focus,
+            recovery=plan.get("recovery", False),
+            recovery_scopes=plan.get("recovery_scopes"),
         )
         # visual fallback（grounder）按计划延后：组件存在时才走视觉分支（DEVIATIONS.md #1）。
         if self.components.grounder is not None:
@@ -149,6 +158,31 @@ class TandemSession:
                 space.target_heads["visual"] = visual
                 if visual:
                     space.controls.pop("visual_fallback", None)
+        else:
+            space.controls.pop("visual_fallback", None)
+        if not plan.get("recovery") and not self._has_executable_candidate(space, targets):
+            scopes = recovery_scopes(plan["action_proposals"], targets)
+            recovery_direction = self._recovery_direction(plan)
+            plan = {
+                **plan,
+                "recovery": True,
+                "recovery_scopes": sorted(scopes),
+                "recovery_reason": "no_executable_candidate",
+            }
+            space = self.components.candidate_builder.build(
+                targets, 96, action_inputs=[], context=local_goal
+            )
+            space = self.components.focus_candidates(
+                space,
+                targets,
+                tree if tree is not None else "<empty/>",
+                [],
+                blocked_action,
+                self.verified_focus,
+                recovery=True,
+                recovery_scopes=scopes,
+                recovery_direction=recovery_direction,
+            )
         prune_stalled(space, self.recent)
         ranking = None
         for service_retry in range(3):
@@ -221,3 +255,34 @@ class TandemSession:
             return Path(a11y.path).read_text(encoding="utf-8")
         except OSError:
             return None
+
+    def _has_executable_candidate(self, space, targets) -> bool:
+        by_id = {target.id: target for target in targets}
+        return any(
+            self.components.compile_gui(candidate, by_id.get(candidate.target_id))
+            for candidate in space.candidates()
+        )
+
+    @staticmethod
+    def _recovery_direction(plan) -> str | None:
+        operations = {proposal.get("operation") for proposal in plan["action_proposals"]}
+        if "scroll_up" in operations:
+            return "up"
+        if "scroll_down" in operations:
+            return "down"
+        goal = str(plan.get("current_goal") or "").lower()
+        if any(text in goal for text in ("upward", "scroll up", "move up")):
+            return "up"
+        if any(text in goal for text in ("downward", "scroll down", "move down")):
+            return "down"
+        return None
+
+    def _read_browser_snapshot(self, observation: Observation) -> dict | None:
+        reference = observation.browser_snapshot
+        if reference is None or not reference.present or not reference.path:
+            return None
+        try:
+            value = json.loads(Path(reference.path).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        return value if isinstance(value, dict) else None

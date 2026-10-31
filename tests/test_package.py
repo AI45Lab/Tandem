@@ -9,7 +9,7 @@ def test_version():
 
 
 def test_protocol_exports():
-    assert PROTOCOL_VERSION == "0.1"
+    assert PROTOCOL_VERSION == "0.2"
     assert callable(action_from_dict)
     assert callable(observation_from_dict)
     assert callable(receipt_from_dict)

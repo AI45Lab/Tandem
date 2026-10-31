@@ -102,3 +102,23 @@
     `Ranking`、`build_choice_requests` 和 `ranking_dict` 从原 JEV 模块移到
     `models/ranking.py`，供 JEV/Kev 共用；现有函数体、prompt 和排序语义保持不变。
     配置字段、启动命令、消息协议、结果目录以及 step/stage 执行行为均不变。
+
+## 共享语义感知（2026-10-29）
+
+30. 【行为】a11y/DOM 先形成慢模型与快模型共用的语义元素表：恢复邻近标签、分离
+    `browser_chrome` / `web_content` / `dialog` / `menu` / `native`，当前输入值不再冒充
+    控件名称。CDP 是 Task 008 等已启用远程调试的 Chrome 的可选增强，失败时回退 a11y；
+    协议新增 `browser_snapshot` 文件引用并升至 0.2。候选备选只在提案 scope 内生成，
+    不再补入全局 click/keypress；无 grounder 时不提供 visual_fallback。JEV 近期历史只保留
+    动作、目标、结果和状态变化，不再携带完整 verification。
+31. 【修复】慢模型对端提前断开（`RemoteDisconnected` / `ConnectionError`）纳入现有
+    有界重试，不再把一次 transient 断连直接记为整题异常；重试次数和退避策略不变。
+32. 【行为】阶段目标绑定增加规范化名称和兼容 role 的唯一匹配；全部提案未绑定时，
+    改为当前 scope 内的有限恢复候选 + RETURN_TO_PLANNER，不再在 JEV 前直接计 no_action。
+    `stage_replan` 记录失败提案和可用目标。滚动提案的 schema 重试反馈定位到具体字段。
+33. 【行为】恢复条件扩展到“已绑定但不可执行”的提案；菜单滚动增加 PageDown/PageUp
+    和方向键候选。CLI milestone 必须顶层携带 command，operation=cli 获得专门的重试反馈。
+34. 【修复】JEV 断线恢复支持 endpoint 重新发现、30 秒健康检查、瞬态 HTTP 状态与
+    Retry-After；恢复等待继续受 1200 秒总窗口限制，并记录 attempt/endpoint/error_type。
+35. 【重构】新增 `scripts/run_experiment.sh`：按唯一实验名归档 manifest、batch、driver
+    和 task 结果到 `rjob_logs/<experiment>/`，避免不同实验日志混写。

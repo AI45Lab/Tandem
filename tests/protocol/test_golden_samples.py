@@ -33,6 +33,7 @@ EXPECTED_SAMPLE_NAMES = {
     "action_wait",
     "observation_no_a11y",
     "observation_osw1_step0",
+    "observation_osw2_cdp",
     "observation_osw2_jev",
     "receipt_cli",
     "receipt_cli_error",

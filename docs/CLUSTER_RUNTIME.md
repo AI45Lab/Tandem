@@ -295,3 +295,40 @@ worker 侧各段日志：
 
 - `--benchmark mock` 走 mock 链路（不起 VM、不碰共享资源），可本地跑；
 - 真实基准走 OSW1 / OSW2 / OSW2.1，按本文 §3–§7。
+
+## 11. 浏览器 CDP 语义快照
+
+- `tandem_eval.browser` 在 VM 内通过 loopback 依次探测 `1337` / `9222`，只调用
+  `GET /json/list` 与 `Runtime.evaluate`，不重启 Chrome、不激活 tab、不执行页面 mutation。
+  多 tab 时选择 `document.visibilityState=visible` 的页面。
+- 任务必须已由环境以远程调试参数启动 Chrome；Task 008 的 setup 已显式启用 `1337`。
+  其他任务未启用、端口被拒绝或快照异常时只记录诊断并回退 a11y，不让整题失败。
+- 快照经协议 `browser_snapshot` 文件引用进入 harness；episode 正本保存在
+  `episodes/<task>/browser/step_XX.json`。密码、隐藏和文件输入元素不进入快照。
+- 2026-10-29 Task 008 真机 probe 已验证 `1337`、WebSocket 和 DOM 序列化可用，
+  无需额外权限。首次有效快照含 4 个元素；9222 被其他环境组件占用时不影响 1337 采集。
+
+## 12. JEV 断线恢复
+
+- 排序请求发生连接超时、瞬态 HTTP 408/429/500/502/503/504 或响应 JSON 错误时，
+  在 1200 秒总窗口内重试；非瞬态 HTTP 错误立即失败，不盲目重试。
+- 健康检查超时为 30 秒；`Retry-After` 优先于默认 15 秒等待。恢复事件记录
+  `attempt`、`endpoint`、`error_type`、`remaining_seconds` 和 `retry_delay_seconds`。
+- worker 建 session 时注入 endpoint provider。恢复过程中会重新读取 `endpoint_file`，
+  JEV 重新部署导致地址变化时记录 `fast_model_endpoint_changed` 并切换地址。
+  发现文件未 ready 时保留当前地址继续有界恢复，不会直接放弃整题。
+
+## 13. 命名实验
+
+统一使用仓库内 `scripts/run_experiment.sh`，不要直接散落调用 `tandem-eval rjob run`。
+每次实验必须指定唯一名称（小写字母、数字、连字符），所有结果归档到
+`rjob_logs/<experiment>/`：
+
+- `manifest.json`：tasks、并发、模型、key_ids、预算、watch timeout、git describe；
+- `batch.log`：批次输出；
+- `drivers/<task>.driver.log`：单个 rjob 生命周期日志；
+- `<experiment>-<task>/`：worker、模型调用、轨迹、截图和评分结果。
+
+脚本只同步一次代码，然后按指定并发提交。worker 的 adpc 挂载只读时，结果先落
+evobox 暂存，单题完成后立即 rsync 到实验目录。`--dry-run` 只生成 manifest 和 batch log，
+不提交 rjob。

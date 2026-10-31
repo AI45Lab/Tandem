@@ -51,6 +51,7 @@ def test_plan_step_prompt_structure(tmp_path):
     user_content = messages[1]["content"]
     assert "You plan one GUI state transition at a time" in system
     assert "Do not give coordinates" in system
+    assert "A populated search field alone is not an applied search" in system
     prompt = json.loads(user_content[0]["text"])
     assert prompt["task"] == "整理表格"
     assert prompt["visible_controls"][0]["id"].startswith("a11y:snap:")

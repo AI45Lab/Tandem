@@ -8,7 +8,7 @@
 
 ```
   观察 Observation
-  截图 · a11y 树 · 预算 · 上一步回执
+  截图 · a11y 树 · 可选 CDP DOM 快照 · 预算 · 上一步回执
         │
         ▼
 ┌─────────────────────────────────────────────┐
@@ -77,16 +77,19 @@
 
 `TandemSession.act(observation)` 是唯一的决策入口，状态机语义（`runtime/session.py`）：
 
-1. **读观察**：`Observation` 含截图引用（path + sha256）、a11y 树引用、预算、上一轮回执。
-2. **建目标**：a11y 树解析成 `UITarget` 列表（角色 / 名称 / 坐标 / 边界框，`gui/targets.py`）。
+1. **读观察**：`Observation` 含截图、a11y 树和可选 CDP DOM 快照引用、预算、上一轮回执。
+2. **建目标**：a11y 树解析成 `UITarget`，`gui/semantics.py` 恢复邻近标签、
+   分离浏览器外壳与网页内容，并合并 a11y/DOM 元素。
 3. **慢模型规划**：`planning.planner.plan_step` 产出 plan——`current_goal`、`expected_observation`、
    `route`（gui/cli）、`action_proposals`、`task_status`、`done`。
 4. **终态分支**：planner 声称完成 → `handle_done`：若需求带 `output_path`，先发一条 CLI
    存在性探针（`done_probe`）核对交付物文件是否真的存在，探针通过后才进入终态裁决
    （`terminal_decision`）；未通过则回到规划重来。
 5. **CLI 路由**：`route == "cli"` → 直接下发 `CliAction`（bash -lc，cwd=/home/user，1 条 CLI 计 1 步）。
-6. **建候选空间**：`gui/candidates.py` 由目标展开动作（click / double_click / type / scroll / hotkey…），
-   再经 `focused_candidates` 聚焦 + `prune_stalled` 剪枝。
+6. **建候选空间**：`gui/candidates.py` 由目标展开动作，再经 `focused_candidates`
+   按慢模型提案和元素 scope 聚焦，经 `prune_stalled` 剪枝；网页提案不会补入浏览器外壳候选。
+   全部提案无法唯一绑定时，使用当前 scope 内的有限恢复候选和 `RETURN_TO_PLANNER`，
+   不在调用快模型前直接计为 no_action。
 7. **快模型排序**：两阶段——先选 **operation**（点击还是输入），再在胜出 operation 内选 **action**（具体哪个目标）。
    结果带 `operation_margin`（两级置信度差）与 `latency_ms`。
 8. **编译动作**：`gui/compile.py` 把 winner + 目标编译成**声明式** `GuiAction`
@@ -108,7 +111,7 @@
 
 ## 组件装配
 
-`components.py` 定义依赖注入边界——九个字段，没有插件框架、没有隐藏分发：
+`components.py` 定义依赖注入边界——十个字段，没有插件框架、没有隐藏分发：
 
 | 字段 | 职责 | 默认实现 |
 |---|---|---|
@@ -117,6 +120,7 @@
 | `requirements` | 需求抽取 | `verification.verifier.task_requirements` |
 | `selector` | 排序后端 | `models.jev.JevOmniPolicy` / `models.kev.KevPolicy` |
 | `target_builder` | a11y 树 → 目标 | `gui.targets.A11yTargetBuilder` |
+| `semantic_enricher` | a11y/DOM → 共享语义元素表 | `gui.semantics.enrich_targets` |
 | `candidate_builder` | 目标 → 动作候选 | `gui.candidates.ActionCandidateBuilder` |
 | `focus_candidates` | 提案聚焦 + 剪枝 | `gui.proposals.focused_candidates` |
 | `compile_gui` | winner → 声明式动作 | `gui.compile.gui_action` |
@@ -221,6 +225,23 @@ tandem-eval rjob run --run-id <name> --benchmark osworld2 --tasks <task-id> \
 
 **换慢模型厂商**：在 `infra/config.json` 的 `harness.slow_model.apis` 里登记多套 API，
 启动时用 `--slow-model <名字>` 挑（缺省取 `default`），不改代码。
+
+## 命名实验与日志目录
+
+`scripts/run_experiment.sh` 将一次实验的全部产物归档到 `rjob_logs/<experiment>/`。
+实验名只能使用小写字母、数字和连字符，且每个实验目录必须唯一。
+
+```bash
+bash scripts/run_experiment.sh \
+  --experiment kimi12-retry-20261030 \
+  --tasks 024,029,037,045,057,059,069,082,088,093,005,031 \
+  --concurrency 12 --slow-model kimi-k3 --slow-key-ids 1,2,3,4 \
+  --max-steps 500 --max-wall 14400
+```
+
+目录结构：`manifest.json`（实验参数与 git describe）、`batch.log`、
+`drivers/<task>.driver.log` 和 `<experiment>-<task>/`（worker、模型、轨迹与结果）。
+worker 的 adpc 挂载只读时仍使用 evobox 暂存，任务结束后立即归档到该实验目录。
 
 集群内使用模板配置时，`api_key` 留空会使用默认号池，也可以手动填写自己的 `api_key`。
 

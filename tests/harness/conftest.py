@@ -12,6 +12,7 @@ from tandem.components import Components
 from tandem.gui.candidates import ActionCandidateBuilder
 from tandem.gui.compile import gui_action
 from tandem.gui.proposals import focused_candidates
+from tandem.gui.semantics import enrich_targets
 from tandem.gui.targets import A11yTargetBuilder
 from tandem.models.ranking import Ranking
 from tandem.protocol.models import (
@@ -137,7 +138,11 @@ class FixedSelector:
 
     def rank(self, *, stage_goal, intent, active_window, targets, action_space, recent_actions,
              screenshot=None):
-        self.calls.append({"intent": intent, "n_candidates": len(action_space.candidates())})
+        self.calls.append({
+            "intent": intent,
+            "n_candidates": len(action_space.candidates()),
+            "operations": [candidate.operation for candidate in action_space.candidates()],
+        })
         candidates = action_space.candidates()
         winner = candidates[0] if candidates else None
         return Ranking(
@@ -171,6 +176,7 @@ def make_components(planner, verifier, selector) -> Components:
         requirements=lambda instruction: [],
         selector=selector,
         target_builder=A11yTargetBuilder(),
+        semantic_enricher=enrich_targets,
         candidate_builder=ActionCandidateBuilder(),
         focus_candidates=focused_candidates,
         grounder=None,

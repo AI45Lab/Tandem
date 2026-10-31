@@ -15,16 +15,47 @@ from typing import Any
 from ..gui.targets import UITarget
 from .ranking import Ranking, build_choice_requests
 
+RECOVERY_SECONDS = 1200
+TRANSIENT_HTTP_STATUS = {408, 429, 500, 502, 503, 504}
+
 
 class JevOmniPolicy:
     def __init__(self, endpoint: str, timeout_seconds: float = 300, opener=None,
-                 image_stage: tuple[str, str] | None = None):
+                 image_stage: tuple[str, str] | None = None, endpoint_provider=None):
         self.endpoint = str(endpoint).rstrip("/")
         self.timeout_seconds = timeout_seconds
         self.opener = opener or urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        self.endpoint_provider = endpoint_provider
         # (写视角目录, 排序服务宿主机读视角目录)：/rank 要求 image_path 在服务端可读，
         # 截图本体在 adpc 时先暂存到 evobox 中转目录（按内容哈希命名去重）。
         self.image_stage = image_stage
+
+    def _refresh_endpoint(self) -> None:
+        if self.endpoint_provider is None:
+            return
+        try:
+            endpoint = self.endpoint_provider()
+        except (OSError, ValueError):
+            return
+        endpoint = str(endpoint).rstrip("/")
+        if endpoint and endpoint != self.endpoint:
+            print(json.dumps({
+                "event": "fast_model_endpoint_changed",
+                "old_endpoint": self.endpoint,
+                "new_endpoint": endpoint,
+            }), flush=True)
+            self.endpoint = endpoint
+
+    @staticmethod
+    def _retry_delay(error) -> float:
+        delay = 15.0
+        if isinstance(error, urllib.error.HTTPError):
+            value = error.headers.get("retry-after") if error.headers else None
+            try:
+                delay = max(delay, float(value)) if value is not None else delay
+            except ValueError:
+                pass
+        return delay
 
     def _stage_screenshot(self, screenshot: Path | None):
         """返回传给服务的 image_path：暂存开启时为排序服务宿主机读视角路径，否则原样。"""
@@ -65,10 +96,15 @@ class JevOmniPolicy:
         started = time.perf_counter()
 
         def predict(choice_request: dict[str, Any]) -> tuple[list[float], bool]:
-            deadline = time.monotonic() + 1200
+            deadline = time.monotonic() + RECOVERY_SECONDS
+            attempt = 0
             while True:
+                attempt += 1
                 try:
-                    with self.opener.open(self.endpoint + "/", timeout=5) as response:
+                    self._refresh_endpoint()
+                    with self.opener.open(
+                        self.endpoint + "/", timeout=min(30, self.timeout_seconds)
+                    ) as response:
                         if json.load(response).get("status") != "ok":
                             raise OSError("fast model health check failed")
                     request = urllib.request.Request(
@@ -87,20 +123,28 @@ class JevOmniPolicy:
                         payload = json.load(response)
                     break
                 except (OSError, json.JSONDecodeError) as error:
-                    if isinstance(error, urllib.error.HTTPError) or time.monotonic() >= deadline:
+                    if isinstance(error, urllib.error.HTTPError) and error.code not in TRANSIENT_HTTP_STATUS:
                         raise
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise
+                    delay = min(self._retry_delay(error), max(0.0, remaining))
                     print(
                         json.dumps(
                             {
                                 "event": "fast_model_service_recovery_wait",
+                                "attempt": attempt,
+                                "endpoint": self.endpoint,
+                                "error_type": type(error).__name__,
                                 "error": str(error),
-                                "remaining_seconds": round(deadline - time.monotonic()),
+                                "remaining_seconds": round(max(0.0, remaining)),
+                                "retry_delay_seconds": delay,
                             },
                             ensure_ascii=False,
                         ),
                         flush=True,
                     )
-                    time.sleep(15)
+                    time.sleep(delay)
             scores = [float(score) for score in payload["scores"]]
             if len(scores) != len(choice_request["options"]):
                 raise ValueError("fast model returned a score count different from the candidate count")
