@@ -80,4 +80,4 @@ bash scripts/run_experiment.sh \
 这只是链路短测预算，不代表完整解题预算。脚本默认仍为 stage/10 动作，新增参数会写入 manifest。
 事件、回执、CDP 快照和逐角色模型请求沿用原目录；另有 task_memory.json 及 evidence/。
 timing.json 增加环境分段、各角色时间/token 和快模型排序统计；没有 usage 的调用单独计数，
-不编造 token。真机检查范围及未通过项见 VALIDATION_CN.md，不把短测零分当完整任务成绩。
+不编造 token。
